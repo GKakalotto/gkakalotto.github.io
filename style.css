@@ -8,7 +8,6 @@
     --text: #d8e3d4;
     --text-dim: #8fa399;
     --text-muted: #5c6b63;
-    --h1: #6fbf73;
     --accent: #6fbf73;
     --accent-hover: #58a85e;
     --accent-bright: #8fce92;
@@ -55,7 +54,6 @@ body[data-theme="light"] {
     --text: #2b3a30;
     --text-dim: #5c6b63;
     --text-muted: #8a9a90;
-    --h1: #2e7d32;
     --accent: #43a047;
     --accent-hover: #388e3c;
     --accent-bright: #2e7d32;

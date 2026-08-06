@@ -111,4 +111,4 @@ const ROWS = 3;
 const TOTAL_PLOTS = COLS * ROWS; // 18 块地
 const INITIAL_UNLOCKED = 3;      // 初始解锁 3 块
 const DROUGHT_CHANCE = 0.3;      // 生长中出现干旱的概率
-const SEED_DROP_CHANCE = 0.16;   // 收获时额外掉落 1 颗对应种子的概率
+const SEED_DROP_CHANCE = 0.16;   // 作物收获时额外掉落 1 颗对应种子的概率(鱼不再掉落鱼苗)

@@ -491,10 +491,6 @@ const app = new Vue({
             this.$set(this.pond, i, null);
             this.addLog('收获 ' + f.name + ' x1,已放入仓库 +' + f.xp + ' 经验');
             this.addXp(f.xp);
-            if (Math.random() < SEED_DROP_CHANCE) {
-                this.$set(this.fish.fries, type, (this.fish.fries[type] || 0) + 1);
-                this.addLog('掉落鱼苗!获得 ' + f.name + ' 鱼苗 x1');
-            }
             this.save();
         },
         checkFishMature() {
@@ -510,7 +506,7 @@ const app = new Vue({
         },
         harvestFishAll() {
             if (!this.tools.fishNet) return; // 防御:无渔网不可一键捕捞
-            let n = 0, xp = 0, fries = 0;
+            let n = 0, xp = 0;
             this.pond.forEach((p, i) => {
                 if (p && this.pondProgress(i) >= 1) {
                     const type = p.type;
@@ -518,14 +514,10 @@ const app = new Vue({
                     this.$set(this.pond, i, null);
                     n++;
                     xp += FISH[type].xp;
-                    if (Math.random() < SEED_DROP_CHANCE) {
-                        this.$set(this.fish.fries, type, (this.fish.fries[type] || 0) + 1);
-                        fries++;
-                    }
                 }
             });
             if (n > 0) {
-                this.addLog('一键捕捞 ' + n + ' 条,已放入仓库 +' + xp + ' 经验' + (fries > 0 ? ',掉落 ' + fries + ' 条鱼苗' : ''));
+                this.addLog('一键捕捞 ' + n + ' 条,已放入仓库 +' + xp + ' 经验');
                 this.addXp(xp);
             } else {
                 this.addLog('鱼塘没有可捕捞的鱼');
