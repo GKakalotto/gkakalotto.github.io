@@ -14,7 +14,10 @@ function fmtTime(t) {
     const d = new Date(t);
     return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2);
 }
-function cropKind(key) { return CROP_KIND[CROP_KEYS.indexOf(key) % 3]; }
+/* 定位标签查找表(CROPS 与 FISH 共用同一套三定位循环,key 不重叠) */
+const KIND_LABEL = {}, KIND_CLS = {};
+CROP_KEYS.forEach((k, i) => { KIND_LABEL[k] = CROP_KIND[i % 3].label; KIND_CLS[k] = CROP_KIND[i % 3].cls; });
+FISH_KEYS.forEach((k, i) => { KIND_LABEL[k] = CROP_KIND[i % 3].label; KIND_CLS[k] = CROP_KIND[i % 3].cls; });
 
 /* ================= 默认状态 ================= */
 function makeDefaultState() {
@@ -191,7 +194,8 @@ const app = new Vue({
             Object.keys(this.fish.fries).forEach((k) => { if (!FISH[k]) this.$delete(this.fish.fries, k); });
         },
         resetGame() {
-            if (confirm('确定要重置所有进度吗?')) {
+            this.settingsOpen = false;
+            this.confirmModal('重置进度', '确定要重置所有进度吗?此操作不可恢复', () => {
                 const d = makeDefaultState();
                 this.coins = d.coins;
                 this.level = d.level;
@@ -205,9 +209,8 @@ const app = new Vue({
                 this.tools = d.tools;
                 this.log = d.log;
                 this.closeModal();
-                this.settingsOpen = false;
                 this.save();
-            }
+            });
         },
 
         /* ---------- 地块进度 ---------- */
@@ -232,8 +235,8 @@ const app = new Vue({
             return '快成熟';
         },
         cropName(key) { return CROPS[key].name; },
-        kindLabel(key) { return cropKind(key).label; },
-        kindCls(key) { return cropKind(key).cls; },
+        kindLabel(key) { return KIND_LABEL[key]; },
+        kindCls(key) { return KIND_CLS[key]; },
         /* 读取 data.js 中的静态解锁数据 */
         seedLevelReq(key) { return SEED_LEVEL_REQ[key]; },
         plotLevelReq(i) { return PLOT_LEVEL_REQ[i]; },
@@ -411,6 +414,7 @@ const app = new Vue({
             if (!p) return 0;
             return Math.max(0, Math.ceil(FISH[p.type].grow - this.pondProgress(i) * FISH[p.type].grow));
         },
+        pondRemainText(i) { return fmtDur(this.pondRemainSec(i)) + '后长大'; },
         pondStageText(i) {
             const pr = this.pondProgress(i);
             if (pr < 0.35) return '鱼苗';
@@ -443,7 +447,7 @@ const app = new Vue({
                 this.coins -= POND_UNLOCK_COST;
                 this.pondUnlocked = true;
                 this.$set(this.fish.fries, POND_BONUS_FRY, (this.fish.fries[POND_BONUS_FRY] || 0) + POND_BONUS_COUNT);
-                this.addLog('解锁了鱼塘!一次开放全部 18 格,赠送 ' + FISH[POND_BONUS_FRY].name + ' 鱼苗 x' + POND_BONUS_COUNT);
+                this.addLog('解锁了鱼塘!一次开放全部 ' + TOTAL_PONDS + ' 格,赠送 ' + FISH[POND_BONUS_FRY].name + ' 鱼苗 x' + POND_BONUS_COUNT);
             }
             this.closeModal();
             this.save();
@@ -505,6 +509,7 @@ const app = new Vue({
             if (hit) this.save();
         },
         harvestFishAll() {
+            if (!this.tools.fishNet) return; // 防御:无渔网不可一键捕捞
             let n = 0, xp = 0, fries = 0;
             this.pond.forEach((p, i) => {
                 if (p && this.pondProgress(i) >= 1) {
@@ -530,14 +535,15 @@ const app = new Vue({
 
         /* ---------- 商店鱼类 / 鱼苗 ---------- */
         fishName(key) { return FISH[key].name; },
-        fishKindLabel(key) { return CROP_KIND[FISH_KEYS.indexOf(key) % 3].label; },
-        fishKindCls(key) { return CROP_KIND[FISH_KEYS.indexOf(key) % 3].cls; },
+        fishKindLabel(key) { return KIND_LABEL[key]; },
+        fishKindCls(key) { return KIND_CLS[key]; },
         fishLevelReq(key) { return FISH_LEVEL_REQ[key]; },
         fishLocked(key) { return !this.pondUnlocked || this.level < FISH_LEVEL_REQ[key]; }, // 鱼塘未解锁时鱼苗全部锁定
         fishSellPrice(key) { return Math.floor(FISH[key].cost / 2); }, // 鱼苗回收价 = 鱼苗价的一半
         buyFry(key) {
             const f = FISH[key];
             const qty = this.qtyFor('fishshop', key);
+            if (qty <= 0) { this.addLog('请先选择购买数量'); this.save(); return; }
             const total = f.cost * qty;
             if (this.coins < total) {
                 this.addLog('金币不足,需要 ' + total + ' 金币');
@@ -545,7 +551,7 @@ const app = new Vue({
                 this.coins -= total;
                 this.$set(this.fish.fries, key, (this.fish.fries[key] || 0) + qty);
                 this.addLog('购买了 ' + f.name + ' 鱼苗 x' + qty);
-                this.$set(this.qtys.fishshop, key, 1); // 买完重置数量框
+                this.$set(this.qtys.fishshop, key, 0); // 买完重置数量框
             }
             this.save();
         },
@@ -564,33 +570,33 @@ const app = new Vue({
         itemName(key) { const it = CROPS[key] || FISH[key]; return it ? it.name : key; },
         itemSell(key) { const it = CROPS[key] || FISH[key]; return it ? it.sell : 0; },
 
-        /* ---------- 数量步进器 ---------- */
-        qtyFor(group, key) { return this.qtys[group][key] || 1; },
+        /* ---------- 数量步进器(默认 0) ---------- */
+        qtyFor(group, key) { return this.qtys[group][key] || 0; },
         clampQty(group, key, v) {
-            if (v < 1) v = 1;
+            if (v < 0) v = 0;
             if (group === 'warehouseItems') {
                 const owned = this.inventory.items[key] || 0;
-                if (v > owned) v = Math.max(1, owned);
+                if (v > owned) v = Math.max(0, owned);
             } else if (group === 'warehouseSeeds') {
                 const owned = this.inventory.seeds[key] || 0;
-                if (v > owned) v = Math.max(1, owned);
+                if (v > owned) v = Math.max(0, owned);
             } else if (group === 'fishFries') {
                 const owned = this.fish.fries[key] || 0;
-                if (v > owned) v = Math.max(1, owned);
+                if (v > owned) v = Math.max(0, owned);
             }
             return v;
         },
         qtyChange(group, key, delta) {
-            this.$set(this.qtys[group], key, this.clampQty(group, key, (this.qtys[group][key] || 1) + delta));
+            this.$set(this.qtys[group], key, this.clampQty(group, key, (this.qtys[group][key] || 0) + delta));
         },
         qtyInput(group, key, val) {
             let v = parseInt(val, 10);
-            if (isNaN(v)) v = 1;
+            if (isNaN(v)) v = 0;
             this.$set(this.qtys[group], key, this.clampQty(group, key, v));
         },
         qtyInputLive(group, key, val) {
             let v = parseInt(val, 10);
-            if (isNaN(v) || v < 1) v = 1;
+            if (isNaN(v) || v < 0) v = 0;
             this.$set(this.qtys[group], key, v);
         },
 
@@ -605,6 +611,7 @@ const app = new Vue({
         buySeed(key) {
             const c = CROPS[key];
             const qty = this.qtyFor('shop', key);
+            if (qty <= 0) { this.addLog('请先选择购买数量'); this.save(); return; }
             const total = c.cost * qty;
             if (this.coins < total) {
                 this.addLog('金币不足,需要 ' + total + ' 金币');
@@ -612,7 +619,7 @@ const app = new Vue({
                 this.coins -= total;
                 this.$set(this.inventory.seeds, key, (this.inventory.seeds[key] || 0) + qty);
                 this.addLog('购买了 ' + c.name + ' 种子 x' + qty);
-                this.$set(this.qtys.shop, key, 1); // 买完重置数量框
+                this.$set(this.qtys.shop, key, 0); // 买完重置数量框
             }
             this.save();
         },
@@ -674,10 +681,33 @@ const app = new Vue({
                 this.$delete(this.inventory.items, key);
             });
             if (n === 0) {
-                this.addLog('没有可出售的物品(已全部锁定?)');
+                this.addLog(this.itemKeys.length === 0 ? '没有可出售的收获品' : '收获品已全部锁定');
             } else {
                 this.coins += total;
                 this.addLog('出售全部 ' + n + ' 个物品,获得 ' + total + ' 金币');
+            }
+            this.save();
+        },
+        // 背包页:一键回收全部种子和鱼苗(半价),与收获物品的一键出售相互独立
+        recycleAllBackpack() {
+            let total = 0, n = 0;
+            this.seedKeys.forEach((key) => {
+                const qty = this.inventory.seeds[key];
+                total += this.seedSellPrice(key) * qty;
+                n += qty;
+                this.$delete(this.inventory.seeds, key);
+            });
+            this.fishFryKeys.forEach((key) => {
+                const qty = this.fish.fries[key];
+                total += this.fishSellPrice(key) * qty;
+                n += qty;
+                this.$delete(this.fish.fries, key);
+            });
+            if (n === 0) {
+                this.addLog('背包里没有种子/鱼苗');
+            } else {
+                this.coins += total;
+                this.addLog('回收全部 ' + n + ' 个种子/鱼苗,获得 ' + total + ' 金币');
             }
             this.save();
         },
@@ -718,6 +748,7 @@ const app = new Vue({
             this.modalMode = null;
             this.modalPlot = -1;
             this.modalOnOk = null;
+            this.resetModalScroll(); // 关闭后重置滚动位置
         },
         showMessage(title, html) {
             this.hideContextMenu();
@@ -764,12 +795,12 @@ const app = new Vue({
                 this.showMessage('无法购买', '金币不足,购买' + t.name + '需要 <b>' + t.cost + '</b> 金币,当前仅 ' + this.coins + ' 金币');
                 return;
             }
-            if (confirm('确定购买' + t.name + '?需要 ' + t.cost + ' 金币')) {
+            this.confirmModal('购买' + t.name, '确定购买' + t.name + '?需要 <b>' + t.cost + '</b> 金币', () => {
                 this.coins -= t.cost;
                 this.$set(this.tools, key, true);
                 this.addLog('购买了' + t.name + (key === 'hoe' ? ',现在可以扩建土地了' : ',可在地块菜单中铲除作物'));
                 this.save();
-            }
+            });
         },
         /* 渔网:鱼塘解锁后可花金币购买,购买后按钮变成一键捕捞 */
         buyNet() {

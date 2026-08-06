@@ -104,6 +104,12 @@ body {
     user-select: none;
 }
 
+/* 输入框需要允许选中/编辑文本 */
+input {
+    -webkit-user-select: text;
+    user-select: text;
+}
+
 ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -337,12 +343,6 @@ body {
     margin: 2px 0;
 }
 
-.plot button {
-    margin-top: 4px;
-    font-size: 11px;
-    padding: 3px 8px;
-}
-
 button {
     cursor: pointer;
     border: 1px solid var(--accent);
@@ -397,7 +397,7 @@ button:disabled {
 .modal {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: 8px;
     width: 620px;
     max-width: 92vw;
     height: 560px;
@@ -415,7 +415,7 @@ button:disabled {
     padding: 14px 18px;
     border-bottom: 1px solid var(--border);
     background: var(--surface2);
-    border-radius: 14px 14px 0 0;
+    border-radius: 8px 8px 0 0;
     height: 52px; /* 固定高度,保证左侧耳朵与 modal-body 精确对齐 */
 }
 
@@ -439,6 +439,21 @@ button:disabled {
     font-size: 13px;
     display: flex;
     flex-direction: column;
+}
+
+/* 弹窗底部固定栏(仓库一键出售) */
+.modal-footer {
+    padding: 12px 18px;
+    border-top: 1px solid var(--border);
+    background: var(--surface2);
+    border-radius: 0 0 8px 8px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.modal-footer button {
+    min-width: 180px;
+    font-weight: bold;
 }
 
 .cards {
@@ -609,10 +624,6 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 /* 地块右键菜单:点击位置弹出 */
-.context-menu[hidden] {
-    display: none;
-}
-
 .context-menu {
     position: fixed;
     z-index: 100;

@@ -75,7 +75,7 @@
                 <button @click="buyTool('shovel')" :disabled="tools.shovel">{{ toolShovelText }}</button>
             </div>
 
-            <!-- 鱼塘:10级+5000金币整体解锁,解锁后开放全部 18 格 -->
+            <!-- 鱼塘:10级+5000金币整体解锁,解锁后开放全部 10 格 -->
             <div class="pond-wrap">
                 <div v-if="!pondUnlocked" class="pond-locked" @click="openPondUnlock()">
                     <div>鱼塘未解锁</div>
@@ -93,7 +93,7 @@
                             <div>[{{ fishName(p.type) }}]</div>
                             <div v-if="pondProgress(i) >= 1" class="state">已成熟</div>
                             <div v-else class="state">{{ pondStageText(i) }} {{ pondPercent(i) }}%</div>
-                            <div v-if="pondProgress(i) < 1" class="state">{{ fmtRemain(pondRemainSec(i)) }}</div>
+                            <div v-if="pondProgress(i) < 1" class="state">{{ pondRemainText(i) }}</div>
                         </template>
                     </div>
                 </div>
@@ -124,7 +124,7 @@
             </template>
             <template v-else-if="menuView === 'stock'">
                 <button @click="menuBack()">← 返回</button>
-                <div v-if="fishFryKeys.length === 0" class="cm-tip">没有鱼苗,请先去鱼市购买</div>
+                <div v-if="fishFryKeys.length === 0" class="cm-tip">没有鱼苗,请先去商店购买</div>
                 <div v-else class="cm-list">
                     <button v-for="key in fishFryKeys" :key="key" @click="stockFry(menuPlot, key)">{{ fishName(key) }} x{{ fish.fries[key] }}</button>
                 </div>
@@ -171,7 +171,7 @@
                                 <div class="own">持有: {{ inventory.seeds[key] || 0 }}</div>
                                 <div class="stepper">
                                     <button @click="qtyChange('shop', key, -1)">&lt;</button>
-                                    <input type="number" min="1" :value="qtyFor('shop', key)"
+                                    <input type="number" min="0" :value="qtyFor('shop', key)"
                                            @input="qtyInputLive('shop', key, $event.target.value)"
                                            @change="qtyInput('shop', key, $event.target.value)">
                                     <button @click="qtyChange('shop', key, 1)">&gt;</button>
@@ -191,7 +191,7 @@
                                 <div class="own">持有: {{ fish.fries[key] || 0 }}</div>
                                 <div class="stepper">
                                     <button @click="qtyChange('fishshop', key, -1)">&lt;</button>
-                                    <input type="number" min="1" :value="qtyFor('fishshop', key)"
+                                    <input type="number" min="0" :value="qtyFor('fishshop', key)"
                                            @input="qtyInputLive('fishshop', key, $event.target.value)"
                                            @change="qtyInput('fishshop', key, $event.target.value)">
                                     <button @click="qtyChange('fishshop', key, 1)">&gt;</button>
@@ -214,7 +214,7 @@
                                     <div class="own">x{{ it.kind === 'seed' ? inventory.seeds[it.key] : fish.fries[it.key] }}</div>
                                     <div class="stepper">
                                         <button @click="qtyChange(it.kind === 'seed' ? 'warehouseSeeds' : 'fishFries', it.key, -1)">&lt;</button>
-                                        <input type="number" min="1" :value="qtyFor(it.kind === 'seed' ? 'warehouseSeeds' : 'fishFries', it.key)"
+                                        <input type="number" min="0" :value="qtyFor(it.kind === 'seed' ? 'warehouseSeeds' : 'fishFries', it.key)"
                                                @input="qtyInputLive(it.kind === 'seed' ? 'warehouseSeeds' : 'fishFries', it.key, $event.target.value)"
                                                @change="qtyInput(it.kind === 'seed' ? 'warehouseSeeds' : 'fishFries', it.key, $event.target.value)">
                                         <button @click="qtyChange(it.kind === 'seed' ? 'warehouseSeeds' : 'fishFries', it.key, 1)">&gt;</button>
@@ -228,16 +228,13 @@
                         <div v-else>
                             <div v-if="itemKeys.length === 0" class="empty-tip">还没有收获的作物/鱼。</div>
                             <template v-else>
-                                <div style="text-align:right; margin-bottom:12px;">
-                                    <button @click="sellAllUnlocked()">出售全部(未锁定)</button>
-                                </div>
                                 <div class="cards">
                                     <div v-for="key in itemKeys" :key="key" class="card">
                                         <b>{{ itemName(key) }}</b><br>
                                         <div class="own">x{{ inventory.items[key] }}</div>
                                         <div class="stepper">
                                             <button @click="qtyChange('warehouseItems', key, -1)">&lt;</button>
-                                            <input type="number" min="1" :value="qtyFor('warehouseItems', key)"
+                                            <input type="number" min="0" :value="qtyFor('warehouseItems', key)"
                                                    @input="qtyInputLive('warehouseItems', key, $event.target.value)"
                                                    @change="qtyInput('warehouseItems', key, $event.target.value)">
                                             <button @click="qtyChange('warehouseItems', key, 1)">&gt;</button>
@@ -288,6 +285,11 @@
                             <button class="ghost" @click="closeModal()">取消</button>
                         </div>
                     </div>
+                </div>
+                <!-- 仓库底部固定栏:一键出售/回收,按当前标签独立 -->
+                <div v-if="modalMode === 'warehouse'" class="modal-footer">
+                    <button v-if="warehouseTab === 'items'" @click="sellAllUnlocked()">一键出售(未锁定)</button>
+                    <button v-else @click="recycleAllBackpack()">一键回收</button>
                 </div>
             </div>
         </div>
