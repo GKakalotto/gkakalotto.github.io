@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <!-- 核心：禁止移动端缩放，保证游戏体验 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Echoes of the End</title>
+    <!-- 内联 v-cloak：随 HTML 同步解析，防止刷新时模板闪烁 -->
+    <style>[v-cloak] { display: none; }</style>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- @contextmenu.prevent：禁用默认右键菜单；初始内联隐藏，等 Vue 完全加载后再显示 -->
+    <div id="app" v-cloak style="display:none" @contextmenu.prevent>
+
+        <!-- 标题栏：左游戏名，右设置按钮 -->
+            <div class="title-bar">
+                <span class="game-title">Echoes of the End</span>
+                <button class="settings-btn" @click="openSettings" title="设置">⚙️</button>
+            </div>
+
+            <!-- 环境信息 -->
+            <div class="top-bar">
+                <span class="day-count" v-text="'📅 ' + day"></span>
+                <span v-text="season + '季'"></span>
+                <span v-text="'🌡️ ' + temperature + '°C'"></span>
+                <span v-text="weather"></span>
+                <span class="time-info" v-text="'🕒 ' + time"></span>
+            </div>
+
+            <!-- 玩家状态面板（数值显示在进度条内部） -->
+            <div class="status-panel">
+                <div class="stat-item hp">
+                    <div class="stat-icon">♥</div>
+                    <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.hp + '%' }"></div><div class="stat-value" v-text="stats.hp"></div></div>
+                </div>
+                <div class="stat-item hunger">
+                    <div class="stat-icon">🍖</div>
+                    <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.hunger + '%' }"></div><div class="stat-value" v-text="stats.hunger"></div></div>
+                </div>
+                <div class="stat-item stamina">
+                    <div class="stat-icon">⚡</div>
+                    <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.stamina + '%' }"></div><div class="stat-value" v-text="stats.stamina"></div></div>
+                </div>
+                <div class="stat-item sanity">
+                    <div class="stat-icon">🧠</div>
+                    <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.sanity + '%' }"></div><div class="stat-value" v-text="stats.sanity"></div></div>
+                </div>
+                <div class="stat-item disease">
+                    <div class="stat-icon">🦠</div>
+                    <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.disease + '%' }"></div><div class="stat-value" v-text="stats.disease"></div></div>
+                </div>
+                <div class="stat-item infection">
+                    <div class="stat-icon">☣</div>
+                    <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.infection + '%' }"></div><div class="stat-value" v-text="stats.infection"></div></div>
+                </div>
+            </div>
+
+            <!-- 日志（只显示最新 5 条） -->
+            <div class="log-panel">
+                <div v-for="(log, i) in visibleLogs" :key="i" class="log-line">
+                    <span class="log-time" v-text="log.time"></span><span v-text="log.text"></span>
+                </div>
+            </div>
+
+        <!-- ============ 场景区（安全屋 / 地图） ============ -->
+        <div class="scene-area">
+
+            <!-- 场景：安全屋（室内 / 大门 / 狗窝 / 防御栅栏置底） -->
+            <div v-show="currentScene === 'safehouse'" class="scene safehouse-scene">
+
+                <!-- 室内：安全屋设施 -->
+                <div class="interior-area">
+                    <div class="section-title">🏠 安全屋</div>
+                    <div class="furniture-grid">
+                        <div class="furniture-slot" :class="{ unlocked: furniture[0].unlocked }">
+                            <div class="slot-icon" v-text="furniture[0].icon"></div>
+                            <span v-text="furniture[0].name"></span>
+                            <div v-if="!furniture[0].unlocked" class="lock-overlay">🔒</div>
+                        </div>
+                        <div class="furniture-slot" :class="{ unlocked: furniture[1].unlocked }">
+                            <div class="slot-icon" v-text="furniture[1].icon"></div>
+                            <span v-text="furniture[1].name"></span>
+                            <div v-if="!furniture[1].unlocked" class="lock-overlay">🔒</div>
+                        </div>
+                        <div class="furniture-slot" :class="{ unlocked: furniture[2].unlocked }">
+                            <div class="slot-icon" v-text="furniture[2].icon"></div>
+                            <span v-text="furniture[2].name"></span>
+                            <div v-if="!furniture[2].unlocked" class="lock-overlay">🔒</div>
+                        </div>
+                        <div class="furniture-slot" :class="{ unlocked: furniture[3].unlocked }">
+                            <div class="slot-icon" v-text="furniture[3].icon"></div>
+                            <span v-text="furniture[3].name"></span>
+                            <div v-if="!furniture[3].unlocked" class="lock-overlay">🔒</div>
+                        </div>
+                        <div class="furniture-slot" :class="{ unlocked: furniture[4].unlocked }">
+                            <div class="slot-icon" v-text="furniture[4].icon"></div>
+                            <span v-text="furniture[4].name"></span>
+                            <div v-if="!furniture[4].unlocked" class="lock-overlay">🔒</div>
+                        </div>
+                        <div class="furniture-slot" :class="{ unlocked: furniture[5].unlocked }">
+                            <div class="slot-icon" v-text="furniture[5].icon"></div>
+                            <span v-text="furniture[5].name"></span>
+                            <div v-if="!furniture[5].unlocked" class="lock-overlay">🔒</div>
+                        </div>
+                        <div class="furniture-slot" :class="{ unlocked: furniture[6].unlocked }">
+                            <div class="slot-icon" v-text="furniture[6].icon"></div>
+                            <span v-text="furniture[6].name"></span>
+                            <div v-if="!furniture[6].unlocked" class="lock-overlay">🔒</div>
+                        </div>
+                        <div class="furniture-slot" :class="{ unlocked: furniture[7].unlocked }">
+                            <div class="slot-icon" v-text="furniture[7].icon"></div>
+                            <span v-text="furniture[7].name"></span>
+                            <div v-if="!furniture[7].unlocked" class="lock-overlay">🔒</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 大门（狗窝上方）：横线 + 右侧大门 -->
+                <div class="room-divider">
+                    <div class="divider-line"></div>
+                    <button class="divider-door" @click="goToMap" title="外出探索">
+                        <span class="divider-door-icon">🚪</span>
+                        <span>大门</span>
+                    </button>
+                </div>
+
+                <!-- 室外：狗窝、防御栅栏（默认锁定，栅栏置底） -->
+                <div class="outdoor-area">
+                    <div class="outdoor-item" :class="{ locked: !outdoors[0].unlocked }"
+                         @click="outdoorClick(outdoors[0])">
+                        <div class="outdoor-icon" v-text="outdoors[0].icon"></div>
+                        <div class="outdoor-info">
+                            <div class="outdoor-name" v-text="outdoors[0].name"></div>
+                            <div class="outdoor-desc" v-text="outdoors[0].desc"></div>
+                        </div>
+                        <div v-if="!outdoors[0].unlocked" class="lock-overlay">🔒</div>
+                    </div>
+                    <div class="outdoor-item" :class="{ locked: !outdoors[1].unlocked }"
+                         @click="outdoorClick(outdoors[1])">
+                        <div class="outdoor-icon" v-text="outdoors[1].icon"></div>
+                        <div class="outdoor-info">
+                            <div class="outdoor-name" v-text="outdoors[1].name"></div>
+                            <div class="outdoor-desc" v-text="outdoors[1].desc"></div>
+                        </div>
+                        <div v-if="!outdoors[1].unlocked" class="lock-overlay">🔒</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 场景：地图（有向图式节点画布，非首次显示，初始内联隐藏） -->
+            <div v-show="currentScene === 'map'" style="display:none" class="scene map-scene">
+                <div class="section-title">🗺️ 成都</div>
+                <div class="map-canvas">
+                    <!-- 安全屋节点 -->
+                    <div class="map-node safehouse-node" :style="safePos" @click="openHomeConfirm">
+                        <div class="map-node-icon">🏠</div>
+                        <div class="map-node-name" v-text="'安全屋'"></div>
+                    </div>
+                    <!-- 地点节点 -->
+                    <div v-for="loc in locations" :key="loc.name" class="map-node"
+                         :class="{ current: loc.name === playerLocation }"
+                         :style="posOf(loc)" @click="openLocationConfirm(loc)">
+                        <div class="map-node-icon" v-text="loc.icon"></div>
+                        <div class="map-node-name" v-text="loc.name"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 确认弹窗（初始内联隐藏，防止刷新闪烁） -->
+        <div v-show="dialog.show" style="display:none" class="dialog-overlay" @click.self="closeDialog">
+            <div class="dialog-panel">
+                <div class="dialog-icon" v-text="dialog.icon"></div>
+                <div class="dialog-title" v-text="dialog.title"></div>
+                <div class="dialog-desc" v-text="dialog.desc"></div>
+                <div v-if="dialog.cost" class="dialog-cost" v-text="dialog.cost"></div>
+                <div class="dialog-btns">
+                    <button class="dialog-cancel" @click="closeDialog">取消</button>
+                    <button class="dialog-confirm" @click="confirmAction"
+                            v-text="dialog.action === 'home' ? '返回' : '出发'"></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 设置面板（非首次显示，初始内联隐藏，防止刷新闪烁） -->
+        <div v-show="showSettings" style="display:none" class="settings-overlay" @click.self="closeSettings">
+            <div class="settings-panel">
+                <div class="settings-header">
+                    <span>⚙️ 设置</span>
+                    <button class="settings-close" @click="closeSettings">✕</button>
+                </div>
+                <div class="settings-body">
+                    <p class="settings-desc">进度会自动保存到浏览器本地。</p>
+                    <button class="danger-btn" @click="clearProgress">🗑️ 清除进度</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Vue 2（UMD 版） -->
+    <script src="js/vue.min.js"></script>
+    <!-- 游戏数据 -->
+    <script src="js/data.js"></script>
+    <!-- 应用逻辑 -->
+    <script src="js/app.js"></script>
+</body>
+</html>

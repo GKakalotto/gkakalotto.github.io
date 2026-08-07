@@ -1,0 +1,401 @@
+/* 1. 全局基础样式 */
+* { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+
+/* 移除按钮的默认外观与点击样式（手机端系统按钮样式/tap 高亮） */
+button {
+    -webkit-appearance: none;
+    appearance: none;
+    -webkit-touch-callout: none;
+}
+button:focus { outline: none; }
+
+body {
+    background-color: #1a1a1a;
+    color: #e0e0e0;
+    font-family: 'Courier New', Courier, monospace;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* ==========================================
+   #app 上下结构：上部（信息区） + 下部（场景区）
+   ========================================== */
+#app {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ---------- 标题栏：左游戏名，右设置按钮 ---------- */
+.title-bar {
+    background: rgba(0, 0, 0, 0.7);
+    padding: 8px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #333;
+}
+.game-title {
+    font-size: 15px;
+    font-weight: bold;
+    color: #ffcc00;
+    letter-spacing: 1px;
+}
+
+/* ---------- 上部：环境信息 ---------- */
+.top-bar {
+    background: rgba(0, 0, 0, 0.6);
+    padding: 10px 0;
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #333;
+    font-size: 14px;
+}
+/* 环境栏信息项：等分、间距一致 */
+.top-bar > * {
+    flex: 1;
+    text-align: center;
+}
+.day-count { color: #ffcc00; font-weight: bold; font-size: 16px; }
+/* 设置按钮：无边框，图标在按钮内居中 */
+.settings-btn {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: transparent;
+    border: none;
+    color: #aaa;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.settings-btn:hover { color: #ffcc00; }
+
+/* ---------- 上部：人物状态（3 列 2 行紧凑布局） ---------- */
+.status-panel {
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.4);
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px 8px;
+    border-bottom: 1px solid #333;
+}
+.stat-item { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.stat-icon {
+    width: 15px; height: 15px; border-radius: 50%;
+    display: flex; justify-content: center; align-items: center;
+    font-size: 9px; font-weight: bold; flex-shrink: 0;
+}
+.stat-bar-bg {
+    flex: 1; height: 9px; background: #333;
+    border-radius: 2px; overflow: hidden; position: relative;
+    min-width: 0;
+}
+.stat-bar-fill { height: 100%; transition: width 0.3s ease; }
+.stat-value {
+    position: absolute; inset: 0;
+    display: flex; justify-content: center; align-items: center;
+    font-size: 9px; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
+
+/* 状态颜色定义 */
+.hp .stat-icon { background: #d32f2f; }
+.hp .stat-bar-fill { background: #d32f2f; }
+.hunger .stat-icon { background: #f57c00; }
+.hunger .stat-bar-fill { background: #f57c00; }
+.stamina .stat-icon { background: #00bcd4; }
+.stamina .stat-bar-fill { background: #00bcd4; }
+.sanity .stat-icon { background: #7b1fa2; }
+.sanity .stat-bar-fill { background: #7b1fa2; }
+.disease .stat-icon { background: #6a1b9a; }
+.disease .stat-bar-fill { background: #6a1b9a; }
+.infection .stat-icon { background: #388e3c; }
+.infection .stat-bar-fill { background: #388e3c; }
+
+/* ---------- 上部：日志（可滚动） ---------- */
+.log-panel {
+    background: rgba(0, 0, 0, 0.5);
+    padding: 8px 15px;
+    border-bottom: 1px solid #333;
+    flex-shrink: 0;
+    height: 120px; /* 固定高度，仅显示最新 5 条，禁止滚动 */
+    overflow: hidden;
+}
+.log-line {
+    font-size: 12px; line-height: 1.7;
+    color: #bbb;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.log-time { color: #666; margin-right: 6px; }
+
+/* ---------- 下部：场景区 ---------- */
+.scene-area {
+    flex: 1;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* 场景内部各自滚动 */
+}
+.section-title {
+    font-size: 14px; color: #aaa;
+    border-bottom: 1px dashed #444;
+    padding-bottom: 5px; margin-bottom: 5px;
+}
+
+/* ----- 场景：安全屋（室内 / 大门 / 室外） ----- */
+.safehouse-scene {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+/* 室内占满上部并可滚动，大门/狗窝/防御栅栏固定置底 */
+.interior-area {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+/* 狗窝、防御栅栏同一行排列 */
+.outdoor-area { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.furniture-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr); /* 手机默认一排4个 */
+    gap: 10px;
+}
+.furniture-slot {
+    aspect-ratio: 1; background: #2c2c2c;
+    border: 1px solid #444; border-radius: 4px;
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    font-size: 10px; color: #888; position: relative;
+    cursor: pointer; transition: all 0.2s;
+}
+.furniture-slot:hover { border-color: #888; background: #333; }
+.furniture-slot.unlocked { border-color: #555; background: #3a3a3a; color: #ddd; }
+.furniture-slot.unlocked .slot-icon { font-size: 24px; margin-bottom: 4px; }
+.lock-overlay {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6);
+    display: flex; justify-content: center; align-items: center;
+    font-size: 16px; border-radius: 4px;
+}
+
+/* 分隔线：横线 + 右侧大门 */
+.room-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.divider-line {
+    flex: 1;
+    border-top: 1px dashed #555;
+}
+.divider-door {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    background: #2c2c2c;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 5px 12px;
+    color: #ddd;
+    font-size: 12px;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.divider-door:hover { border-color: #ffcc00; color: #ffcc00; }
+.divider-door-icon { font-size: 18px; }
+
+/* 室外：狗窝、防御栅栏（可锁定） */
+.outdoor-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #2c2c2c;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.outdoor-item:hover { border-color: #ffcc00; background: #3a3a3a; }
+.outdoor-item.locked { opacity: 0.75; }
+.outdoor-item .lock-overlay {
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.45);
+}
+.outdoor-icon { font-size: 24px; }
+.outdoor-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.outdoor-name { font-size: 13px; color: #ddd; }
+.outdoor-desc { font-size: 11px; color: #888; }
+
+/* ----- 场景：地图（有向图式节点画布） ----- */
+.map-scene {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow: hidden;
+}
+.map-canvas {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    padding: 22px; /* 边缘缓冲，防止节点图标被裁剪 */
+}
+.map-node {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    display: flex; flex-direction: column; align-items: center; gap: 1px;
+    cursor: pointer;
+    z-index: 1;
+}
+.map-node-icon {
+    width: 26px; height: 26px;
+    background: #2c2c2c;
+    border: 1px solid #444;
+    border-radius: 50%;
+    display: flex; justify-content: center; align-items: center;
+    font-size: 15px;
+    transition: all 0.2s;
+}
+.map-node-name {
+    font-size: 8px; color: #aaa;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 0 3px; border-radius: 2px;
+    white-space: nowrap;
+    max-width: 64px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.map-node:hover .map-node-icon { border-color: #ffcc00; }
+.map-node.current .map-node-icon {
+    border-color: #ffcc00;
+    box-shadow: 0 0 8px rgba(255, 204, 0, 0.6);
+}
+.safehouse-node .map-node-icon { border-color: #8a6d1f; }
+
+/* ----- 确认弹窗（地点信息 / 是否出发） ----- */
+.dialog-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex; justify-content: center; align-items: center;
+    z-index: 100;
+}
+.dialog-panel {
+    width: 280px;
+    background: #2c2c2c;
+    border: 1px solid #555;
+    border-radius: 6px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    padding: 18px;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.dialog-icon { font-size: 36px; }
+.dialog-title { font-size: 15px; color: #ddd; font-weight: bold; }
+.dialog-desc { font-size: 12px; color: #999; text-align: center; line-height: 1.5; }
+.dialog-cost { font-size: 13px; color: #ffcc00; }
+.dialog-btns {
+    display: flex; gap: 10px; margin-top: 8px;
+}
+.dialog-cancel {
+    background: #3a3a3a; border: 1px solid #555; border-radius: 4px;
+    color: #aaa; font-size: 13px; padding: 8px 20px; cursor: pointer;
+    transition: all 0.2s;
+}
+.dialog-cancel:hover { border-color: #888; color: #ddd; }
+.dialog-confirm {
+    background: #2f4f6b; border: 1px solid #3f6b8f; border-radius: 4px;
+    color: #cfe3f5; font-size: 13px; padding: 8px 20px; cursor: pointer;
+    transition: all 0.2s;
+}
+.dialog-confirm:hover { background: #3a6085; border-color: #5080a8; color: #fff; }
+
+/* ----- 设置面板 ----- */
+.settings-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex; justify-content: center; align-items: center;
+    z-index: 100;
+}
+.settings-panel {
+    width: 280px;
+    background: #2c2c2c;
+    border: 1px solid #555;
+    border-radius: 6px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+}
+.settings-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 15px;
+    border-bottom: 1px solid #444;
+    font-size: 14px; color: #ddd;
+}
+.settings-close {
+    background: transparent; border: none;
+    color: #888; font-size: 14px; cursor: pointer;
+    line-height: 1; padding: 2px 6px;
+}
+.settings-close:hover { color: #ffcc00; }
+.settings-body {
+    padding: 15px;
+    display: flex; flex-direction: column; gap: 12px;
+}
+.settings-desc { font-size: 12px; color: #888; }
+.danger-btn {
+    background: #5c2b2b;
+    border: 1px solid #7a3a3a;
+    border-radius: 4px;
+    color: #f0b0b0;
+    font-size: 13px;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.danger-btn:hover {
+    background: #7a2e2e;
+    border-color: #a04040;
+    color: #ffd0d0;
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
+
+/* ==========================================
+   🌟 核心适配代码：电脑端响应式布局 🌟
+   ========================================== */
+@media screen and (min-width: 768px) {
+    body {
+        /* 在电脑端，将整体内容限制在 450px 宽度，模拟手机屏幕比例 */
+        max-width: 450px;
+        margin: 0 auto;
+        /* 添加边框，让它在电脑屏幕上看起来像一台设备 */
+        border-left: 1px solid #333;
+        border-right: 1px solid #333;
+        box-shadow: 0 0 30px rgba(0,0,0,0.5);
+    }
+
+    /* 电脑端鼠标悬停效果更明显 */
+    .furniture-slot:hover,
+    .divider-door:hover,
+    .outdoor-item:hover {
+        border-color: #ffcc00;
+        background: #3a3a3a;
+        transform: translateY(-2px);
+    }
+}
