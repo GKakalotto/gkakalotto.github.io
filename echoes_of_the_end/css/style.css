@@ -26,20 +26,18 @@ body {
     flex-direction: column;
 }
 
-/* ---------- 标题栏：左游戏名，右设置按钮 ---------- */
-.title-bar {
-    background: rgba(0, 0, 0, 0.7);
+/* ---------- 场景标题栏（固定于日志下方） ---------- */
+.scene-title {
+    flex-shrink: 0;
     padding: 8px 15px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    margin: 0;
+    background: rgba(0, 0, 0, 0.5);
     border-bottom: 1px solid #333;
 }
-.game-title {
-    font-size: 15px;
-    font-weight: bold;
-    color: #ffcc00;
-    letter-spacing: 1px;
+.scene-title-btns {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 /* ---------- 上部：环境信息 ---------- */
@@ -144,10 +142,24 @@ body {
     overflow: hidden; /* 场景内部各自滚动 */
 }
 .section-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     font-size: 14px; color: #aaa;
     border-bottom: 1px dashed #444;
     padding-bottom: 5px; margin-bottom: 5px;
 }
+.bag-btn {
+    background: transparent;
+    border: none;
+    color: #aaa;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.bag-btn:hover { color: #ffcc00; }
 
 /* ----- 场景：安全屋（室内 / 大门 / 室外） ----- */
 .safehouse-scene {

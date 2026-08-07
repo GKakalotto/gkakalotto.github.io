@@ -13,12 +13,6 @@
     <!-- @contextmenu.prevent：禁用默认右键菜单；初始内联隐藏，等 Vue 完全加载后再显示 -->
     <div id="app" v-cloak style="display:none" @contextmenu.prevent>
 
-        <!-- 标题栏：左游戏名，右设置按钮 -->
-            <div class="title-bar">
-                <span class="game-title">Echoes of the End</span>
-                <button class="settings-btn" @click="openSettings" title="设置">⚙️</button>
-            </div>
-
             <!-- 环境信息 -->
             <div class="top-bar">
                 <span class="day-count" v-text="'📅 ' + day"></span>
@@ -63,6 +57,15 @@
                 </div>
             </div>
 
+            <!-- 场景标题（固定在日志下方，随场景切换名称；右侧：背包 + 设置） -->
+            <div class="section-title scene-title">
+                <span v-text="sceneTitle"></span>
+                <div class="scene-title-btns">
+                    <button class="bag-btn" @click="openBag" title="背包">🎒</button>
+                    <button class="settings-btn" @click="openSettings" title="设置">⚙️</button>
+                </div>
+            </div>
+
         <!-- ============ 场景区（安全屋 / 地图） ============ -->
         <div class="scene-area">
 
@@ -71,7 +74,6 @@
 
                 <!-- 室内：安全屋设施 -->
                 <div class="interior-area">
-                    <div class="section-title">🏠 安全屋</div>
                     <div class="furniture-grid">
                         <div class="furniture-slot" :class="{ unlocked: furniture[0].unlocked }">
                             <div class="slot-icon" v-text="furniture[0].icon"></div>
@@ -119,7 +121,7 @@
                 <!-- 大门（狗窝上方）：横线 + 右侧大门 -->
                 <div class="room-divider">
                     <div class="divider-line"></div>
-                    <button class="divider-door" @click="goToMap" title="外出探索">
+                    <button class="divider-door" @click="openDoorConfirm" title="外出探索">
                         <span class="divider-door-icon">🚪</span>
                         <span>大门</span>
                     </button>
@@ -151,7 +153,6 @@
 
             <!-- 场景：地图（有向图式节点画布，非首次显示，初始内联隐藏） -->
             <div v-show="currentScene === 'map'" style="display:none" class="scene map-scene">
-                <div class="section-title">🗺️ 成都</div>
                 <div class="map-canvas">
                     <!-- 安全屋节点 -->
                     <div class="map-node safehouse-node" :style="safePos" @click="openHomeConfirm">
@@ -180,7 +181,7 @@
                 <div class="dialog-btns">
                     <button class="dialog-cancel" @click="closeDialog">取消</button>
                     <button class="dialog-confirm" @click="confirmAction"
-                            v-text="dialog.action === 'home' ? '返回' : '出发'"></button>
+                            v-text="dialog.action === 'home' ? '回家' : '出发'"></button>
                 </div>
             </div>
         </div>
@@ -194,7 +195,19 @@
                 </div>
                 <div class="settings-body">
                     <p class="settings-desc">进度会自动保存到浏览器本地。</p>
-                    <button class="danger-btn" @click="clearProgress">🗑️ 清除进度</button>
+                    <button class="danger-btn" @click="openClearConfirm">🗑️ 清除进度</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 清除进度确认弹窗（初始内联隐藏，防止刷新闪烁） -->
+        <div v-show="confirmDialog.show" style="display:none" class="dialog-overlay" @click.self="confirmCancel">
+            <div class="dialog-panel">
+                <div class="dialog-title" v-text="confirmDialog.title"></div>
+                <div class="dialog-desc" v-text="confirmDialog.desc"></div>
+                <div class="dialog-btns">
+                    <button class="dialog-cancel" @click="confirmCancel">取消</button>
+                    <button class="dialog-confirm" @click="confirmClear">确定</button>
                 </div>
             </div>
         </div>

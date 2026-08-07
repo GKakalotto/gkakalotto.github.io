@@ -46,6 +46,8 @@ new Vue({
         pendingLoc: null,
         // 设置面板
         showSettings: false,
+        // 清除进度确认弹窗
+        confirmDialog: { show: false, title: '', desc: '' },
         // 安全屋家具
         furniture: GameData.furniture,
         // 安全屋室外设施
@@ -97,6 +99,10 @@ new Vue({
                 left: GameData.safehouseMapPos.lx + '%',
                 top: GameData.safehouseMapPos.ly + '%'
             };
+        },
+        // 场景标题（固定栏显示，随场景切换）
+        sceneTitle() {
+            return this.currentScene === 'map' ? '🗺️ 成都' : '🏠 安全屋';
         },
     },
     // 首次渲染前读取存档，避免刷新时非当前场景/弹框闪现
@@ -209,6 +215,10 @@ new Vue({
         closeSettings() {
             this.showSettings = false;
         },
+        // 背包（暂为占位）
+        openBag() {
+            this.pushLog('🎒 背包暂未开放，等待后续版本。');
+        },
         // 存档：写入 localStorage
         saveGame() {
             try {
@@ -235,12 +245,24 @@ new Vue({
             if (save.playerLocation) this.playerLocation = save.playerLocation;
             return true;
         },
-        // 清除进度：删除存档并重置游戏
-        clearProgress() {
-            if (confirm('确定清除所有进度吗？此操作不可恢复。')) {
-                localStorage.removeItem(SAVE_KEY);
-                window.location.reload();
-            }
+        // 打开清除进度确认弹窗（不用浏览器 confirm）
+        openClearConfirm() {
+            this.confirmDialog = {
+                show: true,
+                title: '🗑️ 清除进度',
+                desc: '确定清除所有进度吗？此操作不可恢复。'
+            };
+        },
+        confirmCancel() {
+            this.confirmDialog.show = false;
+        },
+        // 确认清除：先移除自动存档监听再清档刷新，避免刷新时进度被重新保存
+        confirmClear() {
+            this.confirmDialog.show = false;
+            window.removeEventListener('beforeunload', this.saveGame);
+            document.removeEventListener('visibilitychange', this.onVisibilityChange);
+            localStorage.removeItem(SAVE_KEY);
+            window.location.reload();
         },
         // 地图 → 返回安全屋
         backToSafehouse() {
@@ -276,6 +298,18 @@ new Vue({
                 action: 'home'
             };
         },
+        // 点击大门：弹窗确认是否出门探索
+        openDoorConfirm() {
+            this.pendingLoc = null;
+            this.dialog = {
+                show: true,
+                icon: '🚪',
+                title: '大门',
+                desc: '是否出门探索？',
+                cost: '',
+                action: 'door'
+            };
+        },
         // 确认弹窗按钮
         closeDialog() {
             this.dialog.show = false;
@@ -285,6 +319,8 @@ new Vue({
                 this.travelTo(this.pendingLoc);
             } else if (this.dialog.action === 'home') {
                 this.backToSafehouse();
+            } else if (this.dialog.action === 'door') {
+                this.goToMap();
             }
             this.dialog.show = false;
         },
