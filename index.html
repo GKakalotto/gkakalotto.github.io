@@ -74,6 +74,7 @@
                 <button @click="buyNet()" :title="netTitle">{{ netText }}</button>
                 <button @click="buyTool('hoe')" :disabled="tools.hoe">{{ toolHoeText }}</button>
                 <button @click="buyTool('shovel')" :disabled="tools.shovel">{{ toolShovelText }}</button>
+                <button @click="hireFarmhand()" :title="hireTitle">{{ hireText }}</button>
             </div>
 
             <!-- 鱼塘:10级+5000金币整体解锁,解锁后开放全部 10 格 -->

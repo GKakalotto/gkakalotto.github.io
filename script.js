@@ -32,6 +32,7 @@ function makeDefaultState() {
         inventory: { seeds: { luobo: 3 }, items: {}, locks: {} },
         fish: { fries: {} },             // 鱼苗库存(成鱼收获后进 inventory.items)
         tools: { hoe: false, shovel: false, fishNet: false },
+        hireUntil: 0,                    // 雇佣农工的到期时间戳,0 = 未雇佣
         log: [{ t: Date.now(), msg: '欢迎来到 星露谷农场!点空地种菜,生长中可能随机缺水需浇水;达到等级后解锁更多土地。' }],
     };
 }
@@ -52,6 +53,7 @@ const app = new Vue({
             inventory: d.inventory,
             fish: d.fish,
             tools: d.tools,
+            hireUntil: d.hireUntil,
             log: d.log,
             theme: 'dark',
             now: Date.now(),              // 每秒刷新的时钟,驱动进度/倒计时
@@ -85,6 +87,14 @@ const app = new Vue({
         netTitle() {
             if (this.tools.fishNet) return '一键捕捞鱼塘里已长大的鱼';
             return this.pondUnlocked ? '花费 ' + FISH_NET_COST + ' 金币解锁渔网' : '需先解锁鱼塘才能购买渔网';
+        },
+        /* 雇佣农工:8小时内植物不会缺水 */
+        hired() { return this.now < this.hireUntil; },
+        hireText() { return this.hired ? '雇佣中(剩余' + this.hireRemainText() + ')' : '雇佣(' + HIRE_COST + '金币)'; },
+        hireTitle() {
+            return this.hired
+                ? '8小时内植物不会缺水,剩余 ' + this.hireRemainText()
+                : '花费 ' + HIRE_COST + ' 金币雇佣农工,8小时内植物不会缺水';
         },
         seedKeys() { return Object.keys(this.inventory.seeds); },
         itemKeys() { return Object.keys(this.inventory.items); },
@@ -151,7 +161,7 @@ const app = new Vue({
                     coins: this.coins, level: this.level, xp: this.xp, theme: this.theme,
                     plots: this.plots, unlockedPlots: this.unlockedPlots, pond: this.pond,
                     pondUnlocked: this.pondUnlocked,
-                    inventory: this.inventory, fish: this.fish, tools: this.tools, log: this.log,
+                    inventory: this.inventory, fish: this.fish, tools: this.tools, hireUntil: this.hireUntil, log: this.log,
                 }));
             } catch (e) { /* 无持久化时游戏仍可运行 */ }
         },
@@ -178,6 +188,7 @@ const app = new Vue({
             this.fish = s.fish || { fries: {} };
             if (!this.fish.fries) this.fish.fries = {};
             this.tools = s.tools || { hoe: false, shovel: false };
+            this.hireUntil = s.hireUntil || 0; // 旧存档无此字段 = 未雇佣
             this.log = Array.isArray(s.log) ? s.log : [];
             // 清理旧存档中已下架(水果)的作物/鱼,避免渲染报错
             this.plots.forEach((p, i) => {
@@ -321,8 +332,8 @@ const app = new Vue({
             if (this.inventory.seeds[key] <= 0) this.$delete(this.inventory.seeds, key);
             const c = CROPS[key];
             const now = Date.now();
-            // 随机干旱事件:种植时掷骰,在生长的 30%~80% 时刻触发
-            const willDrought = Math.random() < DROUGHT_CHANCE;
+            // 随机干旱事件:种植时掷骰,在生长的 30%~80% 时刻触发(雇佣期间不缺水,不预约干旱)
+            const willDrought = this.hired ? false : Math.random() < DROUGHT_CHANCE;
             const droughtAt = willDrought ? now + c.grow * 1000 * (0.3 + Math.random() * 0.5) : null;
             this.$set(this.plots, i, {
                 type: key,
@@ -812,6 +823,38 @@ const app = new Vue({
                 this.save();
             });
         },
+        /* 雇佣农工:8 小时内植物不会缺水 */
+        hireRemainText() {
+            const mins = Math.ceil(Math.max(0, this.hireUntil - this.now) / 60000);
+            if (mins >= 60) {
+                const h = Math.floor(mins / 60), r = mins % 60;
+                return h + '小时' + (r > 0 ? r + '分' : '');
+            }
+            return mins + '分钟';
+        },
+        hireFarmhand() {
+            if (this.hired) {
+                this.addLog('雇佣中,植物不会缺水(剩余 ' + this.hireRemainText() + ')');
+                return;
+            }
+            if (this.coins < HIRE_COST) {
+                this.showMessage('无法雇佣', '金币不足,雇佣农工需要 <b>' + HIRE_COST + '</b> 金币,当前仅 ' + this.coins + ' 金币');
+                return;
+            }
+            this.confirmModal('雇佣农工', '确定雇佣农工?花费 <b>' + HIRE_COST + '</b> 金币,8 小时内植物不会缺水', () => {
+                this.coins -= HIRE_COST;
+                this.hireUntil = Date.now() + HIRE_DURATION;
+                // 立即浇好当前所有缺水植物,并取消已预约的干旱
+                let watered = 0;
+                this.plots.forEach((p) => {
+                    if (!p) return;
+                    if (p.dry) { p.dry = false; p.resumedAt = Date.now(); watered++; }
+                    p.droughtAt = null;
+                });
+                this.addLog('雇佣了农工,8 小时内植物不会缺水' + (watered > 0 ? ',已浇好 ' + watered + ' 棵缺水植物' : ''));
+                this.save();
+            });
+        },
 
         /* ---------- 每秒定时 ---------- */
         tick() {
@@ -821,6 +864,7 @@ const app = new Vue({
             this.checkFishMature();
         },
         checkDrought() {
+            if (this.hired) return; // 雇佣期间植物不会缺水
             const now = Date.now();
             let hit = false;
             this.plots.forEach((p, i) => {
