@@ -14,10 +14,11 @@ function fmtTime(t) {
     const d = new Date(t);
     return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2);
 }
-/* 定位标签查找表(CROPS 与 FISH 共用同一套三定位循环,key 不重叠) */
+/* 定位标签查找表(CROPS / FISH / ANIMALS 共用同一套三定位循环,key 不重叠) */
 const KIND_LABEL = {}, KIND_CLS = {};
 CROP_KEYS.forEach((k, i) => { KIND_LABEL[k] = CROP_KIND[i % 3].label; KIND_CLS[k] = CROP_KIND[i % 3].cls; });
 FISH_KEYS.forEach((k, i) => { KIND_LABEL[k] = CROP_KIND[i % 3].label; KIND_CLS[k] = CROP_KIND[i % 3].cls; });
+ANIMAL_KEYS.forEach((k, i) => { KIND_LABEL[k] = CROP_KIND[i % 3].label; KIND_CLS[k] = CROP_KIND[i % 3].cls; });
 
 /* ================= 默认状态 ================= */
 function makeDefaultState() {
@@ -30,7 +31,10 @@ function makeDefaultState() {
         pond: Array.from({ length: TOTAL_PONDS }, () => null), // 鱼塘 2×5 共 10 格
         pondUnlocked: false,             // 鱼塘默认锁定,10级+5000金币整体解锁
         unlockedPonds: Array.from({ length: TOTAL_PONDS }, () => false), // 各鱼塘格是否开放(区域解锁后前 N 格自动开放,其余花金币扩张)
-        inventory: { seeds: { luobo: 3 }, items: {}, locks: {} },
+        animals: Array.from({ length: RANCH_TOTAL }, () => null), // 养殖栏位
+        unlockedRanches: Array.from({ length: RANCH_TOTAL }, (_, i) => i < RANCH_INITIAL_OPEN), // 各栏位是否开放
+        feedTrough: 0,                 // 牧槽牧草量(上限 FEED_TROUGH_CAP)
+        inventory: { seeds: { luobo: 3 }, items: {}, locks: {}, young: {} },
         fish: { fries: {} },             // 鱼苗库存(成鱼收获后进 inventory.items)
         hireUntil: 0,                    // 雇佣农工的到期时间戳,0 = 未雇佣
         log: [{ t: Date.now(), msg: '欢迎来到 星露谷农场!点空地种菜,生长中可能随机缺水需浇水;达到等级后解锁更多土地。' }],

@@ -128,9 +128,12 @@ const farmMethods = {
         }
         this.hideContextMenu();
         const type = p.type;
-        this.$set(this.inventory.items, type, (this.inventory.items[type] || 0) + 1);
+        const prod = CROPS[type].product || type; // 收获物 key(草籽等特殊作物产出别的物品)
+        const prodItem = CROPS[prod] || ANIMAL_PRODUCTS[prod];
+        const prodName = prodItem ? prodItem.name : prod;
+        this.$set(this.inventory.items, prod, (this.inventory.items[prod] || 0) + 1);
         this.$set(this.plots, i, null);
-        this.addLog('收获 ' + c.name + ' x1,已放入仓库 +' + c.xp + ' 经验');
+        this.addLog('收获 ' + prodName + ' x1,已放入仓库 +' + c.xp + ' 经验');
         this.addXp(c.xp);
         if (Math.random() < SEED_DROP_CHANCE) {
             this.$set(this.inventory.seeds, type, (this.inventory.seeds[type] || 0) + 1);
@@ -143,7 +146,8 @@ const farmMethods = {
         this.plots.forEach((p, i) => {
             if (p && this.plotProgress(i) >= 1) {
                 const type = p.type;
-                this.$set(this.inventory.items, type, (this.inventory.items[type] || 0) + 1);
+                const prod = CROPS[type].product || type;
+                this.$set(this.inventory.items, prod, (this.inventory.items[prod] || 0) + 1);
                 this.$set(this.plots, i, null);
                 n++;
                 xp += CROPS[type].xp;

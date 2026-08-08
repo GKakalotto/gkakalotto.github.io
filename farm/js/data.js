@@ -12,7 +12,9 @@ const CROPS = {
        快收型 = 利润/秒最高·成熟最快·种子最便宜;
        暴利型 = 单次利润与单次经验最高·成熟最慢;
        经验型 = 经验/秒最高。
-       level = 解锁等级(每升 1 级解锁 1 种,按数组顺序从 Lv.1 起) */
+       level = 解锁等级(每升 1 级解锁 1 种,按数组顺序从 Lv.1 起);
+       product = 收获物 key(缺省为该作物自身 key,如草籽成熟后收获牧草) */
+    caozi:     { name: '草籽',   cost: 1,   sell: 2,   grow: 30,   xp: 1,   level: 1, product: 'siliao' },
     luobo:     { name: '萝卜',   cost: 5,   sell: 14,  grow: 30,   xp: 5,   level: 1  },
     baicai:    { name: '白菜',   cost: 15,  sell: 42,  grow: 180,  xp: 37,  level: 2  },
     tudou:     { name: '土豆',   cost: 8,   sell: 22,  grow: 60,   xp: 18,  level: 3  },
@@ -97,6 +99,54 @@ const HIRE_OPTIONS = [
 const POND_COLS = 5;            // 鱼塘列数
 const POND_ROWS = 2;            // 鱼塘行数
 const TOTAL_PONDS = POND_COLS * POND_ROWS; // 10 个鱼塘
+
+/* ---------- 养殖:动物数据(幼崽价/生长秒数/产出间隔秒数/产物/经验/解锁等级)
+   成熟后持续产出:每 produceEvery 秒产 1 个产物,累计 ANIMAL_MAX_PRODUCE 次后可收获动物本体进仓库;
+   牧槽不空时每 FEED_EVERY 个周期自动消耗 1 牧草,缺草时生长/产出暂停 ---------- */
+const ANIMALS = {
+    ji:    { name: '鸡',   cost: 100,  grow: 1200, produceEvery: 180,  product: 'jidan',    xp: 25,  level: 1  },
+    ya:    { name: '鸭',   cost: 250,  grow: 1500, produceEvery: 300,  product: 'yadan',    xp: 55,  level: 3  },
+    niu:   { name: '牛',   cost: 500,  grow: 1800, produceEvery: 600,  product: 'niunai',   xp: 100, level: 5  },
+    yang:  { name: '羊',   cost: 1000, grow: 2400, produceEvery: 1200, product: 'yangmao',  xp: 180, level: 7  },
+    tu:    { name: '兔',   cost: 1500, grow: 3000, produceEvery: 1500, product: 'tumao',    xp: 240, level: 9  },
+    e:     { name: '鹅',   cost: 2200, grow: 3600, produceEvery: 1800, product: 'edan',     xp: 300, level: 11 },
+    zhu:   { name: '猪',   cost: 3200, grow: 4200, produceEvery: 2100, product: 'songlu',   xp: 380, level: 13 },
+    huoji: { name: '火鸡', cost: 4500, grow: 4800, produceEvery: 2400, product: 'huoji_dan', xp: 460, level: 15 },
+};
+const ANIMAL_KEYS = Object.keys(ANIMALS);
+
+/* 动物产物与成体(与收获物同仓库,统一出售);牧草作为商品存在仓库,手动添入牧槽 */
+const ANIMAL_PRODUCTS = {
+    jidan:     { name: '鸡蛋', sell: 40  },
+    yadan:     { name: '鸭蛋', sell: 90  },
+    niunai:    { name: '牛奶', sell: 180 },
+    yangmao:   { name: '羊毛', sell: 350 },
+    tumao:     { name: '兔毛', sell: 420 },
+    edan:      { name: '鹅蛋', sell: 550 },
+    songlu:    { name: '松露', sell: 650 },
+    huoji_dan: { name: '火鸡蛋', sell: 780 },
+    siliao:    { name: '牧草', sell: 2   },
+    /* 成体动物(累计产出 ANIMAL_MAX_PRODUCE 次后收获进仓库,key 与 ANIMALS 相同) */
+    ji:    { name: '成鸡',   sell: 80  },
+    ya:    { name: '成鸭',   sell: 180 },
+    niu:   { name: '成牛',   sell: 350 },
+    yang:  { name: '成羊',   sell: 650 },
+    tu:    { name: '成兔',   sell: 900 },
+    e:     { name: '成鹅',   sell: 1300 },
+    zhu:   { name: '成猪',   sell: 1800 },
+    huoji: { name: '成火鸡', sell: 2400 },
+};
+const ANIMAL_MAX_PRODUCE = 10;      // 动物成熟后可收获产物的次数,满后收获动物本体
+
+/* ---------- 养殖栏位:4 行 × 5 列共 20 格,初始开放 4 格,Lv.5 起每升 2 级花金币再开 1 格 ---------- */
+const RANCH_TOTAL = 20;              // 栏位总数(4 行 × 5 列)
+const RANCH_INITIAL_OPEN = 4;        // 初始开放栏位数
+const RANCH_FIRST_LEVEL = 5;         // 扩张栏位起始等级
+const RANCH_EXPAND_INTERVAL = 2;     // 每升多少级开放 1 格
+const RANCH_UNLOCK_COST = [200, 400, 600, 800, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 6000, 8000, 10000]; // 扩张格(下标 4~19)解锁费用,上限 10000
+const FEED_COST = 10;                // 牧草单价(金币)
+const FEED_TROUGH_CAP = 1000;        // 牧槽容量(牧草上限)
+const FEED_EVERY = 2;                // 每产出 FEED_EVERY 个周期后需要喂食一次(饥饿间隔 = produceEvery*FEED_EVERY)
 
 /* ---------- 其他常量 ---------- */
 const SAVE_KEY = 'qqfarm_text_v6';

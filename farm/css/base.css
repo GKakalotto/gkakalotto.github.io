@@ -885,3 +885,42 @@ button.danger:hover {
 .log-list div:first-child {
     color: var(--log-text-new);
 }
+
+/* 养殖栏位网格:5 列 × 4 行,复用 .plot 基础样式 */
+.ranch {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+}
+
+/* 牧槽:牧场栏位上方扁长条,显示牧草存量/容量 */
+.feed-trough {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding: 6px 16px;
+    height: 34px;
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    background: var(--surface2);
+    font-size: 13px;
+}
+
+.feed-trough .trough-label {
+    color: var(--text-dim);
+}
+
+.feed-trough .trough-num {
+    color: var(--accent-bright);
+    font-weight: bold;
+}
+
+.feed-trough .trough-add {
+    padding: 2px 14px;
+    font-size: 12px;
+}

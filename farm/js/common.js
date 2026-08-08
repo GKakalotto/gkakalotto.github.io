@@ -30,6 +30,10 @@ const commonComputed = {
             const p = this.pond[i];
             return p ? '确定移除第 ' + (i + 1) + ' 个鱼塘的' + FISH[p.type].name + '吗?' : '';
         }
+        if (this.menuTarget === 'ranch') {
+            const a = this.animals[i];
+            return a ? '确定移除第 ' + (i + 1) + ' 个栏位的' + ANIMALS[a.type].name + '吗?' : '';
+        }
         const p = this.plots[i];
         return p ? '确定铲除第 ' + (i + 1) + ' 块地的' + CROPS[p.type].name + '吗?' : '';
     },
@@ -47,6 +51,8 @@ const commonMethods = {
                 coins: this.coins, level: this.level, xp: this.xp, theme: this.theme,
                 plots: this.plots, unlockedPlots: this.unlockedPlots, pond: this.pond,
                 pondUnlocked: this.pondUnlocked, unlockedPonds: this.unlockedPonds,
+                animals: this.animals, unlockedRanches: this.unlockedRanches,
+                feedTrough: this.feedTrough, scene: this.scene,
                 inventory: this.inventory, fish: this.fish, hireUntil: this.hireUntil, log: this.log,
             }));
         } catch (e) { /* 无持久化时游戏仍可运行 */ }
@@ -63,6 +69,7 @@ const commonMethods = {
         this.level = s.level;
         this.xp = s.xp;
         this.theme = s.theme || 'dark';
+        this.scene = s.scene === 'ranch' ? 'ranch' : 'farm'; // 记住上次所在场景,刷新后停留原地
         this.plots = s.plots;
         this.unlockedPlots = s.unlockedPlots;
         this.pond = Array.isArray(s.pond) && s.pond.length === TOTAL_PONDS
@@ -75,12 +82,21 @@ const commonMethods = {
             : (this.pondUnlocked
                 ? Array.from({ length: TOTAL_PONDS }, (_, i) => i < POND_INITIAL_OPEN + Math.floor((this.level - POND_UNLOCK_LEVEL) / POND_EXPAND_INTERVAL))
                 : Array.from({ length: TOTAL_PONDS }, () => false));
-        this.inventory = s.inventory || { seeds: { luobo: 3 }, items: {}, locks: {} };
+        this.inventory = s.inventory || { seeds: { luobo: 3 }, items: {}, locks: {}, young: {} };
         if (!this.inventory.locks) this.inventory.locks = {};
+        if (!this.inventory.young) this.inventory.young = {};
         this.fish = s.fish || { fries: {} };
         if (!this.fish.fries) this.fish.fries = {};
         this.hireUntil = s.hireUntil || 0; // 旧存档无此字段 = 未雇佣
         this.log = Array.isArray(s.log) ? s.log : [];
+        // 养殖栏位:旧存档可能不足 RANCH_TOTAL 格,补齐到 RANCH_TOTAL 格并保留已有动物
+        const padArr = (arr, fill) => Array.isArray(arr)
+            ? arr.concat(Array.from({ length: RANCH_TOTAL - arr.length }, () => fill)).slice(0, RANCH_TOTAL)
+            : null;
+        this.animals = padArr(s.animals, null) || Array.from({ length: RANCH_TOTAL }, () => null);
+        this.unlockedRanches = padArr(s.unlockedRanches, false) || Array.from({ length: RANCH_TOTAL }, (_, i) => i < RANCH_INITIAL_OPEN);
+        // 牧槽:槽内牧草(喂食消耗);仓库中的牧草(items['siliao'])由玩家手动添入
+        this.feedTrough = s.feedTrough || 0;
         // 清理旧存档中已下架(水果)的作物/鱼,避免渲染报错
         this.plots.forEach((p, i) => {
             if (p && !CROPS[p.type]) this.$set(this.plots, i, null);
@@ -90,9 +106,14 @@ const commonMethods = {
             if (p && !FISH[p.type]) this.$set(this.pond, i, null);
             else if (p && p.announced === undefined) this.$set(p, 'announced', false);
         });
-        Object.keys(this.inventory.items).forEach((k) => { if (!CROPS[k] && !FISH[k]) this.$delete(this.inventory.items, k); });
+        this.animals.forEach((a, i) => {
+            if (a && !ANIMALS[a.type]) this.$set(this.animals, i, null);
+            else if (a && a.announced === undefined) this.$set(a, 'announced', false);
+        });
+        Object.keys(this.inventory.items).forEach((k) => { if (!CROPS[k] && !FISH[k] && !ANIMAL_PRODUCTS[k]) this.$delete(this.inventory.items, k); });
         Object.keys(this.inventory.seeds).forEach((k) => { if (!CROPS[k]) this.$delete(this.inventory.seeds, k); });
-        Object.keys(this.inventory.locks).forEach((k) => { if (!CROPS[k] && !FISH[k]) this.$delete(this.inventory.locks, k); });
+        Object.keys(this.inventory.locks).forEach((k) => { if (!CROPS[k] && !FISH[k] && !ANIMAL_PRODUCTS[k]) this.$delete(this.inventory.locks, k); });
+        Object.keys(this.inventory.young).forEach((k) => { if (!ANIMALS[k]) this.$delete(this.inventory.young, k); });
         Object.keys(this.fish.fries).forEach((k) => { if (!FISH[k]) this.$delete(this.fish.fries, k); });
     },
     resetGame() {
@@ -107,7 +128,10 @@ const commonMethods = {
             this.pond = d.pond;
             this.pondUnlocked = d.pondUnlocked;
             this.unlockedPonds = d.unlockedPonds;
-            this.qtys = { shop: {}, fishshop: {}, warehouseItems: {}, warehouseSeeds: {}, fishFries: {} };
+            this.animals = d.animals;
+            this.unlockedRanches = d.unlockedRanches;
+            this.feedTrough = d.feedTrough;
+            this.qtys = { shop: {}, fishshop: {}, warehouseItems: {}, warehouseSeeds: {}, fishFries: {}, ranch: {}, ranchfeed: {}, feedadd: {} };
             this.inventory = d.inventory;
             this.fish = d.fish;
             this.log = d.log;
@@ -136,6 +160,7 @@ const commonMethods = {
     clearConfirm() { this.menuView = 'clear'; },
     confirmClear() {
         if (this.menuTarget === 'pond') this.doClearPond(this.menuPlot);
+        else if (this.menuTarget === 'ranch') this.doClearAnimal(this.menuPlot);
         else this.doClear(this.menuPlot);
     },
     /* 时间格式化包装方法(供模板直接调用全局纯函数) */
@@ -143,9 +168,9 @@ const commonMethods = {
     fmtRemain(s) { return fmtRemain(s); },
     fmtTime(t) { return fmtTime(t); },
 
-    /* ---------- 仓库:作物与鱼的物品统一处理 ---------- */
-    itemName(key) { const it = CROPS[key] || FISH[key]; return it ? it.name : key; },
-    itemSell(key) { const it = CROPS[key] || FISH[key]; return it ? it.sell : 0; },
+    /* ---------- 仓库:作物/鱼/动物产物统一处理 ---------- */
+    itemName(key) { const it = CROPS[key] || FISH[key] || ANIMAL_PRODUCTS[key]; return it ? it.name : key; },
+    itemSell(key) { const it = CROPS[key] || FISH[key] || ANIMAL_PRODUCTS[key]; return it ? it.sell : 0; },
 
     /* ---------- 数量步进器(默认 0) ---------- */
     qtyFor(group, key) { return this.qtys[group][key] || 0; },
@@ -160,6 +185,10 @@ const commonMethods = {
         } else if (group === 'fishFries') {
             const owned = this.fish.fries[key] || 0;
             if (v > owned) v = Math.max(0, owned);
+        } else if (group === 'feedadd') {
+            // 添入牧槽:不超过仓库牧草数,也不超过牧槽剩余容量(防溢出)
+            const max = Math.min(this.inventory.items['siliao'] || 0, FEED_TROUGH_CAP - this.feedTrough);
+            if (v > max) v = Math.max(0, max);
         }
         return v;
     },
@@ -181,7 +210,9 @@ const commonMethods = {
     seedLocked(key) { return this.level < this.seedLevelReq(key); },
     openShopDetail(tab, key) {
         // 未解锁禁止点击
-        const locked = tab === 'crops' ? this.seedLocked(key) : this.fishLocked(key);
+        const locked = tab === 'crops' ? this.seedLocked(key)
+            : tab === 'fish' ? this.fishLocked(key)
+            : tab === 'ranch' ? this.animalLocked(key) : false;
         if (locked) return;
         this.shopDetail = { tab: tab, key: key };
     },
@@ -190,6 +221,8 @@ const commonMethods = {
         // 关闭详情时重置数量,再次打开从 0 开始
         this.qtys.shop = {};
         this.qtys.fishshop = {};
+        this.qtys.ranch = {};
+        this.qtys.ranchfeed = {};
     },
     openShop() {
         this.hideContextMenu();
@@ -216,6 +249,17 @@ const commonMethods = {
 
     /* ---------- 背包 / 仓库 ---------- */
     seedSellPrice(key) { return Math.floor(CROPS[key].cost / 2); }, // 种子回收价 = 种子售价的一半
+    fishSellPrice(key) { return Math.floor(FISH[key].cost / 2); }, // 鱼苗回收价 = 鱼苗价的一半
+    recycleFry(key) {
+        const qty = Math.min(this.qtyFor('fishFries', key), this.fish.fries[key] || 0);
+        if (qty <= 0) return;
+        const price = this.fishSellPrice(key);
+        this.fish.fries[key] -= qty;
+        if (this.fish.fries[key] <= 0) this.$delete(this.fish.fries, key);
+        this.coins += price * qty;
+        this.addLog('回收 ' + FISH[key].name + ' 鱼苗 x' + qty + ',获得 ' + (price * qty) + ' 金币');
+        this.save();
+    },
     openBackpack() {
         this.hideContextMenu();
         this.modalMode = 'backpack';
@@ -230,6 +274,8 @@ const commonMethods = {
         // 切换标签:重置输入框数量、关闭详情、重置滚动位置
         this.qtys.shop = {};
         this.qtys.fishshop = {};
+        this.qtys.ranch = {};
+        this.qtys.ranchfeed = {};
         this.shopTab = tab;
         this.shopDetail = null;
         this.resetModalScroll();
@@ -320,8 +366,9 @@ const commonMethods = {
         this.closeModal();
     },
     closeModal() {
-        if (this.modalMode === 'shop') { this.qtys.shop = {}; this.qtys.fishshop = {}; }
+        if (this.modalMode === 'shop') { this.qtys.shop = {}; this.qtys.fishshop = {}; this.qtys.ranch = {}; this.qtys.ranchfeed = {}; }
         else if (this.modalMode === 'warehouse' || this.modalMode === 'backpack') { this.qtys.warehouseItems = {}; this.qtys.warehouseSeeds = {}; this.qtys.fishFries = {}; }
+        else if (this.modalMode === 'feedadd') { this.qtys.feedadd = {}; }
         this.shopDetail = null;
         this.modalMode = null;
         this.modalPlot = -1;
@@ -427,6 +474,7 @@ const commonMethods = {
         this.checkDrought();
         this.checkMature();
         this.checkFishMature();
+        if (this.checkAnimals) this.checkAnimals(); // 养殖模块存在时一并检查
     },
     checkDrought() {
         if (this.hired) return; // 雇佣期间植物不会缺水
@@ -468,5 +516,16 @@ const commonMethods = {
     },
     onContextMenu(e) {
         e.preventDefault(); // 禁用浏览器默认右键菜单
+    },
+
+    /* ---------- 场景切换(农场 / 养殖场) ---------- */
+    setScene(s) {
+        this.hideContextMenu();
+        this.closeModal(); // 切换场景时关闭打开的弹窗(商店内容随场景不同)
+        this.scene = s;
+        this.save(); // 记住场景,刷新后停留原地
+    },
+    toggleScene() {
+        this.setScene(this.scene === 'farm' ? 'ranch' : 'farm');
     },
 };

@@ -211,7 +211,6 @@ const pondMethods = {
     fishKindCls(key) { return KIND_CLS[key]; },
     fishLevelReq(key) { return FISH[key].level; },
     fishLocked(key) { return !this.pondUnlocked || this.level < FISH[key].level; }, // 鱼塘未解锁时鱼苗全部锁定
-    fishSellPrice(key) { return Math.floor(FISH[key].cost / 2); }, // 鱼苗回收价 = 鱼苗价的一半
     buyFry(key) {
         const f = FISH[key];
         const qty = this.qtyFor('fishshop', key);
@@ -225,16 +224,6 @@ const pondMethods = {
             this.addLog('购买了 ' + f.name + ' 鱼苗 x' + qty);
             this.$set(this.qtys.fishshop, key, 0); // 买完重置数量框
         }
-        this.save();
-    },
-    recycleFry(key) {
-        const qty = Math.min(this.qtyFor('fishFries', key), this.fish.fries[key] || 0);
-        if (qty <= 0) return;
-        const price = this.fishSellPrice(key);
-        this.fish.fries[key] -= qty;
-        if (this.fish.fries[key] <= 0) this.$delete(this.fish.fries, key);
-        this.coins += price * qty;
-        this.addLog('回收 ' + FISH[key].name + ' 鱼苗 x' + qty + ',获得 ' + (price * qty) + ' 金币');
         this.save();
     },
 };

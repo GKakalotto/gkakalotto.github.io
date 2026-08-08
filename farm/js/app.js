@@ -13,14 +13,18 @@ const app = new Vue({
             pond: d.pond,
             pondUnlocked: d.pondUnlocked,
             unlockedPonds: d.unlockedPonds,
+            animals: d.animals,
+            unlockedRanches: d.unlockedRanches,
+            feedTrough: d.feedTrough,
             inventory: d.inventory,
             fish: d.fish,
             hireUntil: d.hireUntil,
             log: d.log,
             theme: 'dark',
             now: Date.now(),              // 每秒刷新的时钟,驱动进度/倒计时
+            scene: 'farm',                // 'farm' 农场 | 'ranch' 养殖场
             settingsOpen: false,
-            modalMode: null,              // 'shop' | 'backpack' | 'warehouse' | 'unlock' | 'pondunlock' | 'pondcell' | 'hire' | 'log' | 'msg' | 'confirm'
+            modalMode: null,              // 'shop' | 'backpack' | 'warehouse' | 'unlock' | 'pondunlock' | 'pondcell' | 'ranchcell' | 'hire' | 'log' | 'msg' | 'confirm'
             modalTitle: '',
             modalPlot: -1,
             modalHtml: '',
@@ -28,17 +32,17 @@ const app = new Vue({
             modalOnCancel: null,          // 通用确认弹窗取消时的回调(可选)
             shopTab: 'crops',             // 商店标签:'crops' 作物 | 'fish' 鱼类
             shopDetail: null,             // 商店详情小窗:null 或 { tab:'crops'|'fish', key }
-            qtys: { shop: {}, fishshop: {}, warehouseItems: {}, warehouseSeeds: {}, fishFries: {} },
+            qtys: { shop: {}, fishshop: {}, warehouseItems: {}, warehouseSeeds: {}, fishFries: {}, ranch: {}, ranchfeed: {}, feedadd: {} },
             menuVisible: false,
-            menuTarget: 'plot',           // 'plot' | 'pond' 当前右键菜单属于农田还是鱼塘
+            menuTarget: 'plot',           // 'plot' | 'pond' | 'ranch' 当前右键菜单属于哪个场景
             menuView: 'main',             // 'main' | 'plant' | 'stock' | 'clear'
-            menuDirect: false,            // 是否由点击空地/空鱼塘直接进入列表(直接列表不显示返回按钮)
+            menuDirect: false,            // 是否由点击空地/空栏位直接进入列表(直接列表不显示返回按钮)
             menuPlot: -1,
             menuX: 0,
             menuY: 0,
         };
     },
-    computed: Object.assign({}, commonComputed, farmComputed, pondComputed),
+    computed: Object.assign({}, commonComputed, farmComputed, pondComputed, ranchComputed),
     watch: {
         theme() {
             this.applyTheme();
@@ -59,5 +63,5 @@ const app = new Vue({
         document.removeEventListener('keydown', this.onKeydown);
         document.removeEventListener('contextmenu', this.onContextMenu);
     },
-    methods: Object.assign({}, commonMethods, farmMethods, pondMethods),
+    methods: Object.assign({}, commonMethods, farmMethods, pondMethods, ranchMethods),
 });
