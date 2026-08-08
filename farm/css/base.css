@@ -404,7 +404,7 @@ button:disabled {
 }
 
 .modal-footer button {
-    min-width: 180px;
+    min-width: 120px;
     font-weight: bold;
 }
 
@@ -723,6 +723,28 @@ input[type="number"]::-webkit-inner-spin-button {
     margin: auto;
     text-align: center;
     line-height: 1.9;
+}
+
+/* ================= 雇佣选择弹窗 ================= */
+.hire-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: auto;
+    width: 100%;
+    max-width: 320px;
+}
+
+.hire-tip {
+    color: var(--text-dim);
+    font-size: 13px;
+    text-align: center;
+    padding-bottom: 4px;
+}
+
+.hire-options button {
+    padding: 10px;
+    font-size: 14px;
 }
 
 /* ================= 右键菜单(点击位置弹出) ================= */

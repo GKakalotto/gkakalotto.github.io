@@ -6,11 +6,12 @@ const commonComputed = {
     xpText() { return this.xp + '/' + xpNeeded(this.level); },
     /* 雇佣农工:8小时内植物不会缺水 */
     hired() { return this.now < this.hireUntil; },
-    hireText() { return this.hired ? '雇佣中(剩余' + this.hireRemainText() + ')' : '雇佣(' + HIRE_COST + '金币)'; },
+    hireOptions() { return HIRE_OPTIONS; },
+    hireText() { return this.hired ? '雇佣中' : '雇佣农工'; },
     hireTitle() {
         return this.hired
-            ? '8小时内植物不会缺水,剩余 ' + this.hireRemainText()
-            : '花费 ' + HIRE_COST + ' 金币雇佣农工,8小时内植物不会缺水';
+            ? '雇佣中,植物不会缺水,剩余 ' + this.hireRemainText()
+            : '点击选择雇佣时长(1/2/4/8小时),期间植物不会缺水';
     },
     seedKeys() { return Object.keys(this.inventory.seeds); },
     itemKeys() { return Object.keys(this.inventory.items); },
@@ -184,7 +185,12 @@ const commonMethods = {
         if (locked) return;
         this.shopDetail = { tab: tab, key: key };
     },
-    closeShopDetail() { this.shopDetail = null; },
+    closeShopDetail() {
+        this.shopDetail = null;
+        // 关闭详情时重置数量,再次打开从 0 开始
+        this.qtys.shop = {};
+        this.qtys.fishshop = {};
+    },
     openShop() {
         this.hideContextMenu();
         this.shopDetail = null; // 防止从其他弹窗切回时残留详情对话框
@@ -243,6 +249,7 @@ const commonMethods = {
         this.save();
     },
     sellItem(key) {
+        if (this.inventory.locks[key]) { this.addLog(this.itemName(key) + ' 已锁定,请先解锁再出售'); this.save(); return; }
         const qty = Math.min(this.qtyFor('warehouseItems', key), this.inventory.items[key] || 0);
         if (qty <= 0) return;
         this.inventory.items[key] -= qty;
@@ -319,6 +326,7 @@ const commonMethods = {
         this.modalMode = null;
         this.modalPlot = -1;
         this.modalOnOk = null;
+        this.modalOnCancel = null;
         this.resetModalScroll(); // 关闭后重置滚动位置
     },
     showMessage(title, html) {
@@ -327,19 +335,28 @@ const commonMethods = {
         this.modalTitle = title;
         this.modalHtml = html;
     },
-    /* 通用确认弹窗:替代浏览器 confirm */
-    confirmModal(title, html, onOk) {
+    /* 通用确认弹窗:替代浏览器 confirm。onCancel 存在时,取消回到调用方指定的界面(而非关闭弹窗) */
+    confirmModal(title, html, onOk, onCancel) {
         this.hideContextMenu();
         this.modalMode = 'confirm';
         this.modalTitle = title;
         this.modalHtml = html;
         this.modalOnOk = onOk;
+        this.modalOnCancel = onCancel;
     },
     confirmOk() {
         const cb = this.modalOnOk;
         this.modalOnOk = null;
+        this.modalOnCancel = null;
         this.closeModal();
         if (cb) cb();
+    },
+    confirmCancel() {
+        const cb = this.modalOnCancel;
+        this.modalOnCancel = null;
+        this.modalOnOk = null;
+        if (cb) cb(); // 有回调时由回调决定界面(如回到上一弹窗),否则直接关闭
+        else this.closeModal();
     },
     openLogModal() {
         this.hideContextMenu();
@@ -353,25 +370,41 @@ const commonMethods = {
 
     /* 雇佣农工:8 小时内植物不会缺水 */
     hireRemainText() {
-        const mins = Math.ceil(Math.max(0, this.hireUntil - this.now) / 60000);
-        if (mins >= 60) {
-            const h = Math.floor(mins / 60), r = mins % 60;
-            return h + '小时' + (r > 0 ? r + '分' : '');
-        }
-        return mins + '分钟';
+        const secs = Math.max(0, Math.ceil((this.hireUntil - this.now) / 1000));
+        const h = Math.floor(secs / 3600);
+        const m = Math.floor((secs % 3600) / 60);
+        const s = secs % 60;
+        let text = '';
+        if (h > 0) text += h + '小时';
+        if (m > 0 || h > 0) text += m + '分';
+        text += s + '秒';
+        return text;
     },
-    hireFarmhand() {
-        if (this.hired) {
-            this.addLog('雇佣中,植物不会缺水(剩余 ' + this.hireRemainText() + ')');
-            return;
-        }
-        if (this.coins < HIRE_COST) {
-            this.showMessage('无法雇佣', '金币不足,雇佣农工需要 <b>' + HIRE_COST + '</b> 金币,当前仅 ' + this.coins + ' 金币');
-            return;
-        }
-        this.confirmModal('雇佣农工', '确定雇佣农工?花费 <b>' + HIRE_COST + '</b> 金币,8 小时内植物不会缺水', () => {
-            this.coins -= HIRE_COST;
-            this.hireUntil = Date.now() + HIRE_DURATION;
+    unhire() {
+        this.confirmModal('解除雇佣', '确定要解除雇佣吗?剩余时长将作废', () => {
+            this.hireUntil = 0;
+            this.addLog('已解除雇佣,植物将恢复缺水机制');
+            this.save();
+        }, () => {
+            // 取消:回到雇佣详情弹窗
+            this.modalMode = 'hire';
+            this.modalTitle = '雇佣状态';
+        });
+    },
+    /* 雇佣农工:未雇佣时弹窗选择时长(确认后生效),已雇佣时弹窗显示状态 */
+    openHireModal() {
+        this.hideContextMenu();
+        this.modalMode = 'hire';
+        this.modalTitle = this.hired ? '雇佣状态' : '雇佣农工';
+    },
+    hireFarmhand(opt) {
+        this.confirmModal('雇佣农工', '确定雇佣 <b>' + opt.hours + '</b> 小时?花费 <b>' + opt.cost + '</b> 金币,期间植物不会缺水', () => {
+            if (this.coins < opt.cost) {
+                this.addLog('金币不足,雇佣 ' + opt.hours + ' 小时需要 ' + opt.cost + ' 金币');
+                return;
+            }
+            this.coins -= opt.cost;
+            this.hireUntil = Date.now() + opt.hours * 3600 * 1000;
             // 立即浇好当前所有缺水植物,并取消已预约的干旱
             let watered = 0;
             this.plots.forEach((p) => {
@@ -379,8 +412,12 @@ const commonMethods = {
                 if (p.dry) { p.dry = false; p.resumedAt = Date.now(); watered++; }
                 p.droughtAt = null;
             });
-            this.addLog('雇佣了农工,8 小时内植物不会缺水' + (watered > 0 ? ',已浇好 ' + watered + ' 棵缺水植物' : ''));
+            this.addLog('雇佣了农工 ' + opt.hours + ' 小时,期间植物不会缺水' + (watered > 0 ? ',已浇好 ' + watered + ' 棵缺水植物' : ''));
             this.save();
+        }, () => {
+            // 取消:回到雇佣选择弹窗
+            this.modalMode = 'hire';
+            this.modalTitle = '雇佣农工';
         });
     },
 

@@ -4,11 +4,6 @@ const pondComputed = {
     menuPondHarvestEnabled() { const p = this.pond[this.menuPlot]; return !!p && this.pondProgress(this.menuPlot) >= 1; },
     pondUnlockLevel() { return POND_UNLOCK_LEVEL; },
     pondUnlockCost() { return POND_UNLOCK_COST; },
-    pondBonusCount() { return POND_BONUS_COUNT; },
-    pondBonusName() { return FISH[POND_BONUS_FRY].name; },
-    pondTotal() { return TOTAL_PONDS; },
-    pondInitialOpen() { return POND_INITIAL_OPEN; },
-    pondExpandInterval() { return POND_EXPAND_INTERVAL; },
 };
 
 const pondMethods = {

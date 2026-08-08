@@ -75,10 +75,10 @@
             <div class="toolbar">
                 <button @click="harvestAll()">一键收获</button>
                 <button @click="harvestFishAll()" :disabled="!pondUnlocked">一键捕捞</button>
-                <button @click="hireFarmhand()" :title="hireTitle">{{ hireText }}</button>
+                <button @click="openHireModal()" :title="hireTitle">{{ hireText }}</button>
             </div>
 
-            <!-- 鱼塘:10级+5000金币解锁区域,解锁后开放 5 格,其余格每升 2 级可花金币再开 1 格(共 10 格) -->
+            <!-- 鱼塘:10级+5000金币解锁区域,解锁后开放初始格,其余格随等级花金币逐格扩张 -->
             <div class="pond-wrap">
                 <div v-if="!pondUnlocked" class="pond-locked" @click="openPondUnlock()">
                     <div>鱼塘未解锁</div>
@@ -270,7 +270,7 @@
                                                @change="qtyInput('warehouseItems', key, $event.target.value)">
                                         <button @click="qtyChange('warehouseItems', key, 1)">&gt;</button>
                                     </div>
-                                    <button @click="sellItem(key)">出售({{ itemSell(key) * qtyFor('warehouseItems', key) }}金币)</button>
+                                    <button @click="sellItem(key)" :disabled="inventory.locks[key]" :title="inventory.locks[key] ? '已锁定,请先解锁' : ''">出售({{ itemSell(key) * qtyFor('warehouseItems', key) }}金币)</button>
                                 </div>
                             </div>
                         </template>
@@ -290,7 +290,6 @@
                     <div v-else-if="modalMode === 'pondunlock'" class="center-tip">
                         <div>解锁等级:<b>Lv.{{ pondUnlockLevel }}</b><template v-if="level >= pondUnlockLevel"> — 已满足</template><template v-else> — 当前 Lv.{{ level }},等级不足</template></div>
                         <div style="margin-top:6px;">解锁费用:<b>{{ pondUnlockCost }}</b> 金币<template v-if="coins >= pondUnlockCost"> — 可支付</template><template v-else> — 金币不足</template></div>
-                        <div style="margin-top:6px;">解锁后开放 {{ pondInitialOpen }} 格,其余 {{ pondTotal - pondInitialOpen }} 格每升 {{ pondExpandInterval }} 级可花金币再开 1 格(共 {{ pondTotal }} 格),并赠送 <b>{{ pondBonusCount }} 条{{ pondBonusName }}苗</b></div>
                         <div style="margin-top:14px;">
                             <button @click="doPondUnlock()" :disabled="!pondUnlockOk()">解锁鱼塘</button>
                             <button class="ghost" @click="closeModal()">取消</button>
@@ -320,7 +319,23 @@
                         <div v-html="modalHtml"></div>
                         <div style="margin-top:14px;">
                             <button @click="confirmOk()">确认</button>
-                            <button class="ghost" @click="closeModal()">取消</button>
+                            <button class="ghost" @click="confirmCancel()">取消</button>
+                        </div>
+                    </div>
+
+                    <!-- 雇佣:未雇佣时选择时长,已雇佣时显示状态详情 -->
+                    <div v-else-if="modalMode === 'hire'">
+                        <div v-if="hired" class="center-tip">
+                            <div>当前雇佣中,植物不会缺水</div>
+                            <div style="margin-top:6px;">剩余时长:<b>{{ hireRemainText() }}</b></div>
+                            <div style="margin-top:14px;">
+                                <button class="ghost" @click="closeModal()">关闭</button>
+                                <button class="danger" @click="unhire()">解除雇佣</button>
+                            </div>
+                        </div>
+                        <div v-else class="hire-options">
+                            <div class="hire-tip">选择雇佣时长,期间植物不会缺水</div>
+                            <button v-for="opt in hireOptions" :key="opt.hours" :disabled="coins < opt.cost" @click="hireFarmhand(opt)">雇佣 {{ opt.hours }} 小时({{ opt.cost }} 金币)</button>
                         </div>
                     </div>
                 </div>

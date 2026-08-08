@@ -77,8 +77,8 @@ const PLOT_LEVEL_REQ = [1, 1, 1, 1, 1, 1, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 2
 const PLOT_UNLOCK_COST = [0, 0, 0, 0, 0, 0, 150, 180, 270, 420, 630, 900, 1230, 1620, 2070, 2580, 3150, 3780, 4470, 5220, 6030, 6900, 7830, 8820];
 
 /* ---------- 鱼塘解锁条件 ----------
-   区域:Lv.10 + 5000 金币一次性解锁;解锁后开放 POND_INITIAL_OPEN 格(自动),
-   之后每升 POND_EXPAND_INTERVAL 级可花金币再开 1 格(共 TOTAL_PONDS 格),
+   区域:Lv.10 + 5000 金币一次性解锁,赠送 POND_BONUS_COUNT 条鱼苗;
+   初始开放 POND_INITIAL_OPEN 格,其余格每升 POND_EXPAND_INTERVAL 级花金币再开 1 格(共 TOTAL_PONDS 格),
    扩张格费用见 POND_CELL_UNLOCK_COST ---------- */
 const POND_UNLOCK_LEVEL = 10;   // 10 级解锁区域
 const POND_UNLOCK_COST = 5000;  // 解锁区域费用 5000 金币
@@ -86,9 +86,14 @@ const POND_INITIAL_OPEN = 5;    // 区域解锁后初始开放的鱼塘格数(�
 const POND_EXPAND_INTERVAL = 2; // 每升多少级再开放 1 格鱼塘
 const POND_CELL_UNLOCK_COST = [200, 400, 800, 1600, 3200]; // 扩张格(下标 5~9)解锁费用
 const POND_BONUS_FRY = 'caoyu'; // 解锁赠送的鱼苗种类
-const POND_BONUS_COUNT = 10;    // 赠送鱼苗数量
-const HIRE_COST = 5000;         // 雇佣农工费用
-const HIRE_DURATION = 8 * 60 * 60 * 1000; // 雇佣有效期 8 小时(毫秒)
+const POND_BONUS_COUNT = 3;     // 赠送鱼苗数量
+/* ---------- 雇佣农工:可选时长(小时)与对应费用 ---------- */
+const HIRE_OPTIONS = [
+    { hours: 1, cost: 1000 },
+    { hours: 2, cost: 1800 },
+    { hours: 4, cost: 3200 },
+    { hours: 8, cost: 5000 },
+];
 const POND_COLS = 5;            // 鱼塘列数
 const POND_ROWS = 2;            // 鱼塘行数
 const TOTAL_PONDS = POND_COLS * POND_ROWS; // 10 个鱼塘

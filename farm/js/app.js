@@ -20,11 +20,12 @@ const app = new Vue({
             theme: 'dark',
             now: Date.now(),              // 每秒刷新的时钟,驱动进度/倒计时
             settingsOpen: false,
-            modalMode: null,              // 'shop' | 'warehouse' | 'backpack' | 'unlock' | 'pondunlock' | 'log' | 'msg' | 'confirm'
+            modalMode: null,              // 'shop' | 'backpack' | 'warehouse' | 'unlock' | 'pondunlock' | 'pondcell' | 'hire' | 'log' | 'msg' | 'confirm'
             modalTitle: '',
             modalPlot: -1,
             modalHtml: '',
             modalOnOk: null,              // 通用确认弹窗的回调
+            modalOnCancel: null,          // 通用确认弹窗取消时的回调(可选)
             shopTab: 'crops',             // 商店标签:'crops' 作物 | 'fish' 鱼类
             shopDetail: null,             // 商店详情小窗:null 或 { tab:'crops'|'fish', key }
             qtys: { shop: {}, fishshop: {}, warehouseItems: {}, warehouseSeeds: {}, fishFries: {} },
