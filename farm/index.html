@@ -5,7 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>星露谷农场</title>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/farm.css">
+    <link rel="stylesheet" href="css/pond.css">
     <link rel="shortcut icon" href="favicon.png">
 </head>
 
@@ -76,7 +78,7 @@
                 <button @click="hireFarmhand()" :title="hireTitle">{{ hireText }}</button>
             </div>
 
-            <!-- 鱼塘:10级+5000金币整体解锁,解锁后开放全部 10 格 -->
+            <!-- 鱼塘:10级+5000金币解锁区域,解锁后开放 5 格,其余格每升 2 级可花金币再开 1 格(共 10 格) -->
             <div class="pond-wrap">
                 <div v-if="!pondUnlocked" class="pond-locked" @click="openPondUnlock()">
                     <div>鱼塘未解锁</div>
@@ -86,7 +88,12 @@
                 <div v-else class="pond">
                     <div v-for="(p, i) in pond" :key="i" class="plot" :class="pondClass(i)"
                          @click="onPondClick(i, $event)" :title="pondTitle(i)">
-                        <template v-if="p === null">
+                        <template v-if="!pondCellUnlocked(i)">
+                            <div>[鱼塘 {{ i + 1 }}]</div>
+                            <div class="state">未解锁</div>
+                            <div class="state">Lv.{{ pondCellLevelReq(i) }} 解锁</div>
+                        </template>
+                        <template v-else-if="p === null">
                             <div>[鱼塘 {{ i + 1 }}]</div>
                             <div class="state">点击查看</div>
                         </template>
@@ -119,14 +126,14 @@
             <template v-else-if="menuView === 'plant'">
                 <button v-if="!menuDirect" @click="menuBack()">← 返回</button>
                 <div v-if="seedKeys.length === 0" class="cm-tip">背包没有种子,请先去商店购买</div>
-                <div v-else class="cm-list">
+                <div v-else class="cm-actions">
                     <button v-for="key in seedKeys" :key="key" @click="doPlant(menuPlot, key)">{{ cropName(key) }} x{{ inventory.seeds[key] }}</button>
                 </div>
             </template>
             <template v-else-if="menuView === 'stock'">
                 <button v-if="!menuDirect" @click="menuBack()">← 返回</button>
                 <div v-if="fishFryKeys.length === 0" class="cm-tip">没有鱼苗,请先去商店购买</div>
-                <div v-else class="cm-list">
+                <div v-else class="cm-actions">
                     <button v-for="key in fishFryKeys" :key="key" @click="stockFry(menuPlot, key)">{{ fishName(key) }} x{{ fish.fries[key] }}</button>
                 </div>
             </template>
@@ -256,9 +263,19 @@
                     <div v-else-if="modalMode === 'pondunlock'" class="center-tip">
                         <div>解锁等级:<b>Lv.{{ pondUnlockLevel }}</b><template v-if="level >= pondUnlockLevel"> — 已满足</template><template v-else> — 当前 Lv.{{ level }},等级不足</template></div>
                         <div style="margin-top:6px;">解锁费用:<b>{{ pondUnlockCost }}</b> 金币<template v-if="coins >= pondUnlockCost"> — 可支付</template><template v-else> — 金币不足</template></div>
-                        <div style="margin-top:6px;">解锁后一次开放全部 {{ pondTotal }} 格,并赠送 <b>{{ pondBonusCount }} 条{{ pondBonusName }}苗</b></div>
+                        <div style="margin-top:6px;">解锁后开放 {{ pondInitialOpen }} 格,其余 {{ pondTotal - pondInitialOpen }} 格每升 {{ pondExpandInterval }} 级可花金币再开 1 格(共 {{ pondTotal }} 格),并赠送 <b>{{ pondBonusCount }} 条{{ pondBonusName }}苗</b></div>
                         <div style="margin-top:14px;">
                             <button @click="doPondUnlock()" :disabled="!pondUnlockOk()">解锁鱼塘</button>
+                            <button class="ghost" @click="closeModal()">取消</button>
+                        </div>
+                    </div>
+
+                    <!-- 鱼塘单格解锁(初始格自动开放,扩张格花金币) -->
+                    <div v-else-if="modalMode === 'pondcell'" class="center-tip">
+                        <div>解锁等级:<b>Lv.{{ pondCellLevelReq(modalPlot) }}</b><template v-if="level >= pondCellLevelReq(modalPlot)"> — 已满足</template><template v-else> — 当前 Lv.{{ level }},等级不足</template></div>
+                        <div style="margin-top:6px;">解锁费用:<b>{{ pondCellCost(modalPlot) }}</b> 金币<template v-if="coins >= pondCellCost(modalPlot)"> — 可支付</template><template v-else> — 金币不足</template></div>
+                        <div style="margin-top:14px;">
+                            <button @click="doUnlockPondCell(modalPlot)" :disabled="!pondCellUnlockOk(modalPlot)">解锁该鱼塘格</button>
                             <button class="ghost" @click="closeModal()">取消</button>
                         </div>
                     </div>
@@ -296,7 +313,11 @@
     <script src="js/vue.common.prod.min.js"></script>
     <script>window.Vue = window.module.exports;</script>
     <script src="js/data.js"></script>
-    <script src="js/script.js"></script>
+    <script src="js/util.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/farm.js"></script>
+    <script src="js/pond.js"></script>
+    <script src="js/app.js"></script>
 </body>
 
 </html>

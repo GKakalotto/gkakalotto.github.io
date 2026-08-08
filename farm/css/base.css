@@ -228,62 +228,7 @@ input {
     transform: translateY(1px);
 }
 
-.farm {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 10px;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 12px;
-}
-
-/* 鱼塘:6×3,与农田同网格布局(工具栏在其上方,无需额外上边距) */
-.pond-wrap {
-    margin-top: 0;
-}
-
-.pond {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr); /* 2 行 × 5 列 */
-    gap: 10px;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 12px;
-}
-
-/* 鱼塘空格子:主题自适应蓝色(暗色深蓝 / 亮色淡蓝) */
-.pond .plot.empty {
-    background: var(--pond-empty);
-    border-color: var(--pond-empty-border);
-}
-
-/* 鱼塘未解锁:整块锁定面板 */
-.pond-locked {
-    border: 1px solid var(--border2);
-    border-radius: 10px;
-    background: var(--surface2);
-    min-height: 200px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    cursor: pointer;
-    font-weight: bold;
-    color: var(--text-dim);
-}
-
-.pond-locked:hover {
-    border-color: var(--accent);
-}
-
-.pond-locked .state {
-    font-weight: normal;
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-top: 6px;
-}
-
+/* ================= 地块/鱼塘格子(农田与鱼塘共用) ================= */
 .plot {
     border: 1px solid var(--border);
     border-radius: 10px;
@@ -342,6 +287,7 @@ input {
     margin: 2px 0;
 }
 
+/* ================= 通用按钮 ================= */
 button {
     cursor: pointer;
     border: 1px solid var(--accent);
@@ -379,6 +325,7 @@ button:disabled {
     transform: none;
 }
 
+/* ================= 弹窗 / 遮罩 ================= */
 .overlay {
     position: fixed;
     inset: 0;
@@ -455,6 +402,7 @@ button:disabled {
     font-weight: bold;
 }
 
+/* ================= 卡片(商店/背包/仓库) ================= */
 .cards {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -568,6 +516,7 @@ button:disabled {
     color: var(--accent-text);
 }
 
+/* ================= 数量步进器 ================= */
 .stepper {
     display: flex;
     align-items: center;
@@ -622,7 +571,7 @@ input[type="number"]::-webkit-inner-spin-button {
     line-height: 1.9;
 }
 
-/* 地块右键菜单:点击位置弹出 */
+/* ================= 右键菜单(点击位置弹出) ================= */
 .context-menu {
     position: fixed;
     z-index: 100;
@@ -659,15 +608,7 @@ input[type="number"]::-webkit-inner-spin-button {
     cursor: not-allowed;
 }
 
-.context-menu .cm-list {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    max-height: 55vh;
-    overflow-y: auto;
-}
-
-/* 短内容的操作区(如铲除确认),不需要滚动条 */
+/* 操作区(种子/鱼苗列表、铲除确认等),内容按需要自然展开,不显示滚动条 */
 .context-menu .cm-actions {
     display: flex;
     flex-direction: column;
@@ -680,6 +621,7 @@ input[type="number"]::-webkit-inner-spin-button {
     padding: 8px 12px;
 }
 
+/* ================= 设置 / 主题 ================= */
 .settings-wrap {
     position: relative;
     justify-self: end;
@@ -756,6 +698,7 @@ button.danger:hover {
     accent-color: var(--accent);
 }
 
+/* ================= 日志 ================= */
 .log-list div {
     padding: 4px 0;
     border-bottom: 1px solid var(--border);

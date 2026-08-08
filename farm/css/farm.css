@@ -1,0 +1,9 @@
+/* 农田网格容器:4 行 × 6 列 */
+.farm {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+}
