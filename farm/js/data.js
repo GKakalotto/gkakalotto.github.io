@@ -49,12 +49,6 @@ const CROP_KIND = [
     { label: '经验', cls: 'exp' },
 ];
 
-/* ---------- 工具数据 ---------- */
-const TOOLS = {
-    hoe: { name: '锄头', levelReq: 5, cost: 688, desc: '拥有后才可以扩建土地' },
-    shovel: { name: '铲子', levelReq: 5, cost: 150, desc: '可铲除已种植的作物' },
-};
-
 /* ---------- 种子解锁等级(按作物 key) ---------- */
 const SEED_LEVEL_REQ = {
     luobo: 1, baicai: 1, tudou: 2, fanqie: 3, huanggua: 5, yumi: 7,
@@ -99,7 +93,6 @@ const POND_UNLOCK_LEVEL = 10;   // 10 级解锁
 const POND_UNLOCK_COST = 5000;  // 解锁费用 5000 金币
 const POND_BONUS_FRY = 'caoyu'; // 解锁赠送的鱼苗种类
 const POND_BONUS_COUNT = 10;    // 赠送鱼苗数量
-const FISH_NET_COST = 500;      // 渔网价格(鱼塘解锁后购买,购买后一键捕捞)
 const HIRE_COST = 5000;         // 雇佣农工费用
 const HIRE_DURATION = 8 * 60 * 60 * 1000; // 雇佣有效期 8 小时(毫秒)
 const POND_COLS = 5;            // 鱼塘列数

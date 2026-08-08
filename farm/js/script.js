@@ -31,7 +31,6 @@ function makeDefaultState() {
         pondUnlocked: false,             // 鱼塘默认锁定,10级+5000金币整体解锁
         inventory: { seeds: { luobo: 3 }, items: {}, locks: {} },
         fish: { fries: {} },             // 鱼苗库存(成鱼收获后进 inventory.items)
-        tools: { hoe: false, shovel: false, fishNet: false },
         hireUntil: 0,                    // 雇佣农工的到期时间戳,0 = 未雇佣
         log: [{ t: Date.now(), msg: '欢迎来到 星露谷农场!点空地种菜,生长中可能随机缺水需浇水;达到等级后解锁更多土地。' }],
     };
@@ -52,7 +51,6 @@ const app = new Vue({
             pondUnlocked: d.pondUnlocked,
             inventory: d.inventory,
             fish: d.fish,
-            tools: d.tools,
             hireUntil: d.hireUntil,
             log: d.log,
             theme: 'dark',
@@ -64,11 +62,11 @@ const app = new Vue({
             modalHtml: '',
             modalOnOk: null,              // 通用确认弹窗的回调
             shopTab: 'crops',             // 商店标签:'crops' 作物 | 'fish' 鱼类
-            warehouseTab: 'seeds',
             qtys: { shop: {}, fishshop: {}, warehouseItems: {}, warehouseSeeds: {}, fishFries: {} },
             menuVisible: false,
             menuTarget: 'plot',           // 'plot' | 'pond' 当前右键菜单属于农田还是鱼塘
             menuView: 'main',             // 'main' | 'plant' | 'stock' | 'clear'
+            menuDirect: false,            // 是否由点击空地/空鱼塘直接进入列表(直接列表不显示返回按钮)
             menuPlot: -1,
             menuX: 0,
             menuY: 0,
@@ -79,15 +77,6 @@ const app = new Vue({
         fishes() { return FISH; },
         levelText() { return 'Lv.' + this.level; },
         xpText() { return this.xp + '/' + xpNeeded(this.level); },
-        toolHoeText() { return '锄头' + (this.tools.hoe ? '✓' : '(买)'); },
-        toolShovelText() { return '铲子' + (this.tools.shovel ? '✓' : '(买)'); },
-        netText() {
-            return this.tools.fishNet ? '一键捕捞' : '渔网(买)';
-        },
-        netTitle() {
-            if (this.tools.fishNet) return '一键捕捞鱼塘里已长大的鱼';
-            return this.pondUnlocked ? '花费 ' + FISH_NET_COST + ' 金币解锁渔网' : '需先解锁鱼塘才能购买渔网';
-        },
         /* 雇佣农工:8小时内植物不会缺水 */
         hired() { return this.now < this.hireUntil; },
         hireText() { return this.hired ? '雇佣中(剩余' + this.hireRemainText() + ')' : '雇佣(' + HIRE_COST + '金币)'; },
@@ -107,13 +96,11 @@ const app = new Vue({
         },
         logSlice() { return this.log.slice(-60).reverse(); },
         menuStyle() { return { left: this.menuX + 'px', top: this.menuY + 'px' }; },
-        menuPlantDisabled() { return this.plots[this.menuPlot] !== null; },
+        plotHasCrop() { return this.plots[this.menuPlot] !== null; },
         menuWaterEnabled() { const p = this.plots[this.menuPlot]; return !!p && p.dry; },
         menuHarvestEnabled() { const p = this.plots[this.menuPlot]; return !!p && this.plotProgress(this.menuPlot) >= 1; },
-        menuClearDisabled() { const p = this.plots[this.menuPlot]; return !p || !this.tools.shovel; },
-        menuStockDisabled() { return this.pond[this.menuPlot] !== null; },
-        menuPondHarvestEnabled() { const p = this.pond[this.menuPlot]; return !!p && this.tools.fishNet && this.pondProgress(this.menuPlot) >= 1; },
-        menuPondClearEnabled() { return this.pond[this.menuPlot] !== null; },
+        pondHasFish() { return this.pond[this.menuPlot] !== null; },
+        menuPondHarvestEnabled() { const p = this.pond[this.menuPlot]; return !!p && this.pondProgress(this.menuPlot) >= 1; },
         menuClearName() {
             const i = this.menuPlot;
             if (this.menuTarget === 'pond') {
@@ -161,7 +148,7 @@ const app = new Vue({
                     coins: this.coins, level: this.level, xp: this.xp, theme: this.theme,
                     plots: this.plots, unlockedPlots: this.unlockedPlots, pond: this.pond,
                     pondUnlocked: this.pondUnlocked,
-                    inventory: this.inventory, fish: this.fish, tools: this.tools, hireUntil: this.hireUntil, log: this.log,
+                    inventory: this.inventory, fish: this.fish, hireUntil: this.hireUntil, log: this.log,
                 }));
             } catch (e) { /* 无持久化时游戏仍可运行 */ }
         },
@@ -187,7 +174,6 @@ const app = new Vue({
             if (!this.inventory.locks) this.inventory.locks = {};
             this.fish = s.fish || { fries: {} };
             if (!this.fish.fries) this.fish.fries = {};
-            this.tools = s.tools || { hoe: false, shovel: false };
             this.hireUntil = s.hireUntil || 0; // 旧存档无此字段 = 未雇佣
             this.log = Array.isArray(s.log) ? s.log : [];
             // 清理旧存档中已下架(水果)的作物/鱼,避免渲染报错
@@ -217,7 +203,6 @@ const app = new Vue({
                 this.pondUnlocked = d.pondUnlocked;
                 this.inventory = d.inventory;
                 this.fish = d.fish;
-                this.tools = d.tools;
                 this.log = d.log;
                 this.closeModal();
                 this.save();
@@ -266,10 +251,26 @@ const app = new Vue({
         },
         plotTitle(i) {
             if (!this.unlockedPlots[i]) return '点击查看解锁条件';
-            return this.plots[i] === null ? '点击查看' : '';
+            const p = this.plots[i];
+            if (p === null) return '点击种植';
+            return this.plotProgress(i) >= 1 ? '点击收获' : '';
         },
         onPlotClick(i, e) {
             if (!this.unlockedPlots[i]) { this.openUnlockModal(i); return; }
+            const p = this.plots[i];
+            if (p === null) {
+                // 空地:直接出种子列表(隐藏返回按钮)
+                this.openPlotMenu(i, e);
+                this.menuView = 'plant';
+                this.menuDirect = true;
+                return;
+            }
+            if (this.plotProgress(i) >= 1) {
+                // 成熟:直接收获
+                this.harvest(i);
+                return;
+            }
+            // 生长中:只保留铲除(缺水时附加浇水)
             this.openPlotMenu(i, e);
         },
 
@@ -280,6 +281,7 @@ const app = new Vue({
             this.menuX = e.clientX;
             this.menuY = e.clientY;
             this.menuView = 'main';
+            this.menuDirect = false;
             this.menuVisible = true;
         },
         openPondMenu(i, e) {
@@ -288,6 +290,7 @@ const app = new Vue({
             this.menuX = e.clientX;
             this.menuY = e.clientY;
             this.menuView = 'main';
+            this.menuDirect = false;
             this.menuVisible = true;
         },
         hideContextMenu() {
@@ -437,8 +440,28 @@ const app = new Vue({
             if (p === null) return 'plot empty';
             return this.pondProgress(i) >= 1 ? 'plot mature' : 'plot growing';
         },
-        pondTitle(i) { return this.pond[i] === null ? '点击查看' : ''; },
-        onPondClick(i, e) { this.openPondMenu(i, e); },
+        pondTitle(i) {
+            const p = this.pond[i];
+            if (p === null) return '点击投放';
+            return this.pondProgress(i) >= 1 ? '点击收获' : '';
+        },
+        onPondClick(i, e) {
+            const p = this.pond[i];
+            if (p === null) {
+                // 空鱼塘:直接出鱼苗列表(隐藏返回按钮)
+                this.openPondMenu(i, e);
+                this.menuView = 'stock';
+                this.menuDirect = true;
+                return;
+            }
+            if (this.pondProgress(i) >= 1) {
+                // 成熟:直接收获(无渔网时 harvestFish 会给出提示)
+                this.harvestFish(i);
+                return;
+            }
+            // 生长中:只保留移除
+            this.openPondMenu(i, e);
+        },
 
         /* ---------- 鱼塘解锁 ---------- */
         openPondUnlock() {
@@ -484,10 +507,6 @@ const app = new Vue({
             this.save();
         },
         harvestFish(i) {
-            if (!this.tools.fishNet) {
-                this.addLog('需要购买渔网才能收鱼');
-                return;
-            }
             const p = this.pond[i];
             if (!p) return;
             const f = FISH[p.type];
@@ -516,7 +535,6 @@ const app = new Vue({
             if (hit) this.save();
         },
         harvestFishAll() {
-            if (!this.tools.fishNet) return; // 防御:无渔网不可一键捕捞
             let n = 0, xp = 0;
             this.pond.forEach((p, i) => {
                 if (p && this.pondProgress(i) >= 1) {
@@ -627,21 +645,17 @@ const app = new Vue({
             this.save();
         },
 
-        /* ---------- 仓库 ---------- */
+        /* ---------- 背包 / 仓库 ---------- */
         seedSellPrice(key) { return Math.floor(CROPS[key].cost / 2); }, // 种子回收价 = 种子售价的一半
+        openBackpack() {
+            this.hideContextMenu();
+            this.modalMode = 'backpack';
+            this.modalTitle = '背包';
+        },
         openWarehouse() {
             this.hideContextMenu();
             this.modalMode = 'warehouse';
             this.modalTitle = '仓库';
-            this.warehouseTab = 'seeds';
-        },
-        setWarehouseTab(tab) {
-            // 切换标签:重置输入框数量与滚动位置
-            this.qtys.warehouseSeeds = {};
-            this.qtys.fishFries = {};
-            this.qtys.warehouseItems = {};
-            this.warehouseTab = tab;
-            this.resetModalScroll();
         },
         setShopTab(tab) {
             // 切换标签:重置输入框数量与滚动位置
@@ -727,13 +741,12 @@ const app = new Vue({
             this.modalTitle = '解锁土地(第 ' + (i + 1) + ' 块)';
         },
         unlockOk(i) {
-            return this.level >= this.plotLevelReq(i) && this.coins >= this.plotUnlockCost(i) && !!this.tools.hoe;
+            return this.level >= this.plotLevelReq(i) && this.coins >= this.plotUnlockCost(i);
         },
         doUnlock(i) {
             const req = this.plotLevelReq(i);
             const cost = this.plotUnlockCost(i);
-            if (!this.tools.hoe) { this.addLog('需要先购买锄头才能扩建土地'); }
-            else if (this.level < req) { this.addLog('等级不足,需要 Lv.' + req + ' 才能解锁这块地'); }
+            if (this.level < req) { this.addLog('等级不足,需要 Lv.' + req + ' 才能解锁这块地'); }
             else if (this.coins < cost) { this.addLog('金币不足,解锁需要 ' + cost + ' 金币'); }
             else {
                 this.coins -= cost;
@@ -747,7 +760,7 @@ const app = new Vue({
         /* ---------- 弹窗 ---------- */
         closeModal() {
             if (this.modalMode === 'shop') { this.qtys.shop = {}; this.qtys.fishshop = {}; }
-            else if (this.modalMode === 'warehouse') { this.qtys.warehouseItems = {}; this.qtys.warehouseSeeds = {}; this.qtys.fishFries = {}; }
+            else if (this.modalMode === 'warehouse' || this.modalMode === 'backpack') { this.qtys.warehouseItems = {}; this.qtys.warehouseSeeds = {}; this.qtys.fishFries = {}; }
             this.modalMode = null;
             this.modalPlot = -1;
             this.modalOnOk = null;
@@ -783,46 +796,6 @@ const app = new Vue({
         toggleSettings() { this.settingsOpen = !this.settingsOpen; },
         applyTheme() { document.body.dataset.theme = this.theme; },
 
-        /* ---------- 工具 ---------- */
-        buyTool(key) {
-            const t = TOOLS[key];
-            if (this.tools[key]) {
-                this.addLog(t.name + ' 已拥有');
-                return;
-            }
-            if (this.level < t.levelReq) {
-                this.showMessage('无法购买', t.name + '需要达到 <b>Lv.' + t.levelReq + '</b> 才能解锁,当前 Lv.' + this.level);
-                return;
-            }
-            if (this.coins < t.cost) {
-                this.showMessage('无法购买', '金币不足,购买' + t.name + '需要 <b>' + t.cost + '</b> 金币,当前仅 ' + this.coins + ' 金币');
-                return;
-            }
-            this.confirmModal('购买' + t.name, '确定购买' + t.name + '?需要 <b>' + t.cost + '</b> 金币', () => {
-                this.coins -= t.cost;
-                this.$set(this.tools, key, true);
-                this.addLog('购买了' + t.name + (key === 'hoe' ? ',现在可以扩建土地了' : ',可在地块菜单中铲除作物'));
-                this.save();
-            });
-        },
-        /* 渔网:鱼塘解锁后可花金币购买,购买后按钮变成一键捕捞 */
-        buyNet() {
-            if (this.tools.fishNet) { this.harvestFishAll(); return; }
-            if (!this.pondUnlocked) {
-                this.showMessage('无法购买', '需先解锁鱼塘才能购买渔网');
-                return;
-            }
-            if (this.coins < FISH_NET_COST) {
-                this.showMessage('无法购买', '金币不足,购买渔网需要 <b>' + FISH_NET_COST + '</b> 金币,当前仅 ' + this.coins + ' 金币');
-                return;
-            }
-            this.confirmModal('购买渔网', '确定购买渔网?需要 <b>' + FISH_NET_COST + '</b> 金币', () => {
-                this.coins -= FISH_NET_COST;
-                this.$set(this.tools, 'fishNet', true);
-                this.addLog('购买了渔网,现在可以一键捕捞鱼塘');
-                this.save();
-            });
-        },
         /* 雇佣农工:8 小时内植物不会缺水 */
         hireRemainText() {
             const mins = Math.ceil(Math.max(0, this.hireUntil - this.now) / 60000);

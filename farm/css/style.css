@@ -667,6 +667,13 @@ input[type="number"]::-webkit-inner-spin-button {
     overflow-y: auto;
 }
 
+/* 短内容的操作区(如铲除确认),不需要滚动条 */
+.context-menu .cm-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
 .context-menu .cm-tip {
     color: var(--text-muted);
     font-size: 12px;
