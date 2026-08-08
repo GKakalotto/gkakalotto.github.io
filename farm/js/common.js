@@ -110,7 +110,6 @@ const commonMethods = {
             this.inventory = d.inventory;
             this.fish = d.fish;
             this.log = d.log;
-            this.closeModal();
             this.save();
         });
     },
@@ -118,10 +117,10 @@ const commonMethods = {
         this.xp += n;
         while (this.xp >= xpNeeded(this.level)) {
             this.xp -= xpNeeded(this.level);
-        this.level += 1;
-        const bonus = 500;
-        this.coins += bonus;
-        this.addLog('等级提升!升到 Lv.' + this.level + ',奖励 ' + bonus + ' 金币,商店可能有新种子');
+            this.level += 1;
+            const bonus = 500;
+            this.coins += bonus;
+            this.addLog('等级提升!升到 Lv.' + this.level + ',奖励 ' + bonus + ' 金币,商店可能有新种子');
         }
     },
 
@@ -179,8 +178,16 @@ const commonMethods = {
 
     /* ---------- 商店 ---------- */
     seedLocked(key) { return this.level < this.seedLevelReq(key); },
+    openShopDetail(tab, key) {
+        // 未解锁禁止点击
+        const locked = tab === 'crops' ? this.seedLocked(key) : this.fishLocked(key);
+        if (locked) return;
+        this.shopDetail = { tab: tab, key: key };
+    },
+    closeShopDetail() { this.shopDetail = null; },
     openShop() {
         this.hideContextMenu();
+        this.shopDetail = null; // 防止从其他弹窗切回时残留详情对话框
         this.modalMode = 'shop';
         this.modalTitle = '商店';
         this.shopTab = 'crops';
@@ -214,10 +221,11 @@ const commonMethods = {
         this.modalTitle = '仓库';
     },
     setShopTab(tab) {
-        // 切换标签:重置输入框数量与滚动位置
+        // 切换标签:重置输入框数量、关闭详情、重置滚动位置
         this.qtys.shop = {};
         this.qtys.fishshop = {};
         this.shopTab = tab;
+        this.shopDetail = null;
         this.resetModalScroll();
     },
     resetModalScroll() {
@@ -243,6 +251,15 @@ const commonMethods = {
         this.coins += price * qty;
         this.addLog('出售 ' + this.itemName(key) + ' x' + qty + ',获得 ' + (price * qty) + ' 金币');
         this.save();
+    },
+    // 仓库可出售总价:未锁定物品的总价值(与一键出售口径一致)
+    unlockedTotalValue() {
+        let total = 0;
+        this.itemKeys.forEach((key) => {
+            if (this.inventory.locks[key]) return;
+            total += this.itemSell(key) * this.inventory.items[key];
+        });
+        return total;
     },
     sellAllUnlocked() {
         let total = 0, n = 0;
@@ -290,9 +307,15 @@ const commonMethods = {
     },
 
     /* ---------- 弹窗 ---------- */
+    onOverlayClick() {
+        // 详情对话框打开时,点击空白只关闭详情,不关闭商店
+        if (this.shopDetail) { this.closeShopDetail(); return; }
+        this.closeModal();
+    },
     closeModal() {
         if (this.modalMode === 'shop') { this.qtys.shop = {}; this.qtys.fishshop = {}; }
         else if (this.modalMode === 'warehouse' || this.modalMode === 'backpack') { this.qtys.warehouseItems = {}; this.qtys.warehouseSeeds = {}; this.qtys.fishFries = {}; }
+        this.shopDetail = null;
         this.modalMode = null;
         this.modalPlot = -1;
         this.modalOnOk = null;

@@ -26,6 +26,7 @@ const app = new Vue({
             modalHtml: '',
             modalOnOk: null,              // 通用确认弹窗的回调
             shopTab: 'crops',             // 商店标签:'crops' 作物 | 'fish' 鱼类
+            shopDetail: null,             // 商店详情小窗:null 或 { tab:'crops'|'fish', key }
             qtys: { shop: {}, fishshop: {}, warehouseItems: {}, warehouseSeeds: {}, fishFries: {} },
             menuVisible: false,
             menuTarget: 'plot',           // 'plot' | 'pond' 当前右键菜单属于农田还是鱼塘
