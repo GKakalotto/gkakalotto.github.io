@@ -58,7 +58,7 @@
                                 </div>
                             </template>
                             <template v-else-if="p === null">
-                                <div>[空地]</div>
+                                <div>[空地{{ i + 1 }}]</div>
                             </template>
                             <template v-else-if="isDryPlot(p)">
                                 <div>[干枯]</div>
@@ -100,7 +100,7 @@
                                 </div>
                             </template>
                             <template v-else-if="p === null">
-                                <div>[鱼塘]</div>
+                                <div>[鱼塘{{ i + 1 }}]</div>
                             </template>
                             <template v-else>
                                 <div>[{{ fishName(p.type) }}]</div>
@@ -131,11 +131,16 @@
                                 </div>
                             </template>
                             <template v-else-if="a === null">
-                                <div>[栏位]</div>
+                                <div>[栏位{{ i + 1 }}]</div>
                             </template>
                             <template v-else>
                                 <div>[{{ animalName(a.type) }}]</div>
-                                <div v-if="ranchGrowth(i) >= 1" class="state">{{ ranchDone(i) && ranchPending(i) === 0 ? '已产满 · 点击收获' : '待收 ' + ranchPending(i) + ' · 累计 ' + (a.produceCount || 0) + '/' + ranchMaxProduce }}</div>
+                                <div v-if="ranchGrowth(i) >= 1" class="state">
+                                    <template v-if="ranchDone(i) && ranchPending(i) === 0"><span class="r-pending">已产满</span><span class="r-sep"> · </span><span class="r-total">点击收获</span></template>
+                                    <template v-else>
+                                        <span class="r-pending">待收 {{ ranchPending(i) }}</span><span class="r-sep"> · </span><span class="r-total">累计 {{ a.produceCount || 0 }}/{{ ranchMaxProduce }}</span>
+                                    </template>
+                                </div>
                                 <div v-else class="state">{{ ranchStageText(i) }} {{ ranchPercent(i) }}%</div>
                                 <div v-if="a.hungry" class="state">饥饿</div>
                             </template>
@@ -224,7 +229,7 @@
                             <div v-for="(c, key) in crops" :key="key" class="card shop-card" @click="openShopDetail('crops', key)">
                                 <div class="kind" :class="kindCls(key)">{{ kindLabel(key) }}</div>
                                 <b>&nbsp;{{ c.name }}</b>
-                                <div class="stat">售价 {{ c.cost }} 金币</div>
+                                <div class="stat">💰{{ c.cost }}</div>
                                 <div v-if="seedLocked(key)" class="card-mask">
                                     <div class="lock">🔒</div>
                                     <div class="lock-tip">Lv.{{ seedLevelReq(key) }} 解锁</div>
@@ -235,7 +240,7 @@
                             <div v-for="(f, key) in fishes" :key="key" class="card shop-card" @click="openShopDetail('fish', key)">
                                 <div class="kind" :class="fishKindCls(key)">{{ fishKindLabel(key) }}</div>
                                 <b>&nbsp;{{ f.name }}</b>
-                                <div class="stat">售价 {{ f.cost }} 金币</div>
+                                <div class="stat">💰{{ f.cost }}</div>
                                 <div v-if="fishLocked(key)" class="card-mask">
                                     <div class="lock">🔒</div>
                                     <div class="lock-tip">{{ pondUnlocked ? 'Lv.' + fishLevelReq(key) + ' 解锁' : '先解锁鱼塘' }}</div>
@@ -246,12 +251,12 @@
                         <div v-else class="cards">
                             <div class="card shop-card" @click="openShopDetail('feed', 'siliao')">
                                 <b>&nbsp;牧草</b>
-                                <div class="stat">售价 {{ feedCost }} 金币</div>
+                                <div class="stat">💰{{ feedCost }}</div>
                             </div>
                             <div v-for="(a, key) in animalTypes" :key="key" class="card shop-card" @click="openShopDetail('ranch', key)">
                                 <div class="kind" :class="kindCls(key)">{{ kindLabel(key) }}</div>
                                 <b>&nbsp;{{ a.name }}</b>
-                                <div class="stat">售价 {{ a.cost }} 金币</div>
+                                <div class="stat">💰{{ a.cost }}</div>
                                 <div v-if="animalLocked(key)" class="card-mask">
                                     <div class="lock">🔒</div>
                                     <div class="lock-tip">Lv.{{ animalLevelReq(key) }} 解锁</div>

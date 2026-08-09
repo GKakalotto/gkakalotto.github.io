@@ -549,6 +549,28 @@ button:disabled {
     transition: border-color .15s, transform .05s;
 }
 
+/* 商店卡片(不含背包/仓库的 inv-card):名字居中靠上,tag 左下角,售价右下角 */
+.shop-card:not(.inv-card) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 68px;
+    padding: 12px 8px;
+}
+.shop-card:not(.inv-card) .kind {
+    position: absolute;
+    left: 6px;
+    bottom: 6px;
+    margin: 0;
+}
+.shop-card:not(.inv-card) .stat {
+    position: absolute;
+    right: 8px;
+    bottom: 6px;
+    line-height: 1.4;
+}
+
 .shop-card:hover {
     border-color: var(--accent);
     box-shadow: var(--shadow-soft);
@@ -961,6 +983,18 @@ button.danger:hover {
     }
     .farm-wrap, .pond-wrap, .ranch-wrap {
         min-width: 0; /* 移动端不强制最小宽,避免撑破容器 */
+    }
+    /* 移动端:牧场改为 5 行 × 4 列 */
+    .ranch {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    /* 移动端:牧场产出信息拆成两行(待收/累计),加上方动物名共三行 */
+    .ranch .r-pending,
+    .ranch .r-total {
+        display: block;
+    }
+    .ranch .r-sep {
+        display: none;
     }
     /* 卡片网格:移动端一行 3 个(桌面端 4 个) */
     .cards {

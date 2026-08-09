@@ -23,7 +23,7 @@ const app = new Vue({
             now: Date.now(),              // 每秒刷新的时钟,驱动进度/倒计时
             scene: 'farm',                // 'farm' 农场 | 'ranch' 养殖场
             settingsOpen: false,
-            modalMode: null,              // 'shop' | 'backpack' | 'warehouse' | 'unlock' | 'pondunlock' | 'pondcell' | 'ranchcell' | 'feedadd' | 'log' | 'msg' | 'confirm'
+            modalMode: null,              // 'shop' | 'backpack' | 'warehouse' | 'unlock' | 'pondunlock' | 'pondcell' | 'ranchcell' | 'feedadd' | 'log' | 'confirm'
             modalTitle: '',
             modalPlot: -1,
             modalHtml: '',

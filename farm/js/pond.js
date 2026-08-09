@@ -51,7 +51,7 @@ const pondMethods = {
             return;
         }
         if (this.pondProgress(i) >= 1) {
-            // 成熟:直接收获(无渔网时 harvestFish 会给出提示)
+            // 成熟:直接收获
             this.harvestFish(i);
             return;
         }

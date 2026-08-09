@@ -9,10 +9,13 @@
     padding: 12px;
 }
 
-/* 移动端减小网格间隙,让 6 列在窄屏能放下 */
+/* 移动端:减小网格间隙;农田改为 6 行 × 4 列(窄屏更易看清格子) */
 @media (max-width: 768px) {
     .farm, .pond, .ranch {
         gap: 5px;
         padding: 8px;
+    }
+    .farm {
+        grid-template-columns: repeat(4, minmax(0, 1fr)); /* 4 列 × 6 行 */
     }
 }

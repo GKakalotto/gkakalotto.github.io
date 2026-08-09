@@ -419,7 +419,7 @@ const commonMethods = {
         this.now = Date.now();
         this.checkMature();
         this.checkFishMature();
-        if (this.checkAnimals) this.checkAnimals(); // 养殖模块存在时一并检查
+        this.checkAnimals();
     },
     checkMature() {
         let hit = false;
