@@ -150,3 +150,4 @@ const TOTAL_PLOTS = COLS * ROWS; // 24 块地
 const INITIAL_UNLOCKED = 6;      // 初始解锁 6 块
 const PLOT_DRY_CHANCE = 0.1;     // 收获后地块干枯的概率
 const SEED_DROP_CHANCE = 0.16;   // 作物收获时额外掉落 1 颗对应种子的概率(鱼不再掉落鱼苗)
+const QTY_MAX = 999999;          // 数量输入上限(防极端输入溢出)

@@ -262,7 +262,7 @@ const ranchMethods = {
             this.coins -= total;
             this.$set(this.inventory.young, key, (this.inventory.young[key] || 0) + qty);
             this.addLog('购买了 ' + a.name + ' 幼崽 x' + qty);
-            this.$set(this.qtys.ranch, key, 0); // 买完重置数量框
+            this.closeShopDetail(); // 购买完成自动关闭二级弹窗(同时重置数量)
         }
         this.save();
     },
@@ -276,7 +276,7 @@ const ranchMethods = {
             this.coins -= total;
             this.$set(this.inventory.items, 'siliao', (this.inventory.items['siliao'] || 0) + qty);
             this.addLog('购买了 牧草 x' + qty);
-            this.$set(this.qtys.ranchfeed, 'siliao', 0); // 买完重置数量框
+            this.closeShopDetail(); // 购买完成自动关闭二级弹窗(同时重置数量)
         }
         this.save();
     },

@@ -582,24 +582,22 @@ button:disabled {
     text-shadow: 0 1px 2px rgba(0, 0, 0, .6);
 }
 
-/* 详情对话框:半透明遮罩盖在商店列表上,对话框居中(桌面端耳朵式标签,遮罩从 modal-head 下方开始) */
-.shop-dialog-mask {
-    position: absolute;
-    top: 52px;            /* 从 modal-head 下方开始,遮罩覆盖 body 区 */
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, .45);
-    border-radius: 0 0 8px 8px;
+/* 二级详情弹窗:独立顶级遮罩,覆盖整个视口,与主弹窗平级(不嵌套,避免影响主弹窗布局) */
+.detail-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .5);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 6;
+    z-index: 60; /* 高于主弹窗 overlay(50) */
 }
 
 .shop-dialog {
     width: 280px;
     max-width: 92%;
+    max-height: 90vh; /* 小屏下内容超高时内部滚动,不撑破视口 */
+    overflow-y: auto;
     background: var(--surface2);
     border: 1px solid var(--border2);
     border-radius: 10px;
@@ -986,11 +984,5 @@ button.danger:hover {
         border: 1px solid var(--border2);
         border-bottom: none;
         flex-shrink: 0;
-    }
-    .modal-body {
-        position: relative; /* 供详情对话框遮罩相对 body 定位 */
-    }
-    .shop-dialog-mask {
-        top: 0; /* 移动端标题+标签固定后,遮罩从 body 顶部开始 */
     }
 }

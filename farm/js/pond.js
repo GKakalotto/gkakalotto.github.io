@@ -222,7 +222,7 @@ const pondMethods = {
             this.coins -= total;
             this.$set(this.fish.fries, key, (this.fish.fries[key] || 0) + qty);
             this.addLog('购买了 ' + f.name + ' 鱼苗 x' + qty);
-            this.$set(this.qtys.fishshop, key, 0); // 买完重置数量框
+            this.closeShopDetail(); // 购买完成自动关闭二级弹窗(同时重置数量)
         }
         this.save();
     },

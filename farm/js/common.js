@@ -37,6 +37,16 @@ const commonMethods = {
         this.log.push({ t: Date.now(), msg: msg });
         if (this.log.length > 80) this.log = this.log.slice(-80);
     },
+    /* 商店购买按钮禁用:数量为 0 或金币不足 */
+    shopBuyDisabled(group, key, cost) {
+        const qty = this.qtyFor(group, key);
+        return qty <= 0 || this.coins < cost * qty;
+    },
+    /* 出售/回收按钮禁用:数量为 0、超过持有数或物品锁定 */
+    invSellDisabled(group, key, owned, locked) {
+        const qty = this.qtyFor(group, key);
+        return qty <= 0 || qty > (owned || 0) || !!locked;
+    },
     save() {
         try {
             localStorage.setItem(SAVE_KEY, JSON.stringify({
@@ -72,8 +82,8 @@ const commonMethods = {
         this.animals = Array.isArray(s.animals) && s.animals.length === RANCH_TOTAL ? s.animals : d.animals;
         this.unlockedRanches = Array.isArray(s.unlockedRanches) && s.unlockedRanches.length === RANCH_TOTAL ? s.unlockedRanches : d.unlockedRanches;
         this.feedTrough = s.feedTrough || 0;
-        this.inventory = s.inventory || d.inventory;
-        this.fish = s.fish || d.fish;
+        this.inventory = Object.assign({ seeds: {}, items: {}, locks: {}, young: {} }, s.inventory || {});
+        this.fish = Object.assign({ fries: {} }, s.fish || {});
         this.log = Array.isArray(s.log) ? s.log : d.log;
     },
     resetGame() {
@@ -133,9 +143,14 @@ const commonMethods = {
     itemSell(key) { const it = CROPS[key] || FISH[key] || ANIMAL_PRODUCTS[key]; return it ? it.sell : 0; },
 
     /* ---------- 数量步进器(默认 0) ---------- */
-    qtyFor(group, key) { return this.qtys[group][key] || 0; },
+    /* group/key 异常时安全返回 0,避免渲染/事件竞态下崩溃 */
+    qtyFor(group, key) {
+        const g = this.qtys[group];
+        return g ? (g[key] || 0) : 0;
+    },
     clampQty(group, key, v) {
         if (v < 0) v = 0;
+        if (v > QTY_MAX) v = QTY_MAX; // 全局上限,防极端输入导致溢出/异常
         if (group === 'warehouseItems') {
             const owned = this.inventory.items[key] || 0;
             if (v > owned) v = Math.max(0, owned);
@@ -153,17 +168,21 @@ const commonMethods = {
         return v;
     },
     qtyChange(group, key, delta) {
+        if (!this.qtys[group]) this.$set(this.qtys, group, {});
         this.$set(this.qtys[group], key, this.clampQty(group, key, (this.qtys[group][key] || 0) + delta));
     },
     qtyInput(group, key, val) {
         let v = parseInt(val, 10);
         if (isNaN(v)) v = 0;
+        if (!this.qtys[group]) this.$set(this.qtys, group, {});
         this.$set(this.qtys[group], key, this.clampQty(group, key, v));
     },
     qtyInputLive(group, key, val) {
         let v = parseInt(val, 10);
         if (isNaN(v) || v < 0) v = 0;
-        this.$set(this.qtys[group], key, v);
+        if (!this.qtys[group]) this.$set(this.qtys, group, {});
+        // 实时输入也走边界检查,避免输入超限/超大值
+        this.$set(this.qtys[group], key, this.clampQty(group, key, v));
     },
 
     /* ---------- 商店 ---------- */
@@ -202,7 +221,7 @@ const commonMethods = {
             this.coins -= total;
             this.$set(this.inventory.seeds, key, (this.inventory.seeds[key] || 0) + qty);
             this.addLog('购买了 ' + c.name + ' 种子 x' + qty);
-            this.$set(this.qtys.shop, key, 0); // 买完重置数量框
+            this.closeShopDetail(); // 购买完成自动关闭二级弹窗(同时重置数量)
         }
         this.save();
     },
@@ -218,6 +237,7 @@ const commonMethods = {
         if (this.fish.fries[key] <= 0) this.$delete(this.fish.fries, key);
         this.coins += price * qty;
         this.addLog('回收 ' + FISH[key].name + ' 鱼苗 x' + qty + ',获得 ' + (price * qty) + ' 金币');
+        this.closeInvDetail(); // 回收完成自动关闭二级弹窗
         this.save();
     },
     openBackpack() {
@@ -263,6 +283,7 @@ const commonMethods = {
         if (this.inventory.seeds[key] <= 0) this.$delete(this.inventory.seeds, key);
         this.coins += price * qty;
         this.addLog('回收 ' + CROPS[key].name + ' 种子 x' + qty + ',获得 ' + (price * qty) + ' 金币');
+        this.closeInvDetail(); // 回收完成自动关闭二级弹窗
         this.save();
     },
     sellItem(key) {
@@ -274,6 +295,7 @@ const commonMethods = {
         const price = this.itemSell(key);
         this.coins += price * qty;
         this.addLog('出售 ' + this.itemName(key) + ' x' + qty + ',获得 ' + (price * qty) + ' 金币');
+        this.closeInvDetail(); // 出售完成自动关闭二级弹窗
         this.save();
     },
     // 仓库可出售总价:未锁定物品的总价值(与一键出售口径一致)
@@ -291,6 +313,15 @@ const commonMethods = {
         this.seedKeys.forEach((k) => { total += this.seedSellPrice(k) * this.inventory.seeds[k]; });
         this.fishFryKeys.forEach((k) => { total += this.fishSellPrice(k) * this.fish.fries[k]; });
         return total;
+    },
+    // 背包是否有可回收物品(种子/鱼苗数量>0;回收价可能为 0 如草籽,仍可回收清理)
+    hasRecyclable() {
+        return this.seedKeys.some(k => this.inventory.seeds[k] > 0)
+            || this.fishFryKeys.some(k => this.fish.fries[k] > 0);
+    },
+    // 仓库是否有未锁定物品可出售
+    hasSellable() {
+        return this.itemKeys.some(key => !this.inventory.locks[key] && this.inventory.items[key] > 0);
     },
     sellAllUnlocked() {
         let total = 0, n = 0;
@@ -339,12 +370,13 @@ const commonMethods = {
 
     /* ---------- 弹窗 ---------- */
     onOverlayClick() {
-        // 二级详情打开时,点击空白只关闭详情,不关闭主弹窗
-        if (this.shopDetail) { this.closeShopDetail(); return; }
-        if (this.invDetail) { this.closeInvDetail(); return; }
+        // 二级详情是独立全屏遮罩,能点到主遮罩时二级详情必然已关闭;直接关主弹窗(closeModal 已处理一级一级关闭)
         this.closeModal();
     },
     closeModal() {
+        // 弹窗只能一级一级关闭:上层有二级详情时先关闭二级详情,不能直接关闭整个弹窗
+        if (this.shopDetail) { this.closeShopDetail(); return; }
+        if (this.invDetail) { this.closeInvDetail(); return; }
         if (this.modalMode === 'shop') { this.qtys.shop = {}; this.qtys.fishshop = {}; this.qtys.ranch = {}; this.qtys.ranchfeed = {}; }
         else if (this.modalMode === 'warehouse' || this.modalMode === 'backpack') { this.qtys.warehouseItems = {}; this.qtys.warehouseSeeds = {}; this.qtys.fishFries = {}; }
         else if (this.modalMode === 'feedadd') { this.qtys.feedadd = {}; }
@@ -353,37 +385,24 @@ const commonMethods = {
         this.modalMode = null;
         this.modalPlot = -1;
         this.modalOnOk = null;
-        this.modalOnCancel = null;
         this.resetModalScroll(); // 关闭后重置滚动位置
     },
-    showMessage(title, html) {
-        this.hideContextMenu();
-        this.modalMode = 'msg';
-        this.modalTitle = title;
-        this.modalHtml = html;
-    },
-    /* 通用确认弹窗:替代浏览器 confirm。onCancel 存在时,取消回到调用方指定的界面(而非关闭弹窗) */
-    confirmModal(title, html, onOk, onCancel) {
+    /* 通用确认弹窗:替代浏览器 confirm */
+    confirmModal(title, html, onOk) {
         this.hideContextMenu();
         this.modalMode = 'confirm';
         this.modalTitle = title;
         this.modalHtml = html;
         this.modalOnOk = onOk;
-        this.modalOnCancel = onCancel;
     },
     confirmOk() {
         const cb = this.modalOnOk;
         this.modalOnOk = null;
-        this.modalOnCancel = null;
         this.closeModal();
         if (cb) cb();
     },
     confirmCancel() {
-        const cb = this.modalOnCancel;
-        this.modalOnCancel = null;
-        this.modalOnOk = null;
-        if (cb) cb(); // 有回调时由回调决定界面(如回到上一弹窗),否则直接关闭
-        else this.closeModal();
+        this.closeModal();
     },
     openLogModal() {
         this.hideContextMenu();

@@ -23,12 +23,11 @@ const app = new Vue({
             now: Date.now(),              // 每秒刷新的时钟,驱动进度/倒计时
             scene: 'farm',                // 'farm' 农场 | 'ranch' 养殖场
             settingsOpen: false,
-            modalMode: null,              // 'shop' | 'backpack' | 'warehouse' | 'unlock' | 'pondunlock' | 'pondcell' | 'ranchcell' | 'log' | 'msg' | 'confirm'
+            modalMode: null,              // 'shop' | 'backpack' | 'warehouse' | 'unlock' | 'pondunlock' | 'pondcell' | 'ranchcell' | 'feedadd' | 'log' | 'msg' | 'confirm'
             modalTitle: '',
             modalPlot: -1,
             modalHtml: '',
             modalOnOk: null,              // 通用确认弹窗的回调
-            modalOnCancel: null,          // 通用确认弹窗取消时的回调(可选)
             shopTab: 'crops',             // 商店标签:'crops' 作物 | 'fish' 鱼类
             shopDetail: null,             // 商店详情小窗:null 或 { tab:'crops'|'fish', key }
             invDetail: null,              // 背包/仓库二级详情:null 或 { mode:'backpack'|'warehouse', kind, key }
@@ -47,6 +46,10 @@ const app = new Vue({
         theme() {
             this.applyTheme();
             this.save();
+        },
+        modalMode(val) {
+            // 弹窗打开时锁定页面滚动,关闭后恢复
+            document.body.style.overflow = val ? 'hidden' : '';
         },
     },
     created() {
