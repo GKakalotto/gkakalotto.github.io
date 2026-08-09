@@ -32,6 +32,7 @@ const app = new Vue({
             modalOnCancel: null,          // 通用确认弹窗取消时的回调(可选)
             shopTab: 'crops',             // 商店标签:'crops' 作物 | 'fish' 鱼类
             shopDetail: null,             // 商店详情小窗:null 或 { tab:'crops'|'fish', key }
+            invDetail: null,              // 背包/仓库二级详情:null 或 { mode:'backpack'|'warehouse', kind, key }
             qtys: { shop: {}, fishshop: {}, warehouseItems: {}, warehouseSeeds: {}, fishFries: {}, ranch: {}, ranchfeed: {}, feedadd: {} },
             menuVisible: false,
             menuTarget: 'plot',           // 'plot' | 'pond' | 'ranch' 当前右键菜单属于哪个场景

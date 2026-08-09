@@ -1,6 +1,6 @@
 /* ================= 鱼塘(鱼)逻辑 ================= */
 const pondComputed = {
-    pondHasFish() { return this.pond[this.menuPlot] !== null; },
+    pondHasFish() { return !!this.pond[this.menuPlot]; }, // !! 使 undefined(menuPlot=-1) 与 null 都判为空
     menuPondHarvestEnabled() { const p = this.pond[this.menuPlot]; return !!p && this.pondProgress(this.menuPlot) >= 1; },
     pondUnlockLevel() { return POND_UNLOCK_LEVEL; },
     pondUnlockCost() { return POND_UNLOCK_COST; },
@@ -201,7 +201,7 @@ const pondMethods = {
         if (!p) return;
         this.$set(this.pond, i, null);
         this.hideContextMenu();
-        this.addLog('铲除了第 ' + (i + 1) + ' 个鱼塘的' + FISH[p.type].name);
+        this.addLog('移除了第 ' + (i + 1) + ' 个鱼塘的' + FISH[p.type].name);
         this.save();
     },
 

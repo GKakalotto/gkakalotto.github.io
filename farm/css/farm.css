@@ -2,8 +2,17 @@
 .farm {
     display: grid;
     grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(6, minmax(0, 1fr)); /* 移动端防止格子内容撑破列宽 */
     gap: 10px;
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 12px;
+}
+
+/* 移动端减小网格间隙,让 6 列在窄屏能放下 */
+@media (max-width: 768px) {
+    .farm, .pond, .ranch {
+        gap: 5px;
+        padding: 8px;
+    }
 }

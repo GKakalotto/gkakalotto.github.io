@@ -52,12 +52,13 @@
                         <div v-for="(p, i) in plots" :key="i" class="plot" :class="plotClass(i)"
                              @click="onPlotClick(i, $event)" :title="plotTitle(i)">
                             <template v-if="!unlockedPlots[i]">
-                                未解锁
-                                <div class="state">{{ i + 1 }}号地 · 需Lv.{{ plotLevelReq(i) }}</div>
+                                <div class="card-mask">
+                                    <div class="lock">🔒</div>
+                                    <div class="lock-tip">Lv.{{ plotLevelReq(i) }}</div>
+                                </div>
                             </template>
                             <template v-else-if="p === null">
-                                <div>[空地 {{ i + 1 }}]</div>
-                                <div class="state">点击查看</div>
+                                <div>[空地]</div>
                             </template>
                             <template v-else>
                                 <div>[{{ cropName(p.type) }}]</div>
@@ -67,7 +68,6 @@
                                 </template>
                                 <template v-else>
                                     <div class="state">{{ stageText(i) }} {{ plotPercent(i) }}%</div>
-                                    <div class="state">{{ fmtRemain(plotRemainSec(i)) }}</div>
                                 </template>
                             </template>
                         </div>
@@ -92,19 +92,18 @@
                         <div v-for="(p, i) in pond" :key="i" class="plot" :class="pondClass(i)"
                              @click="onPondClick(i, $event)" :title="pondTitle(i)">
                             <template v-if="!pondCellUnlocked(i)">
-                                <div>[鱼塘 {{ i + 1 }}]</div>
-                                <div class="state">未解锁</div>
-                                <div class="state">Lv.{{ pondCellLevelReq(i) }} 解锁</div>
+                                <div class="card-mask">
+                                    <div class="lock">🔒</div>
+                                    <div class="lock-tip">Lv.{{ pondCellLevelReq(i) }}</div>
+                                </div>
                             </template>
                             <template v-else-if="p === null">
-                                <div>[鱼塘 {{ i + 1 }}]</div>
-                                <div class="state">点击查看</div>
+                                <div>[鱼塘]</div>
                             </template>
                             <template v-else>
                                 <div>[{{ fishName(p.type) }}]</div>
                                 <div v-if="pondProgress(i) >= 1" class="state">已成熟</div>
                                 <div v-else class="state">{{ pondStageText(i) }} {{ pondPercent(i) }}%</div>
-                                <div v-if="pondProgress(i) < 1" class="state">{{ pondRemainText(i) }}</div>
                             </template>
                         </div>
                     </div>
@@ -124,20 +123,19 @@
                         <div v-for="(a, i) in animals" :key="i" class="plot" :class="ranchClass(i)"
                              @click="onRanchClick(i, $event)" :title="ranchTitle(i)">
                             <template v-if="!ranchCellUnlocked(i)">
-                                <div>[栏位 {{ i + 1 }}]</div>
-                                <div class="state">未解锁</div>
-                                <div class="state">Lv.{{ ranchCellLevelReq(i) }} 解锁</div>
+                                <div class="card-mask">
+                                    <div class="lock">🔒</div>
+                                    <div class="lock-tip">Lv.{{ ranchCellLevelReq(i) }}</div>
+                                </div>
                             </template>
                             <template v-else-if="a === null">
-                                <div>[栏位 {{ i + 1 }}]</div>
-                                <div class="state">点击投放幼崽</div>
+                                <div>[栏位]</div>
                             </template>
                             <template v-else>
                                 <div>[{{ animalName(a.type) }}]</div>
                                 <div v-if="ranchGrowth(i) >= 1" class="state">{{ ranchDone(i) ? '已产满 · 点击收获' : '待收 ' + ranchPending(i) + ' · 累计 ' + (a.produceCount || 0) + '/' + ranchMaxProduce }}</div>
                                 <div v-else class="state">{{ ranchStageText(i) }} {{ ranchPercent(i) }}%</div>
-                                <div v-if="ranchGrowth(i) < 1" class="state">{{ ranchRemainText(i) }}</div>
-                                <div v-if="a.hungry" class="state">饥饿!生长/产出暂停</div>
+                                <div v-if="a.hungry" class="state">饥饿</div>
                             </template>
                         </div>
                     </div>
@@ -152,17 +150,23 @@
                     <button v-if="!plotHasCrop" @click="plantSubmenu()">种植</button>
                     <button v-if="menuWaterEnabled" @click="water(menuPlot)">浇水</button>
                     <button v-if="menuHarvestEnabled" @click="harvest(menuPlot)">收获</button>
+                    <div v-if="plotHasCrop && plotProgress(menuPlot) < 1" class="cm-tip">剩余 {{ fmtRemain(plotRemainSec(menuPlot)) }}</div>
                     <button v-if="plotHasCrop" @click="clearConfirm()">铲除</button>
                 </template>
                 <template v-else-if="menuTarget === 'pond'">
                     <button v-if="!pondHasFish" @click="stockSubmenu()">投放</button>
                     <button v-if="menuPondHarvestEnabled" @click="harvestFish(menuPlot)">收获</button>
+                    <div v-if="pondHasFish && pondProgress(menuPlot) < 1" class="cm-tip">剩余 {{ pondRemainText(menuPlot) }}</div>
                     <button v-if="pondHasFish" @click="clearConfirm()">移除</button>
                 </template>
                 <template v-else>
                     <button v-if="!ranchHasAnimal" @click="stockSubmenu()">投放</button>
                     <button v-if="menuRanchHarvestEnabled" @click="collectProduct(menuPlot)">收取</button>
                     <button v-if="menuRanchDoneEnabled" @click="collectAnimal(menuPlot)">收获</button>
+                    <div v-if="ranchHasAnimal && ranchGrowth(menuPlot) < 1" class="cm-tip">
+                        <template v-if="animals[menuPlot].hungry">停止生长(缺牧草)</template>
+                        <template v-else>剩余 {{ ranchRemainText(menuPlot) }}</template>
+                    </div>
                     <button v-if="ranchHasAnimal" @click="clearConfirm()">移除</button>
                 </template>
             </template>
@@ -200,17 +204,15 @@
         <!-- 弹窗 -->
         <div class="overlay" :class="{ show: modalMode !== null }" @click="onOverlayClick()">
             <div class="modal" @click.stop>
-                <!-- 左侧外部耳朵式标签 -->
-                <div class="modal-tabs">
-                    <template v-if="modalMode === 'shop'">
-                        <button class="tab-ear" :class="{ active: shopTab === 'crops' }" @click="setShopTab('crops')">作物</button>
-                        <button class="tab-ear" :class="{ active: shopTab === 'fish' }" @click="setShopTab('fish')">鱼类</button>
-                        <button class="tab-ear" :class="{ active: shopTab === 'ranch' }" @click="setShopTab('ranch')">牧场</button>
-                    </template>
-                </div>
                 <div class="modal-head">
                     <h2>{{ modalTitle }}<span v-if="modalMode === 'warehouse'" class="head-hint">· 仅未锁定可出售</span></h2>
                     <button class="close" @click="closeModal()">×</button>
+                </div>
+                <!-- 种类标签:仅商店显示(桌面端左侧耳朵,移动端标题下方横排固定),其他弹窗不占高度 -->
+                <div v-if="modalMode === 'shop'" class="modal-tabs">
+                    <button class="tab-ear" :class="{ active: shopTab === 'crops' }" @click="setShopTab('crops')">作物</button>
+                    <button class="tab-ear" :class="{ active: shopTab === 'fish' }" @click="setShopTab('fish')">鱼类</button>
+                    <button class="tab-ear" :class="{ active: shopTab === 'ranch' }" @click="setShopTab('ranch')">牧场</button>
                 </div>
                 <div class="modal-body" ref="modalBody">
                     <!-- 商店(作物种子 / 鱼苗) -->
@@ -336,44 +338,34 @@
                         </div>
                     </div>
 
-                    <!-- 背包:种子 + 鱼苗 -->
+                    <!-- 背包:种子 + 鱼苗(点击卡片进二级详情) -->
                     <div v-else-if="modalMode === 'backpack'">
                         <div v-if="seedDisplayList.length === 0" class="empty-tip">背包没有种子/鱼苗,请先去【商店】购买。</div>
                         <div v-else class="cards">
-                            <div v-for="it in seedDisplayList" :key="it.kind + it.key" class="card">
-                                <b>{{ it.kind === 'seed' ? cropName(it.key) : fishName(it.key) }}</b><br>
-                                <div class="own">x{{ it.kind === 'seed' ? inventory.seeds[it.key] : fish.fries[it.key] }}</div>
-                                <div class="stepper">
-                                    <button @click="qtyChange(it.kind === 'seed' ? 'warehouseSeeds' : 'fishFries', it.key, -1)">&lt;</button>
-                                    <input type="number" min="0" :value="qtyFor(it.kind === 'seed' ? 'warehouseSeeds' : 'fishFries', it.key)"
-                                           @input="qtyInputLive(it.kind === 'seed' ? 'warehouseSeeds' : 'fishFries', it.key, $event.target.value)"
-                                           @change="qtyInput(it.kind === 'seed' ? 'warehouseSeeds' : 'fishFries', it.key, $event.target.value)">
-                                    <button @click="qtyChange(it.kind === 'seed' ? 'warehouseSeeds' : 'fishFries', it.key, 1)">&gt;</button>
+                            <div v-for="it in seedDisplayList" :key="it.kind + it.key" class="card shop-card inv-card"
+                                 @click="openInvDetail('backpack', it.kind, it.key)">
+                                <b>{{ it.kind === 'seed' ? cropName(it.key) : fishName(it.key) }}</b>
+                                <div class="inv-foot">
+                                    <span class="inv-price">💰 {{ it.kind === 'seed' ? seedSellPrice(it.key) : fishSellPrice(it.key) }}</span>
+                                    <span class="inv-qty">x{{ it.kind === 'seed' ? inventory.seeds[it.key] : fish.fries[it.key] }}</span>
                                 </div>
-                                <button v-if="it.kind === 'seed'" @click="sellSeed(it.key)">回收({{ seedSellPrice(it.key) * qtyFor('warehouseSeeds', it.key) }}金币)</button>
-                                <button v-else @click="recycleFry(it.key)">回收({{ fishSellPrice(it.key) * qtyFor('fishFries', it.key) }}金币)</button>
-                                <div class="state">回收价 {{ it.kind === 'seed' ? seedSellPrice(it.key) : fishSellPrice(it.key) }} 金币/个</div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- 仓库:收获物 + 动物产物 -->
+                    <!-- 仓库:收获物 + 动物产物(点击卡片进二级详情) -->
                     <div v-else-if="modalMode === 'warehouse'">
                         <div v-if="itemKeys.length === 0" class="empty-tip">还没有收获的物品。</div>
                         <template v-else>
                             <div class="cards">
-                                <div v-for="key in itemKeys" :key="key" class="card card-lockable">
-                                    <button class="lock-btn" :title="inventory.locks[key] ? '已锁定,不参与一键出售' : '点击锁定,不参与一键出售'" @click="toggleLock(key)">{{ inventory.locks[key] ? '🔒' : '🔓' }}</button>
-                                    <b>{{ itemName(key) }}</b><br>
-                                    <div class="own">x{{ inventory.items[key] }}</div>
-                                    <div class="stepper">
-                                        <button @click="qtyChange('warehouseItems', key, -1)">&lt;</button>
-                                        <input type="number" min="0" :value="qtyFor('warehouseItems', key)"
-                                               @input="qtyInputLive('warehouseItems', key, $event.target.value)"
-                                               @change="qtyInput('warehouseItems', key, $event.target.value)">
-                                        <button @click="qtyChange('warehouseItems', key, 1)">&gt;</button>
+                                <div v-for="key in itemKeys" :key="key" class="card card-lockable shop-card inv-card"
+                                     @click="openInvDetail('warehouse', 'item', key)">
+                                    <button class="lock-btn" :title="inventory.locks[key] ? '已锁定,不参与一键出售' : '点击锁定,不参与一键出售'" @click.stop="toggleLock(key)">{{ inventory.locks[key] ? '🔒' : '🔓' }}</button>
+                                    <b>{{ itemName(key) }}</b>
+                                    <div class="inv-foot">
+                                        <span class="inv-price">💰 {{ itemSell(key) }}</span>
+                                        <span class="inv-qty">x{{ inventory.items[key] }}</span>
                                     </div>
-                                    <button @click="sellItem(key)" :disabled="inventory.locks[key]" :title="inventory.locks[key] ? '已锁定,请先解锁' : ''">出售({{ itemSell(key) * qtyFor('warehouseItems', key) }}金币)</button>
                                 </div>
                             </div>
                         </template>
@@ -468,9 +460,48 @@
                             <button class="ghost" @click="closeModal()">取消</button>
                         </div>
                     </div>
+
+                    <!-- 背包/仓库二级详情弹窗 -->
+                    <div v-if="invDetail" class="shop-dialog-mask" @click.self="closeInvDetail()">
+                        <div class="shop-dialog">
+                            <template v-if="invDetail.mode === 'backpack'">
+                                <div class="dialog-head">
+                                    <b>{{ invDetail.kind === 'seed' ? cropName(invDetail.key) : fishName(invDetail.key) }}</b>
+                                    <button class="close" @click="closeInvDetail()">×</button>
+                                </div>
+                                <div class="stat">回收价 {{ invDetail.kind === 'seed' ? seedSellPrice(invDetail.key) : fishSellPrice(invDetail.key) }} 金币/个</div>
+                                <div class="own">持有: {{ invDetail.kind === 'seed' ? inventory.seeds[invDetail.key] : fish.fries[invDetail.key] }}</div>
+                                <div class="stepper">
+                                    <button @click="qtyChange(invDetail.kind === 'seed' ? 'warehouseSeeds' : 'fishFries', invDetail.key, -1)">&lt;</button>
+                                    <input type="number" min="0" :value="qtyFor(invDetail.kind === 'seed' ? 'warehouseSeeds' : 'fishFries', invDetail.key)"
+                                           @input="qtyInputLive(invDetail.kind === 'seed' ? 'warehouseSeeds' : 'fishFries', invDetail.key, $event.target.value)"
+                                           @change="qtyInput(invDetail.kind === 'seed' ? 'warehouseSeeds' : 'fishFries', invDetail.key, $event.target.value)">
+                                    <button @click="qtyChange(invDetail.kind === 'seed' ? 'warehouseSeeds' : 'fishFries', invDetail.key, 1)">&gt;</button>
+                                </div>
+                                <button @click="invDetail.kind === 'seed' ? sellSeed(invDetail.key) : recycleFry(invDetail.key)">回收({{ (invDetail.kind === 'seed' ? seedSellPrice(invDetail.key) : fishSellPrice(invDetail.key)) * qtyFor(invDetail.kind === 'seed' ? 'warehouseSeeds' : 'fishFries', invDetail.key) }}金币)</button>
+                            </template>
+                            <template v-else>
+                                <div class="dialog-head">
+                                    <b>{{ itemName(invDetail.key) }}</b>
+                                    <button class="close" @click="closeInvDetail()">×</button>
+                                </div>
+                                <div class="stat">售价 {{ itemSell(invDetail.key) }} 金币/个</div>
+                                <div class="own">持有: {{ inventory.items[invDetail.key] }}</div>
+                                <div class="stepper">
+                                    <button @click="qtyChange('warehouseItems', invDetail.key, -1)">&lt;</button>
+                                    <input type="number" min="0" :value="qtyFor('warehouseItems', invDetail.key)"
+                                           @input="qtyInputLive('warehouseItems', invDetail.key, $event.target.value)"
+                                           @change="qtyInput('warehouseItems', invDetail.key, $event.target.value)">
+                                    <button @click="qtyChange('warehouseItems', invDetail.key, 1)">&gt;</button>
+                                </div>
+                                <button @click="sellItem(invDetail.key)" :disabled="inventory.locks[invDetail.key]" :title="inventory.locks[invDetail.key] ? '已锁定,请先解锁' : ''">出售({{ itemSell(invDetail.key) * qtyFor('warehouseItems', invDetail.key) }}金币)</button>
+                            </template>
+                        </div>
+                    </div>
                 </div>
                 <!-- 底部固定栏:按弹窗类型展示对应的一键操作 -->
                 <div v-if="modalMode === 'backpack'" class="modal-footer">
+                    <div class="footer-total">可回收总价: <b>{{ backpackTotalValue() }}</b> 金币</div>
                     <button @click="recycleAllBackpack()">一键回收</button>
                 </div>
                 <div v-else-if="modalMode === 'warehouse'" class="modal-footer">

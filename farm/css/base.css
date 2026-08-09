@@ -228,6 +228,7 @@ input {
 
 /* ================= 地块/鱼塘格子(农田与鱼塘共用) ================= */
 .plot {
+    position: relative; /* 供未解锁蒙版绝对覆盖 */
     border: 1px solid var(--border);
     border-radius: 10px;
     min-height: 86px;
@@ -360,7 +361,7 @@ button:disabled {
     border-bottom: 1px solid var(--border);
     background: var(--surface2);
     border-radius: 8px 8px 0 0;
-    height: 52px; /* 固定高度,保证左侧耳朵与 modal-body 精确对齐 */
+    height: 52px; /* 固定高度,标题与下方标签/内容稳定对齐 */
 }
 
 .modal-head h2 {
@@ -455,6 +456,32 @@ button:disabled {
     margin-top: 10px;
 }
 
+/* 背包/仓库卡片底部行:左对齐售价,右对齐数量 */
+.inv-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.inv-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1.2;
+}
+
+.inv-foot .inv-price {
+    color: var(--text-dim);
+}
+
+.inv-foot .inv-qty {
+    color: var(--accent-bright);
+    font-weight: bold;
+}
+
 .kind {
     display: inline-block;
     font-size: 11px;
@@ -545,7 +572,7 @@ button:disabled {
 }
 
 .card-mask .lock {
-    font-size: 24px;
+    font-size: 15px;
     line-height: 1;
 }
 
@@ -555,7 +582,7 @@ button:disabled {
     text-shadow: 0 1px 2px rgba(0, 0, 0, .6);
 }
 
-/* 详情对话框:半透明遮罩盖在商店列表上,对话框居中 */
+/* 详情对话框:半透明遮罩盖在商店列表上,对话框居中(桌面端耳朵式标签,遮罩从 modal-head 下方开始) */
 .shop-dialog-mask {
     position: absolute;
     top: 52px;            /* 从 modal-head 下方开始,遮罩覆盖 body 区 */
@@ -635,7 +662,7 @@ button:disabled {
     padding: 6px;
 }
 
-/* 弹窗左侧外部耳朵式标签 */
+/* 弹窗左侧外部耳朵式标签(桌面端) */
 .modal-tabs {
     position: absolute;
     right: 100%;          /* 右缘紧贴模态框左边框,无空隙也不深入模态框 */
@@ -923,4 +950,69 @@ button.danger:hover {
 .feed-trough .trough-add {
     padding: 2px 14px;
     font-size: 12px;
+}
+
+/* ---------- 移动端适配(不影响桌面端布局) ---------- */
+@media (max-width: 768px) {
+    body {
+        padding: 8px;
+    }
+    .container {
+        max-width: none;
+        margin: 0;
+        overflow: hidden; /* 防止网格/工具栏视觉超出容器 */
+        padding: 12px 14px; /* 减小内边距,留出更多内容空间 */
+    }
+    .topbar {
+        grid-template-columns: 1fr; /* 移动端纵向堆叠:status 一行,按钮组换行一行 */
+        gap: 8px;
+        padding-bottom: 12px;
+        margin-bottom: 14px;
+    }
+    .top-btn {
+        padding: 7px 14px; /* 缩小按钮,保证 4-5 个按钮在窄屏单行可显示 */
+        font-size: 13px;
+    }
+    .status {
+        padding: 8px 12px;
+        font-size: 13px;
+        gap: 14px;
+    }
+    .top-right {
+        flex-wrap: wrap;
+        justify-content: center;
+        justify-self: stretch; /* 按钮组占满整行居中换行 */
+    }
+    .farm-wrap, .pond-wrap, .ranch-wrap {
+        min-width: 0; /* 移动端不强制最小宽,避免撑破容器 */
+    }
+    /* 卡片网格:移动端一行 3 个(桌面端 4 个) */
+    .cards {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+    /* 弹窗种类标签:移动端改为标题下方固定横排(桌面端保持左侧耳朵) */
+    .modal-tabs {
+        position: static; /* 脱离左侧绝对定位,回到文档流,位于标题下方 */
+        flex-direction: row;
+        gap: 4px;
+        padding: 8px 12px 0;
+        background: var(--surface2);
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0; /* 固定在头部,不随内容滚动 */
+        overflow: hidden; /* 不显示横向滚动条,标签不超出弹窗 */
+    }
+    .tab-ear {
+        padding: 8px 20px;
+        border-radius: 8px 8px 0 0;
+        border: 1px solid var(--border2);
+        border-bottom: none;
+        flex-shrink: 0;
+    }
+    .modal-body {
+        position: relative; /* 供详情对话框遮罩相对 body 定位 */
+    }
+    .shop-dialog-mask {
+        top: 0; /* 移动端标题+标签固定后,遮罩从 body 顶部开始 */
+    }
 }

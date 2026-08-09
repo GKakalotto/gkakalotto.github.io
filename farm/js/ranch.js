@@ -8,7 +8,7 @@ const ranchComputed = {
     feedTroughCount() { return this.feedTrough; },              // 牧槽内的牧草
     feedTroughCap() { return FEED_TROUGH_CAP; },
     feedCost() { return FEED_COST; },
-    ranchHasAnimal() { return this.animals[this.menuPlot] !== null; },
+    ranchHasAnimal() { return !!this.animals[this.menuPlot]; }, // !! 使 undefined(menuPlot=-1) 与 null 都判为空
     menuRanchHarvestEnabled() { const a = this.animals[this.menuPlot]; return !!a && this.ranchPending(this.menuPlot) > 0; },
     menuRanchDoneEnabled() { return this.ranchDone(this.menuPlot); },
     ranchMaxProduce() { return ANIMAL_MAX_PRODUCE; },
@@ -26,6 +26,7 @@ const ranchMethods = {
     ranchPercent(i) { return Math.floor(this.ranchGrowth(i) * 100); },
     ranchRemainText(i) {
         const a = this.animals[i];
+        if (!a) return ''; // 空栏位/越界(menuPlot=-1)时安全返回
         const total = ANIMALS[a.type].grow;
         return fmtDur(Math.max(0, Math.ceil(total - this.ranchGrowth(i) * total))) + '后成熟';
     },

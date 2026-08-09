@@ -270,6 +270,17 @@ const commonMethods = {
         this.modalMode = 'warehouse';
         this.modalTitle = '仓库';
     },
+    /* 背包/仓库卡片二级详情 */
+    openInvDetail(mode, kind, key) {
+        this.invDetail = { mode: mode, kind: kind, key: key };
+    },
+    closeInvDetail() {
+        this.invDetail = null;
+        // 关闭详情重置数量,再次打开从 0 开始(与商店详情一致)
+        this.qtys.warehouseItems = {};
+        this.qtys.warehouseSeeds = {};
+        this.qtys.fishFries = {};
+    },
     setShopTab(tab) {
         // 切换标签:重置输入框数量、关闭详情、重置滚动位置
         this.qtys.shop = {};
@@ -312,6 +323,13 @@ const commonMethods = {
             if (this.inventory.locks[key]) return;
             total += this.itemSell(key) * this.inventory.items[key];
         });
+        return total;
+    },
+    // 背包可回收总价:所有种子/鱼苗的回收总价值(与一键回收口径一致)
+    backpackTotalValue() {
+        let total = 0;
+        this.seedKeys.forEach((k) => { total += this.seedSellPrice(k) * this.inventory.seeds[k]; });
+        this.fishFryKeys.forEach((k) => { total += this.fishSellPrice(k) * this.fish.fries[k]; });
         return total;
     },
     sellAllUnlocked() {
@@ -361,8 +379,9 @@ const commonMethods = {
 
     /* ---------- 弹窗 ---------- */
     onOverlayClick() {
-        // 详情对话框打开时,点击空白只关闭详情,不关闭商店
+        // 二级详情打开时,点击空白只关闭详情,不关闭主弹窗
         if (this.shopDetail) { this.closeShopDetail(); return; }
+        if (this.invDetail) { this.closeInvDetail(); return; }
         this.closeModal();
     },
     closeModal() {
@@ -370,6 +389,7 @@ const commonMethods = {
         else if (this.modalMode === 'warehouse' || this.modalMode === 'backpack') { this.qtys.warehouseItems = {}; this.qtys.warehouseSeeds = {}; this.qtys.fishFries = {}; }
         else if (this.modalMode === 'feedadd') { this.qtys.feedadd = {}; }
         this.shopDetail = null;
+        this.invDetail = null;
         this.modalMode = null;
         this.modalPlot = -1;
         this.modalOnOk = null;

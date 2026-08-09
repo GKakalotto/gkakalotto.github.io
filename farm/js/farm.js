@@ -1,6 +1,6 @@
 /* ================= 农田(作物)逻辑 ================= */
 const farmComputed = {
-    plotHasCrop() { return this.plots[this.menuPlot] !== null; },
+    plotHasCrop() { return !!this.plots[this.menuPlot]; }, // !! 使 undefined(menuPlot=-1) 与 null 都判为空
     menuWaterEnabled() { const p = this.plots[this.menuPlot]; return !!p && p.dry; },
     menuHarvestEnabled() { const p = this.plots[this.menuPlot]; return !!p && this.plotProgress(this.menuPlot) >= 1; },
 };
