@@ -1,6 +1,7 @@
 /* ================= 养殖(动物)逻辑 =================
-   玩法:空栏位投放幼崽 → 生长(缺草暂停)→ 成熟后每 produceEvery 秒产 1 个产物,累计 ANIMAL_MAX_PRODUCE 次后产满 → 收获动物本体进仓库。
-   牧槽不空时动物每 FEED_EVERY 个产出周期自动消耗 1 牧草,缺草则生长/产出暂停;雇佣期间不消耗牧草也不饥饿。 */
+   玩法:空栏位投放幼崽 → 生长(缺草暂停)→ 成熟后产出进度自动累积(不收获也增加),每 produceEvery 秒累计 1 次产出,
+   累计 ANIMAL_MAX_PRODUCE 次后产满 → 收获动物本体进仓库;未收取的产物随点击收取入仓。
+   牧槽不空时动物每 FEED_EVERY 个产出周期自动消耗 1 牧草,缺草则生长/产出暂停。 */
 const ranchComputed = {
     animalTypes() { return ANIMALS; },
     youngKeys() { return Object.keys(this.inventory.young); },
@@ -37,14 +38,13 @@ const ranchMethods = {
         if (pr < 0.7) return '成长中';
         return '快成熟';
     },
-    /* 待收取产物数(饥饿或产满时暂停产出,不超过剩余产出配额) */
+    /* 待收取产物数 = 累计产出(自动累积) - 已入仓次数;饥饿或未成熟时不产出 */
     ranchPending(i) {
         const a = this.animals[i];
-        if (!a || a.hungry || this.ranchGrowth(i) < 1 || this.ranchDone(i)) return 0;
-        const remaining = ANIMAL_MAX_PRODUCE - (a.produceCount || 0);
-        return Math.min(Math.floor((this.now - a.lastProduce) / (ANIMALS[a.type].produceEvery * 1000)), remaining);
+        if (!a || a.hungry || this.ranchGrowth(i) < 1) return 0;
+        return Math.max(0, (a.produceCount || 0) - (a.stored || 0));
     },
-    /* 动物是否已产满(累计产出达到 ANIMAL_MAX_PRODUCE 次,可收获本体) */
+    /* 动物是否已产满(累计产出达到 ANIMAL_MAX_PRODUCE 次,进度自动累积,与是否收获无关) */
     ranchDone(i) {
         const a = this.animals[i];
         return !!a && (a.produceCount || 0) >= ANIMAL_MAX_PRODUCE;
@@ -63,8 +63,8 @@ const ranchMethods = {
         const a = this.animals[i];
         if (a === null) return '点击投放幼崽';
         if (a.hungry) return '饥饿中,牧槽缺牧草';
-        if (this.ranchDone(i)) return '已产满,点击收获动物';
         if (this.ranchPending(i) > 0) return '点击收取产物';
+        if (this.ranchDone(i)) return '已产满,点击收获动物';
         return '点击查看';
     },
     onRanchClick(i, e) {
@@ -77,14 +77,14 @@ const ranchMethods = {
             this.menuDirect = true;
             return;
         }
-        if (this.ranchDone(i)) {
-            // 已产满:直接收获动物本体进仓库
-            this.collectAnimal(i);
+        if (this.ranchPending(i) > 0) {
+            // 有待收产物:直接收取(产满后也先收产物,避免待收丢失)
+            this.collectProduct(i);
             return;
         }
-        if (this.ranchPending(i) > 0) {
-            // 有待收产物:直接收取
-            this.collectProduct(i);
+        if (this.ranchDone(i)) {
+            // 已产满且产物已收完:直接收获动物本体进仓库
+            this.collectAnimal(i);
             return;
         }
         this.openRanchMenu(i, e);
@@ -148,10 +148,11 @@ const ranchMethods = {
             accrued: 0,
             resumedAt: now,
             hungry: false,
-            hungerAt: now + ANIMALS[key].produceEvery * FEED_EVERY * 1000, // 牧场不受雇佣影响,始终预约饥饿
+            hungerAt: now + ANIMALS[key].produceEvery * FEED_EVERY * 1000,
             lastProduce: now,
             announced: false,
-            produceCount: 0,
+            produceCount: 0, // 累计产出次数(自动累积,即进度)
+            stored: 0,       // 已入仓的产物次数
         });
         this.addXp(1);
         this.addLog('投放了 ' + ANIMALS[key].name + ' 幼崽 +1 经验');
@@ -164,9 +165,7 @@ const ranchMethods = {
         if (n <= 0) return;
         const p = ANIMALS[a.type].product;
         this.$set(this.inventory.items, p, (this.inventory.items[p] || 0) + n);
-        a.lastProduce += n * ANIMALS[a.type].produceEvery * 1000;
-        if (a.lastProduce > Date.now()) a.lastProduce = Date.now();
-        a.produceCount = (a.produceCount || 0) + n;
+        a.stored = (a.stored || 0) + n; // 已收产物入仓
         this.hideContextMenu();
         this.addLog('收取 ' + ANIMALS[a.type].name + ' 的产物 ' + ANIMAL_PRODUCTS[p].name + ' x' + n + '(累计 ' + a.produceCount + '/' + ANIMAL_MAX_PRODUCE + ')');
         this.save();
@@ -175,10 +174,12 @@ const ranchMethods = {
     collectAnimal(i) {
         const a = this.animals[i];
         if (!this.ranchDone(i)) return;
+        if (this.ranchPending(i) > 0) { this.collectProduct(i); return; } // 有待收产物先收取,避免丢失
         this.$set(this.inventory.items, a.type, (this.inventory.items[a.type] || 0) + 1);
         this.$set(this.animals, i, null);
         this.hideContextMenu();
-        this.addLog(ANIMALS[a.type].name + ' 已完成使命,收获到仓库');
+        this.addLog(ANIMALS[a.type].name + ' 已完成使命,收获到仓库 +' + ANIMALS[a.type].xp + ' 经验');
+        this.addXp(ANIMALS[a.type].xp);
         this.save();
     },
     doClearAnimal(i) {
@@ -190,7 +191,7 @@ const ranchMethods = {
         this.save();
     },
 
-    /* ---------- 每秒检查:由 common.js 的 tick 统一调用(雇佣只照顾农田,不影响牧场) ---------- */
+    /* ---------- 每秒检查:由 common.js 的 tick 统一调用 ---------- */
     checkAnimals() {
         const now = Date.now();
         let hit = false;
@@ -208,9 +209,22 @@ const ranchMethods = {
                 this.feedTrough--;
                 a.hungry = false;
                 a.resumedAt = now;
+                a.lastProduce = now; // 解除冻结,产出计时从恢复时刻重新开始
                 a.hungerAt = now + ANIMALS[a.type].produceEvery * FEED_EVERY * 1000;
                 this.addLog(ANIMALS[a.type].name + ' 吃到牧草,恢复生长/产出');
                 hit = true;
+            }
+            // 产出进度自动累积(不收获也随时间增加;饥饿/未成熟/已产满时不累积)
+            if (a.announced && !a.hungry && (a.produceCount || 0) < ANIMAL_MAX_PRODUCE) {
+                const interval = ANIMALS[a.type].produceEvery * 1000;
+                // 若本帧已到饥饿预约时刻,产出只推进到饥饿时刻(接下来会进入饥饿冻结)
+                const produceEnd = (a.hungerAt && a.hungerAt < now) ? a.hungerAt : now;
+                const due = Math.floor((produceEnd - a.lastProduce) / interval);
+                if (due > 0) {
+                    a.lastProduce += due * interval;
+                    a.produceCount = Math.min(ANIMAL_MAX_PRODUCE, (a.produceCount || 0) + due);
+                    hit = true;
+                }
             }
             // 饥饿预约到期:牧槽有牧草则自动吃草续约,无草则饥饿暂停
             if (!a.hungry && a.hungerAt && now >= a.hungerAt) {

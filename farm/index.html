@@ -60,10 +60,13 @@
                             <template v-else-if="p === null">
                                 <div>[空地]</div>
                             </template>
+                            <template v-else-if="isDryPlot(p)">
+                                <div>[干枯]</div>
+                                <div class="state">需浇水后种植</div>
+                            </template>
                             <template v-else>
                                 <div>[{{ cropName(p.type) }}]</div>
-                                <div v-if="p.dry" class="state">缺水!生长暂停</div>
-                                <template v-else-if="plotProgress(i) >= 1">
+                                <template v-if="plotProgress(i) >= 1">
                                     <div class="state">已成熟</div>
                                 </template>
                                 <template v-else>
@@ -78,10 +81,9 @@
                 <div class="toolbar">
                     <button @click="harvestAll()">一键收获</button>
                     <button @click="harvestFishAll()" :disabled="!pondUnlocked">一键捕捞</button>
-                    <button @click="openHireModal()" :title="hireTitle">{{ hireText }}</button>
                 </div>
 
-                <!-- 鱼塘:10级+5000金币解锁区域,解锁后开放初始格,其余格随等级花金币逐格扩张 -->
+                <!-- 鱼塘:5级+2000金币解锁区域,解锁后开放初始4格,其余格随等级花金币逐格扩张(3×4共12格) -->
                 <div class="pond-wrap">
                     <div v-if="!pondUnlocked" class="pond-locked" @click="openPondUnlock()">
                         <div>鱼塘未解锁</div>
@@ -133,7 +135,7 @@
                             </template>
                             <template v-else>
                                 <div>[{{ animalName(a.type) }}]</div>
-                                <div v-if="ranchGrowth(i) >= 1" class="state">{{ ranchDone(i) ? '已产满 · 点击收获' : '待收 ' + ranchPending(i) + ' · 累计 ' + (a.produceCount || 0) + '/' + ranchMaxProduce }}</div>
+                                <div v-if="ranchGrowth(i) >= 1" class="state">{{ ranchDone(i) && ranchPending(i) === 0 ? '已产满 · 点击收获' : '待收 ' + ranchPending(i) + ' · 累计 ' + (a.produceCount || 0) + '/' + ranchMaxProduce }}</div>
                                 <div v-else class="state">{{ ranchStageText(i) }} {{ ranchPercent(i) }}%</div>
                                 <div v-if="a.hungry" class="state">饥饿</div>
                             </template>
@@ -144,10 +146,10 @@
         </div>
 
         <!-- 地块/鱼塘/栏位右键菜单 -->
-        <div v-show="menuVisible" class="context-menu" :style="menuStyle" ref="contextMenu" @mousedown.stop>
+        <div v-show="menuVisible" class="context-menu" :style="menuStyle" @mousedown.stop>
             <template v-if="menuView === 'main'">
                 <template v-if="menuTarget === 'plot'">
-                    <button v-if="!plotHasCrop" @click="plantSubmenu()">种植</button>
+                    <button v-if="plotEmpty" @click="plantSubmenu()">种植</button>
                     <button v-if="menuWaterEnabled" @click="water(menuPlot)">浇水</button>
                     <button v-if="menuHarvestEnabled" @click="harvest(menuPlot)">收获</button>
                     <div v-if="plotHasCrop && plotProgress(menuPlot) < 1" class="cm-tip">剩余 {{ fmtRemain(plotRemainSec(menuPlot)) }}</div>
@@ -425,22 +427,6 @@
                         <div style="margin-top:14px;">
                             <button @click="confirmOk()">确认</button>
                             <button class="ghost" @click="confirmCancel()">取消</button>
-                        </div>
-                    </div>
-
-                    <!-- 雇佣:未雇佣时选择时长,已雇佣时显示状态详情 -->
-                    <div v-else-if="modalMode === 'hire'">
-                        <div v-if="hired" class="center-tip">
-                            <div>当前雇佣中,植物不会缺水</div>
-                            <div style="margin-top:6px;">剩余时长:<b>{{ hireRemainText() }}</b></div>
-                            <div style="margin-top:14px;">
-                                <button class="ghost" @click="closeModal()">关闭</button>
-                                <button class="danger" @click="unhire()">解除雇佣</button>
-                            </div>
-                        </div>
-                        <div v-else class="hire-options">
-                            <div class="hire-tip">选择雇佣时长,期间植物不会缺水</div>
-                            <button v-for="opt in hireOptions" :key="opt.hours" :disabled="coins < opt.cost" @click="hireFarmhand(opt)">雇佣 {{ opt.hours }} 小时({{ opt.cost }} 金币)</button>
                         </div>
                     </div>
 

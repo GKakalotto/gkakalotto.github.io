@@ -28,15 +28,14 @@ function makeDefaultState() {
         xp: 0,
         plots: Array.from({ length: TOTAL_PLOTS }, () => null),
         unlockedPlots: Array.from({ length: TOTAL_PLOTS }, (_, i) => i < INITIAL_UNLOCKED),
-        pond: Array.from({ length: TOTAL_PONDS }, () => null), // 鱼塘 2×5 共 10 格
-        pondUnlocked: false,             // 鱼塘默认锁定,10级+5000金币整体解锁
+        pond: Array.from({ length: TOTAL_PONDS }, () => null), // 鱼塘 3×4 共 12 格
+        pondUnlocked: false,             // 鱼塘默认锁定,5级+2000金币整体解锁
         unlockedPonds: Array.from({ length: TOTAL_PONDS }, () => false), // 各鱼塘格是否开放(区域解锁后前 N 格自动开放,其余花金币扩张)
         animals: Array.from({ length: RANCH_TOTAL }, () => null), // 养殖栏位
         unlockedRanches: Array.from({ length: RANCH_TOTAL }, (_, i) => i < RANCH_INITIAL_OPEN), // 各栏位是否开放
         feedTrough: 0,                 // 牧槽牧草量(上限 FEED_TROUGH_CAP)
         inventory: { seeds: { luobo: 3 }, items: {}, locks: {}, young: {} },
         fish: { fries: {} },             // 鱼苗库存(成鱼收获后进 inventory.items)
-        hireUntil: 0,                    // 雇佣农工的到期时间戳,0 = 未雇佣
-        log: [{ t: Date.now(), msg: '欢迎来到 星露谷农场!点空地种菜,生长中可能随机缺水需浇水;达到等级后解锁更多土地。' }],
+        log: [{ t: Date.now(), msg: '欢迎来到 星露谷农场!点空地种菜,收获后土地可能干枯,干枯的地需浇水后才能种植;达到等级后解锁更多土地。' }],
     };
 }

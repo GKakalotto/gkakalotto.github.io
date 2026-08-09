@@ -4,15 +4,6 @@ const commonComputed = {
     fishes() { return FISH; },
     levelText() { return 'Lv.' + this.level; },
     xpText() { return this.xp + '/' + xpNeeded(this.level); },
-    /* 雇佣农工:8小时内植物不会缺水 */
-    hired() { return this.now < this.hireUntil; },
-    hireOptions() { return HIRE_OPTIONS; },
-    hireText() { return this.hired ? '雇佣中' : '雇佣农工'; },
-    hireTitle() {
-        return this.hired
-            ? '雇佣中,植物不会缺水,剩余 ' + this.hireRemainText()
-            : '点击选择雇佣时长(1/2/4/8小时),期间植物不会缺水';
-    },
     seedKeys() { return Object.keys(this.inventory.seeds); },
     itemKeys() { return Object.keys(this.inventory.items); },
     fishFryKeys() { return Object.keys(this.fish.fries); },
@@ -35,7 +26,8 @@ const commonComputed = {
             return a ? '确定移除第 ' + (i + 1) + ' 个栏位的' + ANIMALS[a.type].name + '吗?' : '';
         }
         const p = this.plots[i];
-        return p ? '确定铲除第 ' + (i + 1) + ' 块地的' + CROPS[p.type].name + '吗?' : '';
+        if (!p || this.isDryPlot(p)) return ''; // 干枯地块无作物,不显示铲除确认
+        return '确定铲除第 ' + (i + 1) + ' 块地的' + CROPS[p.type].name + '吗?';
     },
 };
 
@@ -53,7 +45,7 @@ const commonMethods = {
                 pondUnlocked: this.pondUnlocked, unlockedPonds: this.unlockedPonds,
                 animals: this.animals, unlockedRanches: this.unlockedRanches,
                 feedTrough: this.feedTrough, scene: this.scene,
-                inventory: this.inventory, fish: this.fish, hireUntil: this.hireUntil, log: this.log,
+                inventory: this.inventory, fish: this.fish, log: this.log,
             }));
         } catch (e) { /* 无持久化时游戏仍可运行 */ }
     },
@@ -63,8 +55,10 @@ const commonMethods = {
             const raw = localStorage.getItem(SAVE_KEY);
             if (raw) s = JSON.parse(raw);
         } catch (e) { /* 忽略损坏的存档 */ }
+        // 结构校验:不完整或损坏的存档直接丢弃,保持默认状态
         if (!s || !Array.isArray(s.plots) || s.plots.length !== TOTAL_PLOTS
             || !Array.isArray(s.unlockedPlots) || s.unlockedPlots.length !== TOTAL_PLOTS) return;
+        const d = makeDefaultState();
         this.coins = s.coins;
         this.level = s.level;
         this.xp = s.xp;
@@ -72,49 +66,15 @@ const commonMethods = {
         this.scene = s.scene === 'ranch' ? 'ranch' : 'farm'; // 记住上次所在场景,刷新后停留原地
         this.plots = s.plots;
         this.unlockedPlots = s.unlockedPlots;
-        this.pond = Array.isArray(s.pond) && s.pond.length === TOTAL_PONDS
-            ? s.pond : Array.from({ length: TOTAL_PONDS }, () => null);
-        // 旧存档已有鱼塘内容的自动视为已解锁,避免已有进度被锁定隐藏
-        this.pondUnlocked = !!s.pondUnlocked || this.pond.some(p => p !== null);
-        // 各鱼塘格开放状态:缺失或长度不对时,按旧逻辑(区域解锁后随等级开放)回推
-        this.unlockedPonds = (Array.isArray(s.unlockedPonds) && s.unlockedPonds.length === TOTAL_PONDS)
-            ? s.unlockedPonds
-            : (this.pondUnlocked
-                ? Array.from({ length: TOTAL_PONDS }, (_, i) => i < POND_INITIAL_OPEN + Math.floor((this.level - POND_UNLOCK_LEVEL) / POND_EXPAND_INTERVAL))
-                : Array.from({ length: TOTAL_PONDS }, () => false));
-        this.inventory = s.inventory || { seeds: { luobo: 3 }, items: {}, locks: {}, young: {} };
-        if (!this.inventory.locks) this.inventory.locks = {};
-        if (!this.inventory.young) this.inventory.young = {};
-        this.fish = s.fish || { fries: {} };
-        if (!this.fish.fries) this.fish.fries = {};
-        this.hireUntil = s.hireUntil || 0; // 旧存档无此字段 = 未雇佣
-        this.log = Array.isArray(s.log) ? s.log : [];
-        // 养殖栏位:旧存档可能不足 RANCH_TOTAL 格,补齐到 RANCH_TOTAL 格并保留已有动物
-        const padArr = (arr, fill) => Array.isArray(arr)
-            ? arr.concat(Array.from({ length: RANCH_TOTAL - arr.length }, () => fill)).slice(0, RANCH_TOTAL)
-            : null;
-        this.animals = padArr(s.animals, null) || Array.from({ length: RANCH_TOTAL }, () => null);
-        this.unlockedRanches = padArr(s.unlockedRanches, false) || Array.from({ length: RANCH_TOTAL }, (_, i) => i < RANCH_INITIAL_OPEN);
-        // 牧槽:槽内牧草(喂食消耗);仓库中的牧草(items['siliao'])由玩家手动添入
+        this.pond = Array.isArray(s.pond) && s.pond.length === TOTAL_PONDS ? s.pond : d.pond;
+        this.pondUnlocked = !!s.pondUnlocked;
+        this.unlockedPonds = Array.isArray(s.unlockedPonds) && s.unlockedPonds.length === TOTAL_PONDS ? s.unlockedPonds : d.unlockedPonds;
+        this.animals = Array.isArray(s.animals) && s.animals.length === RANCH_TOTAL ? s.animals : d.animals;
+        this.unlockedRanches = Array.isArray(s.unlockedRanches) && s.unlockedRanches.length === RANCH_TOTAL ? s.unlockedRanches : d.unlockedRanches;
         this.feedTrough = s.feedTrough || 0;
-        // 清理旧存档中已下架(水果)的作物/鱼,避免渲染报错
-        this.plots.forEach((p, i) => {
-            if (p && !CROPS[p.type]) this.$set(this.plots, i, null);
-            else if (p && p.announced === undefined) this.$set(p, 'announced', false);
-        });
-        this.pond.forEach((p, i) => {
-            if (p && !FISH[p.type]) this.$set(this.pond, i, null);
-            else if (p && p.announced === undefined) this.$set(p, 'announced', false);
-        });
-        this.animals.forEach((a, i) => {
-            if (a && !ANIMALS[a.type]) this.$set(this.animals, i, null);
-            else if (a && a.announced === undefined) this.$set(a, 'announced', false);
-        });
-        Object.keys(this.inventory.items).forEach((k) => { if (!CROPS[k] && !FISH[k] && !ANIMAL_PRODUCTS[k]) this.$delete(this.inventory.items, k); });
-        Object.keys(this.inventory.seeds).forEach((k) => { if (!CROPS[k]) this.$delete(this.inventory.seeds, k); });
-        Object.keys(this.inventory.locks).forEach((k) => { if (!CROPS[k] && !FISH[k] && !ANIMAL_PRODUCTS[k]) this.$delete(this.inventory.locks, k); });
-        Object.keys(this.inventory.young).forEach((k) => { if (!ANIMALS[k]) this.$delete(this.inventory.young, k); });
-        Object.keys(this.fish.fries).forEach((k) => { if (!FISH[k]) this.$delete(this.fish.fries, k); });
+        this.inventory = s.inventory || d.inventory;
+        this.fish = s.fish || d.fish;
+        this.log = Array.isArray(s.log) ? s.log : d.log;
     },
     resetGame() {
         this.settingsOpen = false;
@@ -435,82 +395,12 @@ const commonMethods = {
     toggleSettings() { this.settingsOpen = !this.settingsOpen; },
     applyTheme() { document.body.dataset.theme = this.theme; },
 
-    /* 雇佣农工:8 小时内植物不会缺水 */
-    hireRemainText() {
-        const secs = Math.max(0, Math.ceil((this.hireUntil - this.now) / 1000));
-        const h = Math.floor(secs / 3600);
-        const m = Math.floor((secs % 3600) / 60);
-        const s = secs % 60;
-        let text = '';
-        if (h > 0) text += h + '小时';
-        if (m > 0 || h > 0) text += m + '分';
-        text += s + '秒';
-        return text;
-    },
-    unhire() {
-        this.confirmModal('解除雇佣', '确定要解除雇佣吗?剩余时长将作废', () => {
-            this.hireUntil = 0;
-            this.addLog('已解除雇佣,植物将恢复缺水机制');
-            this.save();
-        }, () => {
-            // 取消:回到雇佣详情弹窗
-            this.modalMode = 'hire';
-            this.modalTitle = '雇佣状态';
-        });
-    },
-    /* 雇佣农工:未雇佣时弹窗选择时长(确认后生效),已雇佣时弹窗显示状态 */
-    openHireModal() {
-        this.hideContextMenu();
-        this.modalMode = 'hire';
-        this.modalTitle = this.hired ? '雇佣状态' : '雇佣农工';
-    },
-    hireFarmhand(opt) {
-        this.confirmModal('雇佣农工', '确定雇佣 <b>' + opt.hours + '</b> 小时?花费 <b>' + opt.cost + '</b> 金币,期间植物不会缺水', () => {
-            if (this.coins < opt.cost) {
-                this.addLog('金币不足,雇佣 ' + opt.hours + ' 小时需要 ' + opt.cost + ' 金币');
-                return;
-            }
-            this.coins -= opt.cost;
-            this.hireUntil = Date.now() + opt.hours * 3600 * 1000;
-            // 立即浇好当前所有缺水植物,并取消已预约的干旱
-            let watered = 0;
-            this.plots.forEach((p) => {
-                if (!p) return;
-                if (p.dry) { p.dry = false; p.resumedAt = Date.now(); watered++; }
-                p.droughtAt = null;
-            });
-            this.addLog('雇佣了农工 ' + opt.hours + ' 小时,期间植物不会缺水' + (watered > 0 ? ',已浇好 ' + watered + ' 棵缺水植物' : ''));
-            this.save();
-        }, () => {
-            // 取消:回到雇佣选择弹窗
-            this.modalMode = 'hire';
-            this.modalTitle = '雇佣农工';
-        });
-    },
-
     /* ---------- 每秒定时 ---------- */
     tick() {
         this.now = Date.now();
-        this.checkDrought();
         this.checkMature();
         this.checkFishMature();
         if (this.checkAnimals) this.checkAnimals(); // 养殖模块存在时一并检查
-    },
-    checkDrought() {
-        if (this.hired) return; // 雇佣期间植物不会缺水
-        const now = Date.now();
-        let hit = false;
-        this.plots.forEach((p, i) => {
-            if (p && !p.dry && !p.announced && p.droughtAt && now >= p.droughtAt && this.plotProgress(i) < 1) {
-                p.accrued += now - p.resumedAt; // 冻结当前进度
-                p.resumedAt = now;
-                p.dry = true;
-                p.droughtAt = null;
-                this.addLog(CROPS[p.type].name + ' 缺水了!生长暂停,快浇水');
-                hit = true;
-            }
-        });
-        if (hit) this.save();
     },
     checkMature() {
         let hit = false;

@@ -54,20 +54,20 @@ const CROP_KIND = [
 
 /* ---------- 鱼塘:鱼数据(名称/鱼苗价/售出价/生长秒数/经验/解锁等级) ----------
    与作物同一套三定位平衡思路:按解锁顺序循环 快收/暴利/经验,互不碾压。
-   level = 解锁等级(Lv.10 起每升 1 级解锁 1 种,按商店顺序从 Lv.10 起) */
+   level = 解锁等级(Lv.5 起每升 1 级解锁 1 种,按商店顺序从 Lv.5 起) */
 const FISH = {
-    caoyu:    { name: '草鱼', cost: 6,   sell: 16,  grow: 40,  xp: 7,   level: 10 },
-    bianyu:   { name: '鳊鱼', cost: 18,  sell: 44,  grow: 200, xp: 43,  level: 11 },
-    baitiao:  { name: '白条', cost: 10,  sell: 24,  grow: 70,  xp: 22,  level: 12 },
-    maisui:   { name: '麦穗', cost: 12,  sell: 30,  grow: 90,  xp: 15,  level: 13 },
-    liyu:     { name: '鲤鱼', cost: 36,  sell: 85,  grow: 360, xp: 78,  level: 14 },
-    qingyu:   { name: '青鱼', cost: 20,  sell: 48,  grow: 150, xp: 47,  level: 15 },
-    yongyu:   { name: '鳙鱼', cost: 18,  sell: 48,  grow: 140, xp: 23,  level: 16 },
-    heiyu:    { name: '黑鱼', cost: 54,  sell: 130, grow: 520, xp: 112, level: 17 },
-    jiyu:     { name: '鲫鱼', cost: 30,  sell: 70,  grow: 230, xp: 72,  level: 18 },
-    lianyu:   { name: '鲢鱼', cost: 24,  sell: 60,  grow: 190, xp: 32,  level: 19 },
-    guiyu:    { name: '鳜鱼', cost: 72,  sell: 175, grow: 680, xp: 147, level: 20 },
-    luyu:     { name: '鲈鱼', cost: 40,  sell: 95,  grow: 310, xp: 97,  level: 21 },
+    caoyu:    { name: '草鱼', cost: 6,   sell: 16,  grow: 40,  xp: 7,   level: 5  },
+    bianyu:   { name: '鳊鱼', cost: 18,  sell: 44,  grow: 200, xp: 43,  level: 6  },
+    baitiao:  { name: '白条', cost: 10,  sell: 24,  grow: 70,  xp: 22,  level: 7  },
+    maisui:   { name: '麦穗', cost: 12,  sell: 30,  grow: 90,  xp: 15,  level: 8  },
+    liyu:     { name: '鲤鱼', cost: 36,  sell: 85,  grow: 360, xp: 78,  level: 9  },
+    qingyu:   { name: '青鱼', cost: 20,  sell: 48,  grow: 150, xp: 47,  level: 10 },
+    yongyu:   { name: '鳙鱼', cost: 18,  sell: 48,  grow: 140, xp: 23,  level: 11 },
+    heiyu:    { name: '黑鱼', cost: 54,  sell: 130, grow: 520, xp: 112, level: 12 },
+    jiyu:     { name: '鲫鱼', cost: 30,  sell: 70,  grow: 230, xp: 72,  level: 13 },
+    lianyu:   { name: '鲢鱼', cost: 24,  sell: 60,  grow: 190, xp: 32,  level: 14 },
+    guiyu:    { name: '鳜鱼', cost: 72,  sell: 175, grow: 680, xp: 147, level: 15 },
+    luyu:     { name: '鲈鱼', cost: 40,  sell: 95,  grow: 310, xp: 97,  level: 16 },
 };
 const FISH_KEYS = Object.keys(FISH);
 
@@ -79,39 +79,33 @@ const PLOT_LEVEL_REQ = [1, 1, 1, 1, 1, 1, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 2
 const PLOT_UNLOCK_COST = [0, 0, 0, 0, 0, 0, 150, 180, 270, 420, 630, 900, 1230, 1620, 2070, 2580, 3150, 3780, 4470, 5220, 6030, 6900, 7830, 8820];
 
 /* ---------- 鱼塘解锁条件 ----------
-   区域:Lv.10 + 5000 金币一次性解锁,赠送 POND_BONUS_COUNT 条鱼苗;
+   区域:Lv.5 + 2000 金币一次性解锁,赠送 POND_BONUS_COUNT 条鱼苗;
    初始开放 POND_INITIAL_OPEN 格,其余格每升 POND_EXPAND_INTERVAL 级花金币再开 1 格(共 TOTAL_PONDS 格),
    扩张格费用见 POND_CELL_UNLOCK_COST ---------- */
-const POND_UNLOCK_LEVEL = 10;   // 10 级解锁区域
-const POND_UNLOCK_COST = 5000;  // 解锁区域费用 5000 金币
-const POND_INITIAL_OPEN = 5;    // 区域解锁后初始开放的鱼塘格数(自动开放)
+const POND_UNLOCK_LEVEL = 5;    // 5 级解锁区域
+const POND_UNLOCK_COST = 2000;  // 解锁区域费用 2000 金币
+const POND_INITIAL_OPEN = 4;    // 区域解锁后初始开放的鱼塘格数(自动开放)
 const POND_EXPAND_INTERVAL = 2; // 每升多少级再开放 1 格鱼塘
-const POND_CELL_UNLOCK_COST = [200, 400, 800, 1600, 3200]; // 扩张格(下标 5~9)解锁费用
+const POND_CELL_UNLOCK_COST = [200, 400, 800, 1600, 3200, 6400, 12800, 25600]; // 扩张格(下标 4~11)解锁费用
 const POND_BONUS_FRY = 'caoyu'; // 解锁赠送的鱼苗种类
 const POND_BONUS_COUNT = 3;     // 赠送鱼苗数量
-/* ---------- 雇佣农工:可选时长(小时)与对应费用 ---------- */
-const HIRE_OPTIONS = [
-    { hours: 1, cost: 1000 },
-    { hours: 2, cost: 1800 },
-    { hours: 4, cost: 3200 },
-    { hours: 8, cost: 5000 },
-];
-const POND_COLS = 5;            // 鱼塘列数
-const POND_ROWS = 2;            // 鱼塘行数
-const TOTAL_PONDS = POND_COLS * POND_ROWS; // 10 个鱼塘
+const POND_COLS = 4;            // 鱼塘列数
+const POND_ROWS = 3;            // 鱼塘行数
+const TOTAL_PONDS = POND_COLS * POND_ROWS; // 12 个鱼塘
 
 /* ---------- 养殖:动物数据(幼崽价/生长秒数/产出间隔秒数/产物/经验/解锁等级)
    成熟后持续产出:每 produceEvery 秒产 1 个产物,累计 ANIMAL_MAX_PRODUCE 次后可收获动物本体进仓库;
+   产出次数 10→6,每次间隔相应上调 5/3 倍,总产出时长不变;
    牧槽不空时每 FEED_EVERY 个周期自动消耗 1 牧草,缺草时生长/产出暂停 ---------- */
 const ANIMALS = {
-    ji:    { name: '鸡',   cost: 100,  grow: 1200, produceEvery: 180,  product: 'jidan',    xp: 25,  level: 1  },
-    ya:    { name: '鸭',   cost: 250,  grow: 1500, produceEvery: 300,  product: 'yadan',    xp: 55,  level: 3  },
-    niu:   { name: '牛',   cost: 500,  grow: 1800, produceEvery: 600,  product: 'niunai',   xp: 100, level: 5  },
-    yang:  { name: '羊',   cost: 1000, grow: 2400, produceEvery: 1200, product: 'yangmao',  xp: 180, level: 7  },
-    tu:    { name: '兔',   cost: 1500, grow: 3000, produceEvery: 1500, product: 'tumao',    xp: 240, level: 9  },
-    e:     { name: '鹅',   cost: 2200, grow: 3600, produceEvery: 1800, product: 'edan',     xp: 300, level: 11 },
-    zhu:   { name: '猪',   cost: 3200, grow: 4200, produceEvery: 2100, product: 'songlu',   xp: 380, level: 13 },
-    huoji: { name: '火鸡', cost: 4500, grow: 4800, produceEvery: 2400, product: 'huoji_dan', xp: 460, level: 15 },
+    ji:    { name: '鸡',   cost: 100,  grow: 1200, produceEvery: 300,  product: 'jidan',    xp: 25,  level: 1  },
+    ya:    { name: '鸭',   cost: 250,  grow: 1500, produceEvery: 500,  product: 'yadan',    xp: 55,  level: 3  },
+    niu:   { name: '牛',   cost: 500,  grow: 1800, produceEvery: 1000, product: 'niunai',   xp: 100, level: 5  },
+    yang:  { name: '羊',   cost: 1000, grow: 2400, produceEvery: 2000, product: 'yangmao',  xp: 180, level: 7  },
+    tu:    { name: '兔',   cost: 1500, grow: 3000, produceEvery: 2500, product: 'tumao',    xp: 240, level: 9  },
+    e:     { name: '鹅',   cost: 2200, grow: 3600, produceEvery: 3000, product: 'edan',     xp: 300, level: 11 },
+    zhu:   { name: '猪',   cost: 3200, grow: 4200, produceEvery: 3500, product: 'songlu',   xp: 380, level: 13 },
+    huoji: { name: '火鸡', cost: 4500, grow: 4800, produceEvery: 4000, product: 'huoji_dan', xp: 460, level: 15 },
 };
 const ANIMAL_KEYS = Object.keys(ANIMALS);
 
@@ -136,7 +130,7 @@ const ANIMAL_PRODUCTS = {
     zhu:   { name: '成猪',   sell: 1800 },
     huoji: { name: '成火鸡', sell: 2400 },
 };
-const ANIMAL_MAX_PRODUCE = 10;      // 动物成熟后可收获产物的次数,满后收获动物本体
+const ANIMAL_MAX_PRODUCE = 6;      // 动物成熟后可累计产出的次数,满后收获动物本体(产出进度自动累积,不收获也增加)
 
 /* ---------- 养殖栏位:4 行 × 5 列共 20 格,初始开放 4 格,Lv.5 起每升 2 级花金币再开 1 格 ---------- */
 const RANCH_TOTAL = 20;              // 栏位总数(4 行 × 5 列)
@@ -149,10 +143,10 @@ const FEED_TROUGH_CAP = 1000;        // 牧槽容量(牧草上限)
 const FEED_EVERY = 2;                // 每产出 FEED_EVERY 个周期后需要喂食一次(饥饿间隔 = produceEvery*FEED_EVERY)
 
 /* ---------- 其他常量 ---------- */
-const SAVE_KEY = 'qqfarm_text_v6';
+const SAVE_KEY = 'qqfarm_text_v7';
 const COLS = 6;
 const ROWS = 4;
 const TOTAL_PLOTS = COLS * ROWS; // 24 块地
 const INITIAL_UNLOCKED = 6;      // 初始解锁 6 块
-const DROUGHT_CHANCE = 0.3;      // 生长中出现干旱的概率
+const PLOT_DRY_CHANCE = 0.1;     // 收获后地块干枯的概率
 const SEED_DROP_CHANCE = 0.16;   // 作物收获时额外掉落 1 颗对应种子的概率(鱼不再掉落鱼苗)

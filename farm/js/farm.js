@@ -1,23 +1,27 @@
 /* ================= 农田(作物)逻辑 ================= */
 const farmComputed = {
-    plotHasCrop() { return !!this.plots[this.menuPlot]; }, // !! 使 undefined(menuPlot=-1) 与 null 都判为空
-    menuWaterEnabled() { const p = this.plots[this.menuPlot]; return !!p && p.dry; },
+    plotEmpty() { return !this.plots[this.menuPlot]; }, // 地块为空(null),可种植
+    plotHasCrop() { const p = this.plots[this.menuPlot]; return !!p && !!p.type; }, // 有作物(干枯地块不算)
+    menuWaterEnabled() { const p = this.plots[this.menuPlot]; return !!p && this.isDryPlot(p); },
     menuHarvestEnabled() { const p = this.plots[this.menuPlot]; return !!p && this.plotProgress(this.menuPlot) >= 1; },
 };
 
 const farmMethods = {
+    /* 判断地块是否为干枯标记(收获后随机干枯,无作物) */
+    isDryPlot(p) { return !!p && !p.type && !!p.dry; },
+
     /* ---------- 地块进度 ---------- */
     plotProgress(i) {
         const p = this.plots[i];
-        if (!p) return 0;
+        if (!p || this.isDryPlot(p)) return 0;
         const total = CROPS[p.type].grow * 1000;
-        const grown = p.accrued + (p.dry ? 0 : Math.max(0, this.now - p.resumedAt));
+        const grown = p.accrued + Math.max(0, this.now - p.resumedAt);
         return Math.min(1, grown / total);
     },
     plotPercent(i) { return Math.floor(this.plotProgress(i) * 100); },
     plotRemainSec(i) {
         const p = this.plots[i];
-        if (!p) return 0;
+        if (!p || this.isDryPlot(p)) return 0;
         return Math.max(0, Math.ceil(CROPS[p.type].grow - this.plotProgress(i) * CROPS[p.type].grow));
     },
     stageText(i) {
@@ -40,13 +44,15 @@ const farmMethods = {
         if (!this.unlockedPlots[i]) return 'plot locked';
         const p = this.plots[i];
         if (p === null) return 'plot empty';
-        const cls = p.dry ? 'dry' : (this.plotProgress(i) >= 1 ? 'mature' : 'growing');
+        if (this.isDryPlot(p)) return 'plot dry';
+        const cls = this.plotProgress(i) >= 1 ? 'mature' : 'growing';
         return 'plot ' + cls;
     },
     plotTitle(i) {
         if (!this.unlockedPlots[i]) return '点击查看解锁条件';
         const p = this.plots[i];
         if (p === null) return '点击种植';
+        if (this.isDryPlot(p)) return '点击浇水';
         return this.plotProgress(i) >= 1 ? '点击收获' : '';
     },
     onPlotClick(i, e) {
@@ -59,12 +65,17 @@ const farmMethods = {
             this.menuDirect = true;
             return;
         }
+        if (this.isDryPlot(p)) {
+            // 干枯地块:直接浇水
+            this.water(i);
+            return;
+        }
         if (this.plotProgress(i) >= 1) {
             // 成熟:直接收获
             this.harvest(i);
             return;
         }
-        // 生长中:只保留铲除(缺水时附加浇水)
+        // 生长中:只保留铲除
         this.openPlotMenu(i, e);
     },
 
@@ -81,6 +92,13 @@ const farmMethods = {
 
     /* ---------- 种植/浇水/收获 ---------- */
     doPlant(i, key) {
+        const p = this.plots[i];
+        if (this.isDryPlot(p)) {
+            this.addLog('这块地干枯了,请先浇水再种植');
+            this.hideContextMenu();
+            this.save();
+            return;
+        }
         const seeds = this.inventory.seeds[key];
         if (!seeds || seeds <= 0) {
             this.addLog('没有 ' + CROPS[key].name + ' 种子');
@@ -92,29 +110,23 @@ const farmMethods = {
         if (this.inventory.seeds[key] <= 0) this.$delete(this.inventory.seeds, key);
         const c = CROPS[key];
         const now = Date.now();
-        // 随机干旱事件:种植时掷骰,在生长的 30%~80% 时刻触发(雇佣期间不缺水,不预约干旱)
-        const willDrought = this.hired ? false : Math.random() < DROUGHT_CHANCE;
-        const droughtAt = willDrought ? now + c.grow * 1000 * (0.3 + Math.random() * 0.5) : null;
         this.$set(this.plots, i, {
             type: key,
             accrued: 0,
             resumedAt: now,
-            dry: false,
-            droughtAt: droughtAt,
             announced: false,
         });
         this.addXp(1);
-        this.addLog('种下了 ' + c.name + (willDrought ? '(这颗可能遭遇干旱)' : '') + ' +1 经验');
+        this.addLog('种下了 ' + c.name + ' +1 经验');
         this.hideContextMenu();
         this.save();
     },
     water(i) {
         const p = this.plots[i];
-        if (!p || !p.dry) return;
-        p.dry = false;
-        p.resumedAt = Date.now();
+        if (!p || !this.isDryPlot(p)) return;
+        this.$set(this.plots, i, null); // 浇水后恢复为可种植的空地
         this.hideContextMenu();
-        this.addLog(CROPS[p.type].name + ' 浇过水了,恢复生长');
+        this.addLog('第 ' + (i + 1) + ' 块地浇过水了,可以种植');
         this.save();
     },
     harvest(i) {
@@ -132,8 +144,14 @@ const farmMethods = {
         const prodItem = CROPS[prod] || ANIMAL_PRODUCTS[prod];
         const prodName = prodItem ? prodItem.name : prod;
         this.$set(this.inventory.items, prod, (this.inventory.items[prod] || 0) + 1);
-        this.$set(this.plots, i, null);
-        this.addLog('收获 ' + prodName + ' x1,已放入仓库 +' + c.xp + ' 经验');
+        // 收获后地块有 10% 概率干枯,干枯的地需浇水后才能种植
+        if (Math.random() < PLOT_DRY_CHANCE) {
+            this.$set(this.plots, i, { dry: true });
+            this.addLog('收获 ' + prodName + ' x1,已放入仓库 +' + c.xp + ' 经验,但土地干枯了,浇水后才能种植');
+        } else {
+            this.$set(this.plots, i, null);
+            this.addLog('收获 ' + prodName + ' x1,已放入仓库 +' + c.xp + ' 经验');
+        }
         this.addXp(c.xp);
         if (Math.random() < SEED_DROP_CHANCE) {
             this.$set(this.inventory.seeds, type, (this.inventory.seeds[type] || 0) + 1);
@@ -142,13 +160,18 @@ const farmMethods = {
         this.save();
     },
     harvestAll() {
-        let n = 0, xp = 0, seeds = 0;
+        let n = 0, xp = 0, seeds = 0, dry = 0;
         this.plots.forEach((p, i) => {
             if (p && this.plotProgress(i) >= 1) {
                 const type = p.type;
                 const prod = CROPS[type].product || type;
                 this.$set(this.inventory.items, prod, (this.inventory.items[prod] || 0) + 1);
-                this.$set(this.plots, i, null);
+                if (Math.random() < PLOT_DRY_CHANCE) {
+                    this.$set(this.plots, i, { dry: true });
+                    dry++;
+                } else {
+                    this.$set(this.plots, i, null);
+                }
                 n++;
                 xp += CROPS[type].xp;
                 if (Math.random() < SEED_DROP_CHANCE) {
@@ -158,7 +181,9 @@ const farmMethods = {
             }
         });
         if (n > 0) {
-            this.addLog('一键收获 ' + n + ' 株,已放入仓库 +' + xp + ' 经验' + (seeds > 0 ? ',掉落 ' + seeds + ' 颗种子' : ''));
+            this.addLog('一键收获 ' + n + ' 株,已放入仓库 +' + xp + ' 经验'
+                + (seeds > 0 ? ',掉落 ' + seeds + ' 颗种子' : '')
+                + (dry > 0 ? ',有 ' + dry + ' 块地干枯需浇水' : ''));
             this.addXp(xp);
         } else {
             this.addLog('没有可收获的作物');

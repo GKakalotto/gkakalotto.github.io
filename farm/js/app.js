@@ -18,13 +18,12 @@ const app = new Vue({
             feedTrough: d.feedTrough,
             inventory: d.inventory,
             fish: d.fish,
-            hireUntil: d.hireUntil,
             log: d.log,
             theme: 'dark',
             now: Date.now(),              // 每秒刷新的时钟,驱动进度/倒计时
             scene: 'farm',                // 'farm' 农场 | 'ranch' 养殖场
             settingsOpen: false,
-            modalMode: null,              // 'shop' | 'backpack' | 'warehouse' | 'unlock' | 'pondunlock' | 'pondcell' | 'ranchcell' | 'hire' | 'log' | 'msg' | 'confirm'
+            modalMode: null,              // 'shop' | 'backpack' | 'warehouse' | 'unlock' | 'pondunlock' | 'pondcell' | 'ranchcell' | 'log' | 'msg' | 'confirm'
             modalTitle: '',
             modalPlot: -1,
             modalHtml: '',
