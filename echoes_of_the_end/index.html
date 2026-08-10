@@ -22,34 +22,6 @@
                 <span class="time-info" v-text="'🕒 ' + time"></span>
             </div>
 
-            <!-- 玩家状态面板（数值显示在进度条内部） -->
-            <div class="status-panel">
-                <div class="stat-item hp">
-                    <div class="stat-icon">♥</div>
-                    <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.hp + '%' }"></div><div class="stat-value" v-text="stats.hp"></div></div>
-                </div>
-                <div class="stat-item hunger">
-                    <div class="stat-icon">🍖</div>
-                    <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.hunger + '%' }"></div><div class="stat-value" v-text="stats.hunger"></div></div>
-                </div>
-                <div class="stat-item stamina">
-                    <div class="stat-icon">⚡</div>
-                    <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.stamina + '%' }"></div><div class="stat-value" v-text="stats.stamina"></div></div>
-                </div>
-                <div class="stat-item sanity">
-                    <div class="stat-icon">🧠</div>
-                    <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.sanity + '%' }"></div><div class="stat-value" v-text="stats.sanity"></div></div>
-                </div>
-                <div class="stat-item disease">
-                    <div class="stat-icon">🦠</div>
-                    <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.disease + '%' }"></div><div class="stat-value" v-text="stats.disease"></div></div>
-                </div>
-                <div class="stat-item infection">
-                    <div class="stat-icon">☣</div>
-                    <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.infection + '%' }"></div><div class="stat-value" v-text="stats.infection"></div></div>
-                </div>
-            </div>
-
             <!-- 日志（只显示最新 5 条） -->
             <div class="log-panel">
                 <div v-for="(log, i) in visibleLogs" :key="i" class="log-line">
@@ -57,16 +29,17 @@
                 </div>
             </div>
 
-            <!-- 场景标题（固定在日志下方，随场景切换名称；右侧：背包 + 设置） -->
+            <!-- 场景标题（固定在日志下方，随场景切换名称；右侧：状态 + 背包 + 设置） -->
             <div class="section-title scene-title">
                 <span v-text="sceneTitle"></span>
                 <div class="scene-title-btns">
+                    <button class="stats-btn" @click="toggleStats" title="状态">❤</button>
                     <button class="bag-btn" @click="openBag" title="背包">🎒</button>
                     <button class="settings-btn" @click="openSettings" title="设置">⚙️</button>
                 </div>
             </div>
 
-        <!-- ============ 场景区（安全屋 / 地图） ============ -->
+        <!-- ============ 场景区（安全屋 / 地图 / 地点占位） ============ -->
         <div class="scene-area">
 
             <!-- 场景：安全屋（室内 / 大门 / 狗窝 / 防御栅栏置底） -->
@@ -151,21 +124,19 @@
 
             </div>
 
-            <!-- 场景：地图（有向图式节点画布，非首次显示，初始内联隐藏） -->
+            <!-- 场景：地图（15 列 × 19 行静态格子地图，由 buildMap() 一次性构建，初始内联隐藏） -->
             <div v-show="currentScene === 'map'" style="display:none" class="scene map-scene">
-                <div class="map-canvas">
-                    <!-- 安全屋节点 -->
-                    <div class="map-node safehouse-node" :style="safePos" @click="openHomeConfirm">
-                        <div class="map-node-icon">🏠</div>
-                        <div class="map-node-name" v-text="'安全屋'"></div>
-                    </div>
-                    <!-- 地点节点 -->
-                    <div v-for="loc in locations" :key="loc.name" class="map-node"
-                         :class="{ current: loc.name === playerLocation }"
-                         :style="posOf(loc)" @click="openLocationConfirm(loc)">
-                        <div class="map-node-icon" v-text="loc.icon"></div>
-                        <div class="map-node-name" v-text="loc.name"></div>
-                    </div>
+                <!-- 静态地图容器：格子与建筑由 JS 原生 DOM 填充 -->
+                <div class="map-grid" ref="mapGrid"></div>
+            </div>
+
+            <!-- 场景：地点占位（进入地点/公园/森林后显示，初始内联隐藏） -->
+            <div v-show="currentScene === 'place'" style="display:none" class="scene place-scene">
+                <div class="place-content">
+                    <div class="place-icon" v-text="currentPlace ? currentPlace.icon : '📍'"></div>
+                    <div class="place-title" v-text="currentPlace ? currentPlace.name : ''"></div>
+                    <p class="place-hint">此处暂未开放，敬请期待后续版本。</p>
+                    <button class="place-back" @click="backToMap">🗺️ 返回地图</button>
                 </div>
             </div>
 
@@ -181,7 +152,69 @@
                 <div class="dialog-btns">
                     <button class="dialog-cancel" @click="closeDialog">取消</button>
                     <button class="dialog-confirm" @click="confirmAction"
-                            v-text="dialog.action === 'home' ? '回家' : '出发'"></button>
+                            v-text="dialog.action === 'home' || dialog.action === 'enter-loc' || dialog.action === 'enter-cell' ? '进入' : '出发'"></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 状态面板（点击 ❤ 显示，初始内联隐藏，防止刷新闪烁） -->
+        <div v-show="showStats" style="display:none" class="stats-overlay" @click.self="closeStats">
+            <div class="stats-panel">
+                <div class="stats-header">
+                    <span>❤ 人物状态</span>
+                    <button class="stats-close" @click="closeStats">✕</button>
+                </div>
+                <div class="stats-body">
+                    <div class="stat-item hp">
+                        <div class="stat-icon">♥</div>
+                        <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.hp + '%' }"></div><div class="stat-value" v-text="stats.hp"></div></div>
+                        <span class="stat-label">生命</span>
+                    </div>
+                    <div class="stat-item hunger">
+                        <div class="stat-icon">🍖</div>
+                        <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.hunger + '%' }"></div><div class="stat-value" v-text="stats.hunger"></div></div>
+                        <span class="stat-label">饱食</span>
+                    </div>
+                    <div class="stat-item water">
+                        <div class="stat-icon">💧</div>
+                        <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.water + '%' }"></div><div class="stat-value" v-text="stats.water"></div></div>
+                        <span class="stat-label">水分</span>
+                    </div>
+                    <div class="stat-item sanity">
+                        <div class="stat-icon">🧠</div>
+                        <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.sanity + '%' }"></div><div class="stat-value" v-text="stats.sanity"></div></div>
+                        <span class="stat-label">理智</span>
+                    </div>
+                    <div class="stat-item stamina">
+                        <div class="stat-icon">⚡</div>
+                        <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.stamina + '%' }"></div><div class="stat-value" v-text="stats.stamina"></div></div>
+                        <span class="stat-label">精力</span>
+                    </div>
+                    <div class="stat-item physical">
+                        <div class="stat-icon">💪</div>
+                        <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.physical + '%' }"></div><div class="stat-value" v-text="stats.physical"></div></div>
+                        <span class="stat-label">体力</span>
+                    </div>
+                    <div class="stat-item health">
+                        <div class="stat-icon">💚</div>
+                        <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.health + '%' }"></div><div class="stat-value" v-text="stats.health"></div></div>
+                        <span class="stat-label">健康</span>
+                    </div>
+                    <div class="stat-item strength">
+                        <div class="stat-icon">🥊</div>
+                        <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.strength + '%' }"></div><div class="stat-value" v-text="stats.strength"></div></div>
+                        <span class="stat-label">力量</span>
+                    </div>
+                    <div class="stat-item speed">
+                        <div class="stat-icon">💨</div>
+                        <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.speed + '%' }"></div><div class="stat-value" v-text="stats.speed"></div></div>
+                        <span class="stat-label">速度</span>
+                    </div>
+                    <div class="stat-item knowledge">
+                        <div class="stat-icon">📚</div>
+                        <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.knowledge + '%' }"></div><div class="stat-value" v-text="stats.knowledge"></div></div>
+                        <span class="stat-label">知识</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -218,6 +251,8 @@
     <script src="js/vue.min.js"></script>
     <!-- 游戏数据 -->
     <script src="js/data.js"></script>
+    <!-- 地图数据 -->
+    <script src="js/map.js"></script>
     <!-- 应用逻辑 -->
     <script src="js/app.js"></script>
 </body>

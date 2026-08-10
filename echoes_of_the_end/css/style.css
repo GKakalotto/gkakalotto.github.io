@@ -55,7 +55,8 @@ body {
     text-align: center;
 }
 .day-count { color: #ffcc00; font-weight: bold; font-size: 16px; }
-/* 设置按钮：无边框，图标在按钮内居中 */
+/* 状态/设置按钮：无边框，图标在按钮内居中 */
+.stats-btn,
 .settings-btn {
     flex: none;
     width: 28px;
@@ -72,17 +73,10 @@ body {
     cursor: pointer;
     transition: all 0.2s;
 }
+.stats-btn:hover,
 .settings-btn:hover { color: #ffcc00; }
 
-/* ---------- 上部：人物状态（3 列 2 行紧凑布局） ---------- */
-.status-panel {
-    padding: 8px;
-    background: rgba(0, 0, 0, 0.4);
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px 8px;
-    border-bottom: 1px solid #333;
-}
+/* ---------- 状态条（用于状态面板） ---------- */
 .stat-item { display: flex; align-items: center; gap: 5px; min-width: 0; }
 .stat-icon {
     width: 15px; height: 15px; border-radius: 50%;
@@ -106,14 +100,22 @@ body {
 .hp .stat-bar-fill { background: #d32f2f; }
 .hunger .stat-icon { background: #f57c00; }
 .hunger .stat-bar-fill { background: #f57c00; }
-.stamina .stat-icon { background: #00bcd4; }
-.stamina .stat-bar-fill { background: #00bcd4; }
+.water .stat-icon { background: #1e88e5; }
+.water .stat-bar-fill { background: #1e88e5; }
 .sanity .stat-icon { background: #7b1fa2; }
 .sanity .stat-bar-fill { background: #7b1fa2; }
-.disease .stat-icon { background: #6a1b9a; }
-.disease .stat-bar-fill { background: #6a1b9a; }
-.infection .stat-icon { background: #388e3c; }
-.infection .stat-bar-fill { background: #388e3c; }
+.stamina .stat-icon { background: #00bcd4; }
+.stamina .stat-bar-fill { background: #00bcd4; }
+.physical .stat-icon { background: #ff7043; }
+.physical .stat-bar-fill { background: #ff7043; }
+.health .stat-icon { background: #388e3c; }
+.health .stat-bar-fill { background: #388e3c; }
+.strength .stat-icon { background: #c62828; }
+.strength .stat-bar-fill { background: #c62828; }
+.speed .stat-icon { background: #fdd835; }
+.speed .stat-bar-fill { background: #fdd835; }
+.knowledge .stat-icon { background: #3949ab; }
+.knowledge .stat-bar-fill { background: #3949ab; }
 
 /* ---------- 上部：日志（可滚动） ---------- */
 .log-panel {
@@ -253,52 +255,197 @@ body {
 .outdoor-name { font-size: 13px; color: #ddd; }
 .outdoor-desc { font-size: 11px; color: #888; }
 
-/* ----- 场景：地图（有向图式节点画布） ----- */
+/* ----- 场景：地点占位（进入地点/公园/森林后显示） ----- */
+.place-scene {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.place-content {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 30px 24px;
+}
+.place-icon { font-size: 40px; }
+.place-title { font-size: 18px; color: #ddd; font-weight: bold; }
+.place-hint { font-size: 12px; color: #888; }
+.place-back {
+    background: #3f6f57;
+    border: 1px solid #2f5a46;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 13px;
+    padding: 8px 18px;
+    cursor: pointer;
+    transition: background .2s;
+}
+.place-back:hover { background: #4d8465; }
+
+/* ----- 场景：地图（15 列 × 19 行格子地图，废土暗色） ----- */
 .map-scene {
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    align-items: center;
+    justify-content: center; /* 地图垂直居中 */
+    gap: 8px;
     overflow: hidden;
 }
-.map-canvas {
+
+/* 15 列 × 19 行格子地图（宽高由 JS 计算，保证格子正方形） */
+.map-grid {
+    position: relative; /* 作为移动红点 .player-dot 的定位参照 */
+    max-width: 100%;
+    max-height: 100%;
+    display: grid;
+    grid-template-columns: repeat(15, 1fr);
+    grid-template-rows: repeat(19, 1fr);
+    background: #2a2f2a;
+    border: 2px solid #3a403a;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+/* 每一个格子 */
+.map-cell {
     position: relative;
-    flex: 1;
-    min-height: 0;
-    padding: 22px; /* 边缘缓冲，防止节点图标被裁剪 */
-}
-.map-node {
-    position: absolute;
-    transform: translate(-50%, -50%);
-    display: flex; flex-direction: column; align-items: center; gap: 1px;
-    cursor: pointer;
-    z-index: 1;
-}
-.map-node-icon {
-    width: 26px; height: 26px;
-    background: #2c2c2c;
-    border: 1px solid #444;
-    border-radius: 50%;
-    display: flex; justify-content: center; align-items: center;
-    font-size: 15px;
-    transition: all 0.2s;
-}
-.map-node-name {
-    font-size: 8px; color: #aaa;
-    background: rgba(0, 0, 0, 0.5);
-    padding: 0 3px; border-radius: 2px;
-    white-space: nowrap;
-    max-width: 64px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
     overflow: hidden;
-    text-overflow: ellipsis;
+    transition: filter .15s;
 }
-.map-node:hover .map-node-icon { border-color: #ffcc00; }
-.map-node.current .map-node-icon {
-    border-color: #ffcc00;
-    box-shadow: 0 0 8px rgba(255, 204, 0, 0.6);
+/* 道路格不可交互（无悬停反馈）；其余格子悬停提亮 */
+.map-cell:not(.road):not(.road-h):not(.road-x):hover {
+    filter: brightness(1.12);
+    z-index: 5;
 }
-.safehouse-node .map-node-icon { border-color: #8a6d1f; }
+
+/* 道路：灰底；虚线由 JS 按相邻地形生成（.road-line-v / .road-line-h） */
+.map-cell.road { background: #454c45; }
+.map-cell.road-h { background: #454c45; }
+.map-cell.road-x { background: #454c45; }
+
+/* 道路虚线（JS 生成，只画向相邻道路的方向；尽头方向不画） */
+.road-line-v {
+    position: absolute;
+    left: 50%;
+    width: 1px;
+    background: repeating-linear-gradient(
+        to bottom,
+        #a8964d 0 3px,
+        transparent 3px 6px
+    );
+    transform: translateX(-50%);
+    opacity: .7;
+}
+.road-line-h {
+    position: absolute;
+    top: 50%;
+    height: 1px;
+    background: repeating-linear-gradient(
+        to right,
+        #a8964d 0 3px,
+        transparent 3px 6px
+    );
+    transform: translateY(-50%);
+    opacity: .7;
+}
+
+/* 公园：单个树图标居中 */
+.map-cell.park { background: #3a5540; }
+.map-cell.park::before {
+    content: "🌳";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(8px, 2vw, 14px);
+}
+
+/* 最外圈树木 */
+.map-cell.tree { background: #2e4a35; }
+.map-cell.tree::before {
+    content: "🌲";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(8px, 2vw, 14px);
+}
+
+/* 建筑（地点 / 安全屋）：只显示图标，无背景色 */
+.grid-building {
+    position: absolute;
+    inset: 8%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 2;
+    transition: filter .15s, transform .15s;
+}
+.grid-building:hover { filter: brightness(1.15); }
+.grid-building-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    font-size: clamp(12px, 3vw, 20px);
+    line-height: 1;
+}
+
+/* 安全屋所在单元格：金色边框高亮 */
+.map-cell.home-cell {
+    border: 2px solid #f0c860;
+    box-shadow: inset 0 0 8px rgba(240, 180, 60, .3);
+}
+
+/* 公园 / 树：可点击前往 */
+.map-cell.park,
+.map-cell.tree {
+    cursor: pointer;
+}
+
+/* 小红点呼吸灯 */
+@keyframes dot-pulse {
+    0%, 100% {
+        transform: translate(-50%, -50%) scale(1);
+        box-shadow: 0 0 6px rgba(255, 255, 255, .9), 0 0 12px rgba(255, 40, 40, 1);
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(.78);
+        box-shadow: 0 0 4px rgba(255, 255, 255, .5), 0 0 22px rgba(255, 40, 40, 1);
+    }
+}
+
+/* 移动中的红点：沿道路逐格移动（独立元素，平滑滑动） */
+.player-dot {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #ff6a6a, #e02424);
+    border: 2px solid #fff;
+    box-shadow: 0 0 6px rgba(255, 255, 255, .9), 0 0 14px rgba(255, 40, 40, 1);
+    transform: translate(-50%, -50%);
+    transition: left .25s linear, top .25s linear;
+    z-index: 10;
+    pointer-events: none;
+    animation: dot-pulse 1.2s ease-in-out infinite;
+}
 
 /* ----- 确认弹窗（地点信息 / 是否出发） ----- */
 .dialog-overlay {
@@ -335,6 +482,50 @@ body {
     transition: all 0.2s;
 }
 .dialog-confirm:hover { background: #3a6085; border-color: #5080a8; color: #fff; }
+
+/* ----- 状态面板（❤ 按钮） ----- */
+.stats-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex; justify-content: center; align-items: center;
+    z-index: 100;
+}
+.stats-panel {
+    width: 280px;
+    background: #2c2c2c;
+    border: 1px solid #555;
+    border-radius: 6px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+}
+.stats-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 15px;
+    border-bottom: 1px solid #444;
+    font-size: 14px; color: #ddd;
+}
+.stats-close {
+    background: transparent; border: none;
+    color: #888; font-size: 14px; cursor: pointer;
+    line-height: 1; padding: 2px 6px;
+}
+.stats-close:hover { color: #ffcc00; }
+.stats-body {
+    padding: 15px;
+    display: flex; flex-direction: column; gap: 10px;
+}
+/* 面板内每行状态：图标 + 进度条 + 名称 */
+.stats-body .stat-item { gap: 8px; }
+.stat-label {
+    flex-shrink: 0;
+    width: 32px;
+    font-size: 12px;
+    color: #888;
+    text-align: right;
+}
+/* 面板内进度条略高，便于读数 */
+.stats-body .stat-bar-bg { height: 14px; }
+.stats-body .stat-value { font-size: 10px; }
 
 /* ----- 设置面板 ----- */
 .settings-overlay {
