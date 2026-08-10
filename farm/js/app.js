@@ -28,10 +28,10 @@ const app = new Vue({
             modalPlot: -1,
             modalHtml: '',
             modalOnOk: null,              // 通用确认弹窗的回调
-            shopTab: 'crops',             // 商店标签:'crops' 作物 | 'fish' 鱼类
+            shopTab: 'crops',             // 商店标签:'crops' 作物 | 'fish' 鱼类 | 'ranch' 牧场
             shopDetail: null,             // 商店详情小窗:null 或 { tab:'crops'|'fish', key }
             invDetail: null,              // 背包/仓库二级详情:null 或 { mode:'backpack'|'warehouse', kind, key }
-            qtys: { shop: {}, fishshop: {}, warehouseItems: {}, warehouseSeeds: {}, fishFries: {}, ranch: {}, ranchfeed: {}, feedadd: {} },
+            qtys: { shop: {}, fishshop: {}, warehouseItems: {}, warehouseSeeds: {}, fishFries: {}, young: {}, ranch: {}, ranchfeed: {}, feedadd: {} },
             menuVisible: false,
             menuTarget: 'plot',           // 'plot' | 'pond' | 'ranch' 当前右键菜单属于哪个场景
             menuView: 'main',             // 'main' | 'plant' | 'stock' | 'clear'

@@ -207,8 +207,6 @@ const pondMethods = {
 
     /* ---------- 商店鱼类 / 鱼苗 ---------- */
     fishName(key) { return FISH[key].name; },
-    fishKindLabel(key) { return KIND_LABEL[key]; },
-    fishKindCls(key) { return KIND_CLS[key]; },
     fishLevelReq(key) { return FISH[key].level; },
     fishLocked(key) { return !this.pondUnlocked || this.level < FISH[key].level; }, // 鱼塘未解锁时鱼苗全部锁定
     buyFry(key) {

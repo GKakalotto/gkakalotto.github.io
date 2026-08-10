@@ -11,6 +11,7 @@ const commonComputed = {
         const list = [];
         this.seedKeys.forEach(k => list.push({ kind: 'seed', key: k }));
         this.fishFryKeys.forEach(k => list.push({ kind: 'fry', key: k }));
+        this.youngKeys.forEach(k => list.push({ kind: 'young', key: k })); // 购买的动物幼崽
         return list;
     },
     logSlice() { return this.log.slice(-60).reverse(); },
@@ -101,7 +102,7 @@ const commonMethods = {
             this.animals = d.animals;
             this.unlockedRanches = d.unlockedRanches;
             this.feedTrough = d.feedTrough;
-            this.qtys = { shop: {}, fishshop: {}, warehouseItems: {}, warehouseSeeds: {}, fishFries: {}, ranch: {}, ranchfeed: {}, feedadd: {} };
+            this.qtys = { shop: {}, fishshop: {}, warehouseItems: {}, warehouseSeeds: {}, fishFries: {}, young: {}, ranch: {}, ranchfeed: {}, feedadd: {} };
             this.inventory = d.inventory;
             this.fish = d.fish;
             this.log = d.log;
@@ -159,6 +160,9 @@ const commonMethods = {
             if (v > owned) v = Math.max(0, owned);
         } else if (group === 'fishFries') {
             const owned = this.fish.fries[key] || 0;
+            if (v > owned) v = Math.max(0, owned);
+        } else if (group === 'young') {
+            const owned = this.inventory.young[key] || 0;
             if (v > owned) v = Math.max(0, owned);
         } else if (group === 'feedadd') {
             // 添入牧槽:不超过仓库牧草数,也不超过牧槽剩余容量(防溢出)
@@ -229,6 +233,20 @@ const commonMethods = {
     /* ---------- 背包 / 仓库 ---------- */
     seedSellPrice(key) { return Math.floor(CROPS[key].cost / 2); }, // 种子回收价 = 种子售价的一半
     fishSellPrice(key) { return Math.floor(FISH[key].cost / 2); }, // 鱼苗回收价 = 鱼苗价的一半
+    animalSellPrice(key) { return Math.floor(ANIMALS[key].cost / 2); }, // 幼崽回收价 = 幼崽价的一半
+    /* 背包三类物品(种子/鱼苗/幼崽)统一读取 */
+    invName(kind, key) {
+        return kind === 'seed' ? CROPS[key].name : kind === 'fry' ? FISH[key].name : ANIMALS[key].name;
+    },
+    invSellPrice(kind, key) {
+        return kind === 'seed' ? this.seedSellPrice(key) : kind === 'fry' ? this.fishSellPrice(key) : this.animalSellPrice(key);
+    },
+    invQty(kind, key) {
+        return kind === 'seed' ? (this.inventory.seeds[key] || 0) : kind === 'fry' ? (this.fish.fries[key] || 0) : (this.inventory.young[key] || 0);
+    },
+    invQtyGroup(kind) {
+        return kind === 'seed' ? 'warehouseSeeds' : kind === 'fry' ? 'fishFries' : 'young';
+    },
     recycleFry(key) {
         const qty = Math.min(this.qtyFor('fishFries', key), this.fish.fries[key] || 0);
         if (qty <= 0) return;
@@ -237,6 +255,17 @@ const commonMethods = {
         if (this.fish.fries[key] <= 0) this.$delete(this.fish.fries, key);
         this.coins += price * qty;
         this.addLog('回收 ' + FISH[key].name + ' 鱼苗 x' + qty + ',获得 ' + (price * qty) + ' 金币');
+        this.closeInvDetail(); // 回收完成自动关闭二级弹窗
+        this.save();
+    },
+    recycleYoung(key) {
+        const qty = Math.min(this.qtyFor('young', key), this.inventory.young[key] || 0);
+        if (qty <= 0) return;
+        const price = this.animalSellPrice(key);
+        this.inventory.young[key] -= qty;
+        if (this.inventory.young[key] <= 0) this.$delete(this.inventory.young, key);
+        this.coins += price * qty;
+        this.addLog('回收 ' + ANIMALS[key].name + ' 幼崽 x' + qty + ',获得 ' + (price * qty) + ' 金币');
         this.closeInvDetail(); // 回收完成自动关闭二级弹窗
         this.save();
     },
@@ -260,6 +289,7 @@ const commonMethods = {
         this.qtys.warehouseItems = {};
         this.qtys.warehouseSeeds = {};
         this.qtys.fishFries = {};
+        this.qtys.young = {};
     },
     setShopTab(tab) {
         // 切换标签:重置输入框数量、关闭详情、重置滚动位置
@@ -307,17 +337,19 @@ const commonMethods = {
         });
         return total;
     },
-    // 背包可回收总价:所有种子/鱼苗的回收总价值(与一键回收口径一致)
+    // 背包可回收总价:所有种子/鱼苗/幼崽的回收总价值(与一键回收口径一致)
     backpackTotalValue() {
         let total = 0;
         this.seedKeys.forEach((k) => { total += this.seedSellPrice(k) * this.inventory.seeds[k]; });
         this.fishFryKeys.forEach((k) => { total += this.fishSellPrice(k) * this.fish.fries[k]; });
+        this.youngKeys.forEach((k) => { total += this.animalSellPrice(k) * this.inventory.young[k]; });
         return total;
     },
-    // 背包是否有可回收物品(种子/鱼苗数量>0;回收价可能为 0 如草籽,仍可回收清理)
+    // 背包是否有可回收物品(种子/鱼苗/幼崽数量>0;回收价可能为 0 如草籽,仍可回收清理)
     hasRecyclable() {
         return this.seedKeys.some(k => this.inventory.seeds[k] > 0)
-            || this.fishFryKeys.some(k => this.fish.fries[k] > 0);
+            || this.fishFryKeys.some(k => this.fish.fries[k] > 0)
+            || this.youngKeys.some(k => this.inventory.young[k] > 0);
     },
     // 仓库是否有未锁定物品可出售
     hasSellable() {
@@ -340,7 +372,7 @@ const commonMethods = {
         }
         this.save();
     },
-    // 背包页:一键回收全部种子和鱼苗(半价),与收获物品的一键出售相互独立
+    // 背包页:一键回收全部种子/鱼苗/幼崽(半价),与收获物品的一键出售相互独立
     recycleAllBackpack() {
         let total = 0, n = 0;
         this.seedKeys.forEach((key) => {
@@ -355,11 +387,17 @@ const commonMethods = {
             n += qty;
             this.$delete(this.fish.fries, key);
         });
+        this.youngKeys.forEach((key) => {
+            const qty = this.inventory.young[key];
+            total += this.animalSellPrice(key) * qty;
+            n += qty;
+            this.$delete(this.inventory.young, key);
+        });
         if (n === 0) {
-            this.addLog('背包里没有种子/鱼苗');
+            this.addLog('背包里没有种子/鱼苗/幼崽');
         } else {
             this.coins += total;
-            this.addLog('回收全部 ' + n + ' 个种子/鱼苗,获得 ' + total + ' 金币');
+            this.addLog('回收全部 ' + n + ' 个种子/鱼苗/幼崽,获得 ' + total + ' 金币');
         }
         this.save();
     },
@@ -378,7 +416,7 @@ const commonMethods = {
         if (this.shopDetail) { this.closeShopDetail(); return; }
         if (this.invDetail) { this.closeInvDetail(); return; }
         if (this.modalMode === 'shop') { this.qtys.shop = {}; this.qtys.fishshop = {}; this.qtys.ranch = {}; this.qtys.ranchfeed = {}; }
-        else if (this.modalMode === 'warehouse' || this.modalMode === 'backpack') { this.qtys.warehouseItems = {}; this.qtys.warehouseSeeds = {}; this.qtys.fishFries = {}; }
+        else if (this.modalMode === 'warehouse' || this.modalMode === 'backpack') { this.qtys.warehouseItems = {}; this.qtys.warehouseSeeds = {}; this.qtys.fishFries = {}; this.qtys.young = {}; }
         else if (this.modalMode === 'feedadd') { this.qtys.feedadd = {}; }
         this.shopDetail = null;
         this.invDetail = null;

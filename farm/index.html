@@ -174,6 +174,7 @@
                         <template v-if="animals[menuPlot].hungry">停止生长(缺牧草)</template>
                         <template v-else>剩余 {{ ranchRemainText(menuPlot) }}</template>
                     </div>
+                    <div v-if="ranchHasAnimal && ranchGrowth(menuPlot) >= 1 && !ranchDone(menuPlot) && !animals[menuPlot].hungry" class="cm-tip">下次产出 {{ fmtDur(ranchNextProduceSec(menuPlot)) }}</div>
                     <button v-if="ranchHasAnimal" @click="clearConfirm()">移除</button>
                 </template>
             </template>
@@ -224,10 +225,9 @@
                 <div class="modal-body" ref="modalBody">
                     <!-- 商店(作物种子 / 鱼苗) -->
                     <div v-if="modalMode === 'shop'">
-                        <!-- 简化卡片:只显示 标签 / 名字 / 售价 -->
+                        <!-- 简化卡片:只显示 名字 / 售价 -->
                         <div v-if="shopTab === 'crops'" class="cards">
                             <div v-for="(c, key) in crops" :key="key" class="card shop-card" @click="openShopDetail('crops', key)">
-                                <div class="kind" :class="kindCls(key)">{{ kindLabel(key) }}</div>
                                 <b>&nbsp;{{ c.name }}</b>
                                 <div class="stat">💰{{ c.cost }}</div>
                                 <div v-if="seedLocked(key)" class="card-mask">
@@ -238,7 +238,6 @@
                         </div>
                         <div v-else-if="shopTab === 'fish'" class="cards">
                             <div v-for="(f, key) in fishes" :key="key" class="card shop-card" @click="openShopDetail('fish', key)">
-                                <div class="kind" :class="fishKindCls(key)">{{ fishKindLabel(key) }}</div>
                                 <b>&nbsp;{{ f.name }}</b>
                                 <div class="stat">💰{{ f.cost }}</div>
                                 <div v-if="fishLocked(key)" class="card-mask">
@@ -254,7 +253,6 @@
                                 <div class="stat">💰{{ feedCost }}</div>
                             </div>
                             <div v-for="(a, key) in animalTypes" :key="key" class="card shop-card" @click="openShopDetail('ranch', key)">
-                                <div class="kind" :class="kindCls(key)">{{ kindLabel(key) }}</div>
                                 <b>&nbsp;{{ a.name }}</b>
                                 <div class="stat">💰{{ a.cost }}</div>
                                 <div v-if="animalLocked(key)" class="card-mask">
@@ -265,16 +263,16 @@
                         </div>
                     </div>
 
-                    <!-- 背包:种子 + 鱼苗(点击卡片进二级详情) -->
+                    <!-- 背包:种子 + 鱼苗 + 幼崽(点击卡片进二级详情) -->
                     <div v-else-if="modalMode === 'backpack'">
                         <div v-if="seedDisplayList.length === 0" class="empty-tip">背包里啥也没有,请先去【商店】购买。</div>
                         <div v-else class="cards">
                             <div v-for="it in seedDisplayList" :key="it.kind + it.key" class="card shop-card inv-card"
                                  @click="openInvDetail('backpack', it.kind, it.key)">
-                                <b>{{ it.kind === 'seed' ? cropName(it.key) : fishName(it.key) }}</b>
+                                <b>{{ invName(it.kind, it.key) }}</b>
                                 <div class="inv-foot">
-                                    <span class="inv-price">💰 {{ it.kind === 'seed' ? seedSellPrice(it.key) : fishSellPrice(it.key) }}</span>
-                                    <span class="inv-qty">x{{ it.kind === 'seed' ? inventory.seeds[it.key] : fish.fries[it.key] }}</span>
+                                    <span class="inv-price">💰 {{ invSellPrice(it.kind, it.key) }}</span>
+                                    <span class="inv-qty">x{{ invQty(it.kind, it.key) }}</span>
                                 </div>
                             </div>
                         </div>
@@ -387,7 +385,6 @@
             <div class="shop-dialog">
                 <template v-if="shopDetail.tab === 'crops'">
                     <div class="dialog-head">
-                        <span class="kind" :class="kindCls(shopDetail.key)">{{ kindLabel(shopDetail.key) }}</span>
                         <b>{{ crops[shopDetail.key].name }}</b>
                         <button class="close" @click="closeShopDetail()">×</button>
                     </div>
@@ -407,7 +404,6 @@
                 </template>
                 <template v-else-if="shopDetail.tab === 'fish'">
                     <div class="dialog-head">
-                        <span class="kind" :class="fishKindCls(shopDetail.key)">{{ fishKindLabel(shopDetail.key) }}</span>
                         <b>{{ fishes[shopDetail.key].name }}</b>
                         <button class="close" @click="closeShopDetail()">×</button>
                     </div>
@@ -443,7 +439,6 @@
                 </template>
                 <template v-else>
                     <div class="dialog-head">
-                        <span class="kind" :class="kindCls(shopDetail.key)">{{ kindLabel(shopDetail.key) }}</span>
                         <b>{{ animalTypes[shopDetail.key].name }}</b>
                         <button class="close" @click="closeShopDetail()">×</button>
                     </div>
@@ -468,19 +463,19 @@
             <div class="shop-dialog">
                 <template v-if="invDetail.mode === 'backpack'">
                     <div class="dialog-head">
-                        <b>{{ invDetail.kind === 'seed' ? cropName(invDetail.key) : fishName(invDetail.key) }}</b>
+                        <b>{{ invName(invDetail.kind, invDetail.key) }}</b>
                         <button class="close" @click="closeInvDetail()">×</button>
                     </div>
-                    <div class="stat">回收价 {{ invDetail.kind === 'seed' ? seedSellPrice(invDetail.key) : fishSellPrice(invDetail.key) }} 金币/个</div>
-                    <div class="own">持有: {{ invDetail.kind === 'seed' ? inventory.seeds[invDetail.key] : fish.fries[invDetail.key] }}</div>
+                    <div class="stat">回收价 {{ invSellPrice(invDetail.kind, invDetail.key) }} 金币/个</div>
+                    <div class="own">持有: {{ invQty(invDetail.kind, invDetail.key) }}</div>
                     <div class="stepper">
-                        <button @click="qtyChange(invDetail.kind === 'seed' ? 'warehouseSeeds' : 'fishFries', invDetail.key, -1)">&lt;</button>
-                        <input type="number" min="0" :value="qtyFor(invDetail.kind === 'seed' ? 'warehouseSeeds' : 'fishFries', invDetail.key)"
-                               @input="qtyInputLive(invDetail.kind === 'seed' ? 'warehouseSeeds' : 'fishFries', invDetail.key, $event.target.value)"
-                               @change="qtyInput(invDetail.kind === 'seed' ? 'warehouseSeeds' : 'fishFries', invDetail.key, $event.target.value)">
-                        <button @click="qtyChange(invDetail.kind === 'seed' ? 'warehouseSeeds' : 'fishFries', invDetail.key, 1)">&gt;</button>
+                        <button @click="qtyChange(invQtyGroup(invDetail.kind), invDetail.key, -1)">&lt;</button>
+                        <input type="number" min="0" :value="qtyFor(invQtyGroup(invDetail.kind), invDetail.key)"
+                               @input="qtyInputLive(invQtyGroup(invDetail.kind), invDetail.key, $event.target.value)"
+                               @change="qtyInput(invQtyGroup(invDetail.kind), invDetail.key, $event.target.value)">
+                        <button @click="qtyChange(invQtyGroup(invDetail.kind), invDetail.key, 1)">&gt;</button>
                     </div>
-                    <button @click="invDetail.kind === 'seed' ? sellSeed(invDetail.key) : recycleFry(invDetail.key)" :disabled="invSellDisabled(invDetail.kind === 'seed' ? 'warehouseSeeds' : 'fishFries', invDetail.key, invDetail.kind === 'seed' ? (inventory.seeds[invDetail.key] || 0) : (fish.fries[invDetail.key] || 0), false)">回收({{ (invDetail.kind === 'seed' ? seedSellPrice(invDetail.key) : fishSellPrice(invDetail.key)) * qtyFor(invDetail.kind === 'seed' ? 'warehouseSeeds' : 'fishFries', invDetail.key) }}金币)</button>
+                    <button @click="invDetail.kind === 'seed' ? sellSeed(invDetail.key) : invDetail.kind === 'fry' ? recycleFry(invDetail.key) : recycleYoung(invDetail.key)" :disabled="invSellDisabled(invQtyGroup(invDetail.kind), invDetail.key, invQty(invDetail.kind, invDetail.key), false)">回收({{ invSellPrice(invDetail.kind, invDetail.key) * qtyFor(invQtyGroup(invDetail.kind), invDetail.key) }}金币)</button>
                 </template>
                 <template v-else>
                     <div class="dialog-head">

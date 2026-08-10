@@ -32,8 +32,6 @@ const farmMethods = {
         return '快成熟';
     },
     cropName(key) { return CROPS[key].name; },
-    kindLabel(key) { return KIND_LABEL[key]; },
-    kindCls(key) { return KIND_CLS[key]; },
     /* 读取 data.js 中的静态解锁数据 */
     seedLevelReq(key) { return CROPS[key].level; },
     plotLevelReq(i) { return PLOT_LEVEL_REQ[i]; },

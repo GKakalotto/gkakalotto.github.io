@@ -482,34 +482,6 @@ button:disabled {
     font-weight: bold;
 }
 
-.kind {
-    display: inline-block;
-    font-size: 11px;
-    line-height: 1.5;
-    padding: 0 8px;
-    border-radius: 999px;
-    border: 1px solid;
-    margin-bottom: 5px;
-}
-
-.kind.fast {
-    color: #6fbf73;
-    border-color: #6fbf73;
-    background: rgba(111, 191, 115, .12);
-}
-
-.kind.big {
-    color: #e0b45a;
-    border-color: #e0b45a;
-    background: rgba(224, 180, 90, .12);
-}
-
-.kind.exp {
-    color: #6fa8dc;
-    border-color: #6fa8dc;
-    background: rgba(111, 168, 220, .12);
-}
-
 .card button {
     margin-top: 8px;
     width: 100%;
@@ -549,7 +521,7 @@ button:disabled {
     transition: border-color .15s, transform .05s;
 }
 
-/* 商店卡片(不含背包/仓库的 inv-card):名字居中靠上,tag 左下角,售价右下角 */
+/* 商店卡片(不含背包/仓库的 inv-card):名字居中靠上,售价右下角 */
 .shop-card:not(.inv-card) {
     display: flex;
     flex-direction: column;
@@ -557,12 +529,6 @@ button:disabled {
     justify-content: flex-start;
     min-height: 68px;
     padding: 12px 8px;
-}
-.shop-card:not(.inv-card) .kind {
-    position: absolute;
-    left: 6px;
-    bottom: 6px;
-    margin: 0;
 }
 .shop-card:not(.inv-card) .stat {
     position: absolute;
@@ -640,10 +606,6 @@ button:disabled {
     position: relative;
     padding-bottom: 10px;
     border-bottom: 1px solid var(--border);
-}
-
-.shop-dialog .dialog-head .kind {
-    margin-bottom: 0;
 }
 
 .shop-dialog .dialog-head .close {

@@ -1,6 +1,6 @@
 /* ================= 纯工具函数(无 Vue 依赖) ================= */
-/* 升级经验:三次曲线,越往后每级所需经验越多 */
-function xpNeeded(level) { return Math.floor(level * level * level / 8 + level * 100); }
+/* 升级经验:exp = 100 × level^1.5,越往后每级所需经验越多 */
+function xpNeeded(level) { return Math.floor(100 * Math.pow(level, 1.5)); }
 
 function fmtDur(s) {
     if (s >= 60) {
@@ -14,11 +14,6 @@ function fmtTime(t) {
     const d = new Date(t);
     return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2);
 }
-/* 定位标签查找表(CROPS / FISH / ANIMALS 共用同一套三定位循环,key 不重叠) */
-const KIND_LABEL = {}, KIND_CLS = {};
-CROP_KEYS.forEach((k, i) => { KIND_LABEL[k] = CROP_KIND[i % 3].label; KIND_CLS[k] = CROP_KIND[i % 3].cls; });
-FISH_KEYS.forEach((k, i) => { KIND_LABEL[k] = CROP_KIND[i % 3].label; KIND_CLS[k] = CROP_KIND[i % 3].cls; });
-ANIMAL_KEYS.forEach((k, i) => { KIND_LABEL[k] = CROP_KIND[i % 3].label; KIND_CLS[k] = CROP_KIND[i % 3].cls; });
 
 /* ================= 默认状态 ================= */
 function makeDefaultState() {

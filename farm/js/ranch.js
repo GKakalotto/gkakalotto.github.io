@@ -49,6 +49,13 @@ const ranchMethods = {
         const a = this.animals[i];
         return !!a && (a.produceCount || 0) >= ANIMAL_MAX_PRODUCE;
     },
+    /* 距下次产出的剩余秒数(成熟产出中且未产满/未饥饿) */
+    ranchNextProduceSec(i) {
+        const a = this.animals[i];
+        if (!a || this.ranchGrowth(i) < 1 || a.hungry || this.ranchDone(i)) return 0;
+        const interval = ANIMALS[a.type].produceEvery * 1000;
+        return Math.max(0, Math.ceil((a.lastProduce + interval - Date.now()) / 1000));
+    },
 
     /* ---------- 栏位渲染 / 点击 ---------- */
     ranchClass(i) {
