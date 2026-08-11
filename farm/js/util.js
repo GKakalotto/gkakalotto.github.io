@@ -2,14 +2,23 @@
 /* 升级经验:exp = 100 × level^1.5,越往后每级所需经验越多 */
 function xpNeeded(level) { return Math.floor(100 * Math.pow(level, 1.5)); }
 
+/* 时长统一格式 hh:mm:ss,小时/分钟/秒均两位补零 */
 function fmtDur(s) {
-    if (s >= 60) {
-        const m = Math.floor(s / 60), r = s % 60;
-        return m + '分' + (r > 0 ? r + '秒' : '');
-    }
-    return s + '秒';
+    const pad = (n) => (n < 10 ? '0' : '') + n;
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const r = s % 60;
+    return pad(h) + ':' + pad(m) + ':' + pad(r);
 }
-function fmtRemain(s) { return fmtDur(s) + '后成熟'; }
+/* 商店详情成熟时长:x小时x分钟(不足 1 小时显示 x分钟) */
+function fmtDurHM(s) {
+    if (s < 60) return s + '秒';
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    if (h > 0) return h + '小时' + (m > 0 ? m + '分钟' : '');
+    return m + '分钟';
+}
+function fmtRemain(s) { return fmtDur(s) + ' 后成熟'; }
 function fmtTime(t) {
     const d = new Date(t);
     return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2);

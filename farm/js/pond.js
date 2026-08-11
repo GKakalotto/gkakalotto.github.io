@@ -21,7 +21,7 @@ const pondMethods = {
         if (!p) return 0;
         return Math.max(0, Math.ceil(FISH[p.type].grow - this.pondProgress(i) * FISH[p.type].grow));
     },
-    pondRemainText(i) { return fmtDur(this.pondRemainSec(i)) + '后长大'; },
+    pondRemainText(i) { return fmtDur(this.pondRemainSec(i)) + ' 后长大'; },
     pondStageText(i) {
         const pr = this.pondProgress(i);
         if (pr < 0.35) return '鱼苗';
@@ -144,8 +144,7 @@ const pondMethods = {
             resumedAt: Date.now(),
             announced: false,
         });
-        this.addXp(1);
-        this.addLog('投放了 ' + FISH[key].name + ' 鱼苗 +1 经验');
+        this.addLog('投放了 ' + FISH[key].name + ' 鱼苗');
         this.hideContextMenu();
         this.save();
     },
@@ -162,8 +161,8 @@ const pondMethods = {
         const type = p.type;
         this.$set(this.inventory.items, type, (this.inventory.items[type] || 0) + 1);
         this.$set(this.pond, i, null);
-        this.addLog('收获 ' + f.name + ' x1,已放入仓库 +' + f.xp + ' 经验');
-        this.addXp(f.xp);
+        this.addLog('收获 ' + f.name + ' x1,已放入仓库 +' + (f.xp + 10) + ' 经验');
+        this.addXp(f.xp + 10);
         this.save();
     },
     checkFishMature() {
@@ -185,7 +184,7 @@ const pondMethods = {
                 this.$set(this.inventory.items, type, (this.inventory.items[type] || 0) + 1);
                 this.$set(this.pond, i, null);
                 n++;
-                xp += FISH[type].xp;
+                xp += FISH[type].xp + 10; // 捕捞奖励:本身经验 + 额外 10
             }
         });
         if (n > 0) {

@@ -157,13 +157,13 @@
                     <button v-if="plotEmpty" @click="plantSubmenu()">种植</button>
                     <button v-if="menuWaterEnabled" @click="water(menuPlot)">浇水</button>
                     <button v-if="menuHarvestEnabled" @click="harvest(menuPlot)">收获</button>
-                    <div v-if="plotHasCrop && plotProgress(menuPlot) < 1" class="cm-tip">剩余 {{ fmtRemain(plotRemainSec(menuPlot)) }}</div>
+                    <div v-if="plotHasCrop && plotProgress(menuPlot) < 1" class="cm-tip">{{ fmtRemain(plotRemainSec(menuPlot)) }}</div>
                     <button v-if="plotHasCrop" @click="clearConfirm()">铲除</button>
                 </template>
                 <template v-else-if="menuTarget === 'pond'">
                     <button v-if="!pondHasFish" @click="stockSubmenu()">投放</button>
                     <button v-if="menuPondHarvestEnabled" @click="harvestFish(menuPlot)">收获</button>
-                    <div v-if="pondHasFish && pondProgress(menuPlot) < 1" class="cm-tip">剩余 {{ pondRemainText(menuPlot) }}</div>
+                    <div v-if="pondHasFish && pondProgress(menuPlot) < 1" class="cm-tip">{{ pondRemainText(menuPlot) }}</div>
                     <button v-if="pondHasFish" @click="clearConfirm()">移除</button>
                 </template>
                 <template v-else>
@@ -172,7 +172,7 @@
                     <button v-if="menuRanchDoneEnabled" @click="collectAnimal(menuPlot)">收获</button>
                     <div v-if="ranchHasAnimal && ranchGrowth(menuPlot) < 1" class="cm-tip">
                         <template v-if="animals[menuPlot].hungry">停止生长(缺牧草)</template>
-                        <template v-else>剩余 {{ ranchRemainText(menuPlot) }}</template>
+                        <template v-else>{{ ranchRemainText(menuPlot) }}</template>
                     </div>
                     <div v-if="ranchHasAnimal && ranchGrowth(menuPlot) >= 1 && !ranchDone(menuPlot) && !animals[menuPlot].hungry" class="cm-tip">下次产出 {{ fmtDur(ranchNextProduceSec(menuPlot)) }}</div>
                     <button v-if="ranchHasAnimal" @click="clearConfirm()">移除</button>
@@ -284,7 +284,8 @@
                         <template v-else>
                             <div class="cards">
                                 <div v-for="key in itemKeys" :key="key" class="card card-lockable shop-card inv-card"
-                                     @click="openInvDetail('warehouse', 'item', key)">
+                                     :class="{ locked: inventory.locks[key] }"
+                                     @click="!inventory.locks[key] && openInvDetail('warehouse', 'item', key)">
                                     <button class="lock-btn" :title="inventory.locks[key] ? '已锁定,不参与一键出售' : '点击锁定,不参与一键出售'" @click.stop="toggleLock(key)">{{ inventory.locks[key] ? '🔒' : '🔓' }}</button>
                                     <b>{{ itemName(key) }}</b>
                                     <div class="inv-foot">
@@ -352,17 +353,16 @@
 
                     <!-- 添入牧槽:显示仓库库存与剩余容量,输入数量防溢出 -->
                     <div v-else-if="modalMode === 'feedadd'" class="center-tip">
-                        <div>仓库牧草:<b>{{ feedCount }}</b> · 牧槽剩余:<b>{{ feedTroughCap - feedTroughCount }}</b></div>
-                        <div style="margin-top:8px;">要添入的数量:</div>
+                        <div>仓库牧草:<b>{{ feedCount }}</b> · 牧槽空余:<b>{{ feedTroughCap - feedTroughCount }}</b></div>
+                        <div style="margin-top:8px;">要添入的数量: <b style="display:inline-block; width:5ch; font-variant-numeric:tabular-nums;">{{ qtyFor('feedadd', 'siliao') }}</b></div>
                         <div class="stepper">
-                            <button @click="qtyChange('feedadd', 'siliao', -1)">&lt;</button>
-                            <input type="number" min="0" :value="qtyFor('feedadd', 'siliao')"
-                                   @input="qtyInputLive('feedadd', 'siliao', $event.target.value)"
-                                   @change="qtyInput('feedadd', 'siliao', $event.target.value)">
-                            <button @click="qtyChange('feedadd', 'siliao', 1)">&gt;</button>
+                            <button @click="qtyChange('feedadd', 'siliao', -1)">-</button>
+                            <input type="range" min="0" :max="feedAddMax" :disabled="feedCount <= 0" :value="qtyFor('feedadd', 'siliao')"
+                                   @input="qtyInputLive('feedadd', 'siliao', $event.target.value)">
+                            <button @click="qtyChange('feedadd', 'siliao', 1)">+</button>
                         </div>
                         <div style="margin-top:14px;">
-                            <button @click="confirmFeedAdd()" :disabled="qtyFor('feedadd', 'siliao') <= 0 || feedCount <= 0 || feedTroughCount >= feedTroughCap">添入</button>
+                            <button @click="confirmFeedAdd()" :disabled="qtyFor('feedadd', 'siliao') <= 0 || feedCount <= 0 || feedTroughCount >= feedTroughCap || qtyFor('feedadd', 'siliao') > feedAddMax">添入</button>
                             <button class="ghost" @click="closeModal()">取消</button>
                         </div>
                     </div>
@@ -388,72 +388,71 @@
                         <b>{{ crops[shopDetail.key].name }}</b>
                         <button class="close" @click="closeShopDetail()">×</button>
                     </div>
-                    <div class="stat">种子价 {{ crops[shopDetail.key].cost }} 金币</div>
-                    <div class="stat">售出价 {{ crops[shopDetail.key].sell }} 金币</div>
-                    <div class="stat">成熟 {{ fmtDur(crops[shopDetail.key].grow) }}</div>
-                    <div class="stat">经验 +{{ crops[shopDetail.key].xp }}</div>
-                    <div class="own">持有: {{ inventory.seeds[shopDetail.key] || 0 }}</div>
+                    <div class="stat">售价：{{ crops[shopDetail.key].cost }} 金币</div>
+                    <div class="stat">收入：{{ crops[shopDetail.key].sell }} 金币</div>
+                    <div class="stat">成熟：{{ fmtDurHM(crops[shopDetail.key].grow) }}</div>
+                    <div class="stat">经验：{{ crops[shopDetail.key].xp }}</div>
                     <div class="stepper">
-                        <button @click="qtyChange('shop', shopDetail.key, -1)">&lt;</button>
-                        <input type="number" min="0" :value="qtyFor('shop', shopDetail.key)"
-                               @input="qtyInputLive('shop', shopDetail.key, $event.target.value)"
-                               @change="qtyInput('shop', shopDetail.key, $event.target.value)">
-                        <button @click="qtyChange('shop', shopDetail.key, 1)">&gt;</button>
+                        <button @click="qtyChange('shop', shopDetail.key, -1)">-</button>
+                        <input type="range" min="0" max="99" :value="qtyFor('shop', shopDetail.key)"
+                               @input="qtyInputLive('shop', shopDetail.key, $event.target.value)">
+                        <button @click="qtyChange('shop', shopDetail.key, 1)">+</button>
                     </div>
-                    <button @click="buySeed(shopDetail.key)" :disabled="shopBuyDisabled('shop', shopDetail.key, crops[shopDetail.key].cost)">购买({{ crops[shopDetail.key].cost * qtyFor('shop', shopDetail.key) }}金币)</button>
+                    <div class="total">购买数量：<span class="sel-num">{{ qtyFor('shop', shopDetail.key) }}</span>&nbsp;&nbsp;💰<span class="total-num">{{ crops[shopDetail.key].cost * qtyFor('shop', shopDetail.key) }}</span></div>
+                    <button @click="buySeed(shopDetail.key)" :disabled="shopBuyDisabled('shop', shopDetail.key, crops[shopDetail.key].cost)">购买</button>
                 </template>
                 <template v-else-if="shopDetail.tab === 'fish'">
                     <div class="dialog-head">
                         <b>{{ fishes[shopDetail.key].name }}</b>
                         <button class="close" @click="closeShopDetail()">×</button>
                     </div>
-                    <div class="stat">鱼苗价 {{ fishes[shopDetail.key].cost }} 金币</div>
-                    <div class="stat">售出价 {{ fishes[shopDetail.key].sell }} 金币</div>
-                    <div class="stat">成熟 {{ fmtDur(fishes[shopDetail.key].grow) }}</div>
-                    <div class="stat">经验 +{{ fishes[shopDetail.key].xp }}</div>
-                    <div class="own">持有: {{ fish.fries[shopDetail.key] || 0 }}</div>
+                    <div class="stat">售价：{{ fishes[shopDetail.key].cost }} 金币</div>
+                    <div class="stat">收入：{{ fishes[shopDetail.key].sell }} 金币</div>
+                    <div class="stat">成熟：{{ fmtDurHM(fishes[shopDetail.key].grow) }}</div>
+                    <div class="stat">经验：{{ fishes[shopDetail.key].xp }}</div>
                     <div class="stepper">
-                        <button @click="qtyChange('fishshop', shopDetail.key, -1)">&lt;</button>
-                        <input type="number" min="0" :value="qtyFor('fishshop', shopDetail.key)"
-                               @input="qtyInputLive('fishshop', shopDetail.key, $event.target.value)"
-                               @change="qtyInput('fishshop', shopDetail.key, $event.target.value)">
-                        <button @click="qtyChange('fishshop', shopDetail.key, 1)">&gt;</button>
+                        <button @click="qtyChange('fishshop', shopDetail.key, -1)">-</button>
+                        <input type="range" min="0" max="99" :value="qtyFor('fishshop', shopDetail.key)"
+                               @input="qtyInputLive('fishshop', shopDetail.key, $event.target.value)">
+                        <button @click="qtyChange('fishshop', shopDetail.key, 1)">+</button>
                     </div>
-                    <button @click="buyFry(shopDetail.key)" :disabled="shopBuyDisabled('fishshop', shopDetail.key, fishes[shopDetail.key].cost)">购买({{ fishes[shopDetail.key].cost * qtyFor('fishshop', shopDetail.key) }}金币)</button>
+                    <div class="total">购买数量：<span class="sel-num">{{ qtyFor('fishshop', shopDetail.key) }}</span>&nbsp;&nbsp;💰<span class="total-num">{{ fishes[shopDetail.key].cost * qtyFor('fishshop', shopDetail.key) }}</span></div>
+                    <button @click="buyFry(shopDetail.key)" :disabled="shopBuyDisabled('fishshop', shopDetail.key, fishes[shopDetail.key].cost)">购买</button>
                 </template>
                 <template v-else-if="shopDetail.tab === 'feed'">
                     <div class="dialog-head">
                         <b>牧草</b>
                         <button class="close" @click="closeShopDetail()">×</button>
                     </div>
-                    <div class="stat">单价 {{ feedCost }} 金币</div>
-                    <div class="own">仓库持有: {{ feedCount }}</div>
+                    <div class="stat">售价：{{ feedCost }} 金币</div>
+                    <div class="stat">收入：{{ itemSell('siliao') }} 金币</div>
                     <div class="stepper">
-                        <button @click="qtyChange('ranchfeed', 'siliao', -1)">&lt;</button>
-                        <input type="number" min="0" :value="qtyFor('ranchfeed', 'siliao')"
-                               @input="qtyInputLive('ranchfeed', 'siliao', $event.target.value)"
-                               @change="qtyInput('ranchfeed', 'siliao', $event.target.value)">
-                        <button @click="qtyChange('ranchfeed', 'siliao', 1)">&gt;</button>
+                        <button @click="qtyChange('ranchfeed', 'siliao', -1)">-</button>
+                        <input type="range" min="0" max="99" :value="qtyFor('ranchfeed', 'siliao')"
+                               @input="qtyInputLive('ranchfeed', 'siliao', $event.target.value)">
+                        <button @click="qtyChange('ranchfeed', 'siliao', 1)">+</button>
                     </div>
-                    <button @click="buyFeed()" :disabled="shopBuyDisabled('ranchfeed', 'siliao', feedCost)">购买({{ feedCost * qtyFor('ranchfeed', 'siliao') }}金币)</button>
+                    <div class="total">购买数量：<span class="sel-num">{{ qtyFor('ranchfeed', 'siliao') }}</span>&nbsp;&nbsp;💰<span class="total-num">{{ feedCost * qtyFor('ranchfeed', 'siliao') }}</span></div>
+                    <button @click="buyFeed()" :disabled="shopBuyDisabled('ranchfeed', 'siliao', feedCost)">购买</button>
                 </template>
                 <template v-else>
                     <div class="dialog-head">
                         <b>{{ animalTypes[shopDetail.key].name }}</b>
                         <button class="close" @click="closeShopDetail()">×</button>
                     </div>
-                    <div class="stat">幼崽价 {{ animalTypes[shopDetail.key].cost }} 金币</div>
-                    <div class="stat">成熟 {{ fmtDur(animalTypes[shopDetail.key].grow) }} · 每 {{ fmtDur(animalTypes[shopDetail.key].produceEvery) }} 产{{ productName(shopDetail.key) }}</div>
-                    <div class="stat">经验 +{{ animalTypes[shopDetail.key].xp }}</div>
-                    <div class="own">持有: {{ inventory.young[shopDetail.key] || 0 }}</div>
+                    <div class="stat">售价：{{ animalTypes[shopDetail.key].cost }} 金币</div>
+                    <div class="stat">收入：{{ productSell(shopDetail.key) }} 金币</div>
+                    <div class="stat">成熟：{{ fmtDurHM(animalTypes[shopDetail.key].grow) }}</div>
+                    <div class="stat">经验：{{ animalTypes[shopDetail.key].xp }}</div>
+                    <div class="stat">每 {{ fmtDurHM(animalTypes[shopDetail.key].produceEvery) }} 产{{ productName(shopDetail.key) }}</div>
                     <div class="stepper">
-                        <button @click="qtyChange('ranch', shopDetail.key, -1)">&lt;</button>
-                        <input type="number" min="0" :value="qtyFor('ranch', shopDetail.key)"
-                               @input="qtyInputLive('ranch', shopDetail.key, $event.target.value)"
-                               @change="qtyInput('ranch', shopDetail.key, $event.target.value)">
-                        <button @click="qtyChange('ranch', shopDetail.key, 1)">&gt;</button>
+                        <button @click="qtyChange('ranch', shopDetail.key, -1)">-</button>
+                        <input type="range" min="0" max="99" :value="qtyFor('ranch', shopDetail.key)"
+                               @input="qtyInputLive('ranch', shopDetail.key, $event.target.value)">
+                        <button @click="qtyChange('ranch', shopDetail.key, 1)">+</button>
                     </div>
-                    <button @click="buyAnimal(shopDetail.key)" :disabled="shopBuyDisabled('ranch', shopDetail.key, animalTypes[shopDetail.key].cost)">购买({{ animalTypes[shopDetail.key].cost * qtyFor('ranch', shopDetail.key) }}金币)</button>
+                    <div class="total">购买数量：<span class="sel-num">{{ qtyFor('ranch', shopDetail.key) }}</span>&nbsp;&nbsp;💰<span class="total-num">{{ animalTypes[shopDetail.key].cost * qtyFor('ranch', shopDetail.key) }}</span></div>
+                    <button @click="buyAnimal(shopDetail.key)" :disabled="shopBuyDisabled('ranch', shopDetail.key, animalTypes[shopDetail.key].cost)">购买</button>
                 </template>
             </div>
         </div>
@@ -466,32 +465,30 @@
                         <b>{{ invName(invDetail.kind, invDetail.key) }}</b>
                         <button class="close" @click="closeInvDetail()">×</button>
                     </div>
-                    <div class="stat">回收价 {{ invSellPrice(invDetail.kind, invDetail.key) }} 金币/个</div>
-                    <div class="own">持有: {{ invQty(invDetail.kind, invDetail.key) }}</div>
+                    <div class="stat">出售数量：<span class="sel-num">{{ qtyFor(invQtyGroup(invDetail.kind), invDetail.key) }}</span>/{{ invQty(invDetail.kind, invDetail.key) }}</div>
                     <div class="stepper">
-                        <button @click="qtyChange(invQtyGroup(invDetail.kind), invDetail.key, -1)">&lt;</button>
-                        <input type="number" min="0" :value="qtyFor(invQtyGroup(invDetail.kind), invDetail.key)"
-                               @input="qtyInputLive(invQtyGroup(invDetail.kind), invDetail.key, $event.target.value)"
-                               @change="qtyInput(invQtyGroup(invDetail.kind), invDetail.key, $event.target.value)">
-                        <button @click="qtyChange(invQtyGroup(invDetail.kind), invDetail.key, 1)">&gt;</button>
+                        <button @click="qtyChange(invQtyGroup(invDetail.kind), invDetail.key, -1)">-</button>
+                        <input type="range" min="0" :max="invQty(invDetail.kind, invDetail.key)" :value="qtyFor(invQtyGroup(invDetail.kind), invDetail.key)"
+                               @input="qtyInputLive(invQtyGroup(invDetail.kind), invDetail.key, $event.target.value)">
+                        <button @click="qtyChange(invQtyGroup(invDetail.kind), invDetail.key, 1)">+</button>
                     </div>
-                    <button @click="invDetail.kind === 'seed' ? sellSeed(invDetail.key) : invDetail.kind === 'fry' ? recycleFry(invDetail.key) : recycleYoung(invDetail.key)" :disabled="invSellDisabled(invQtyGroup(invDetail.kind), invDetail.key, invQty(invDetail.kind, invDetail.key), false)">回收({{ invSellPrice(invDetail.kind, invDetail.key) * qtyFor(invQtyGroup(invDetail.kind), invDetail.key) }}金币)</button>
+                    <div class="total">总收入：<span class="total-num">{{ invSellPrice(invDetail.kind, invDetail.key) * qtyFor(invQtyGroup(invDetail.kind), invDetail.key) }}</span> 金币</div>
+                    <button @click="invDetail.kind === 'seed' ? sellSeed(invDetail.key) : invDetail.kind === 'fry' ? recycleFry(invDetail.key) : recycleYoung(invDetail.key)" :disabled="invSellDisabled(invQtyGroup(invDetail.kind), invDetail.key, invQty(invDetail.kind, invDetail.key), false)">回收</button>
                 </template>
                 <template v-else>
                     <div class="dialog-head">
                         <b>{{ itemName(invDetail.key) }}</b>
                         <button class="close" @click="closeInvDetail()">×</button>
                     </div>
-                    <div class="stat">售价 {{ itemSell(invDetail.key) }} 金币/个</div>
-                    <div class="own">持有: {{ inventory.items[invDetail.key] }}</div>
+                    <div class="stat">出售数量：<span class="sel-num">{{ qtyFor('warehouseItems', invDetail.key) }}</span>/{{ inventory.items[invDetail.key] }}</div>
                     <div class="stepper">
-                        <button @click="qtyChange('warehouseItems', invDetail.key, -1)">&lt;</button>
-                        <input type="number" min="0" :value="qtyFor('warehouseItems', invDetail.key)"
-                               @input="qtyInputLive('warehouseItems', invDetail.key, $event.target.value)"
-                               @change="qtyInput('warehouseItems', invDetail.key, $event.target.value)">
-                        <button @click="qtyChange('warehouseItems', invDetail.key, 1)">&gt;</button>
+                        <button @click="qtyChange('warehouseItems', invDetail.key, -1)">-</button>
+                        <input type="range" min="0" :max="inventory.items[invDetail.key] || 0" :value="qtyFor('warehouseItems', invDetail.key)"
+                               @input="qtyInputLive('warehouseItems', invDetail.key, $event.target.value)">
+                        <button @click="qtyChange('warehouseItems', invDetail.key, 1)">+</button>
                     </div>
-                    <button @click="sellItem(invDetail.key)" :disabled="invSellDisabled('warehouseItems', invDetail.key, inventory.items[invDetail.key] || 0, inventory.locks[invDetail.key])" :title="inventory.locks[invDetail.key] ? '已锁定,请先解锁' : ''">出售({{ itemSell(invDetail.key) * qtyFor('warehouseItems', invDetail.key) }}金币)</button>
+                    <div class="total">总收入：<span class="total-num">{{ itemSell(invDetail.key) * qtyFor('warehouseItems', invDetail.key) }}</span> 金币</div>
+                    <button @click="sellItem(invDetail.key)" :disabled="invSellDisabled('warehouseItems', invDetail.key, inventory.items[invDetail.key] || 0, inventory.locks[invDetail.key])" :title="inventory.locks[invDetail.key] ? '已锁定,请先解锁' : ''">出售</button>
                 </template>
             </div>
         </div>

@@ -1,7 +1,6 @@
 /* 农田网格容器:4 行 × 6 列 */
 .farm {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
     grid-template-columns: repeat(6, minmax(0, 1fr)); /* 移动端防止格子内容撑破列宽 */
     gap: 10px;
     border: 1px solid var(--border);

@@ -8,6 +8,7 @@ const ranchComputed = {
     feedCount() { return this.inventory.items['siliao'] || 0; }, // 仓库中的牧草库存
     feedTroughCount() { return this.feedTrough; },              // 牧槽内的牧草
     feedTroughCap() { return FEED_TROUGH_CAP; },
+    feedAddMax() { return Math.min(this.inventory.items['siliao'] || 0, FEED_TROUGH_CAP - this.feedTrough); }, // 可添入上限 = min(牧草库存, 牧槽剩余容量)
     feedCost() { return FEED_COST; },
     ranchHasAnimal() { return !!this.animals[this.menuPlot]; }, // !! 使 undefined(menuPlot=-1) 与 null 都判为空
     menuRanchHarvestEnabled() { const a = this.animals[this.menuPlot]; return !!a && this.ranchPending(this.menuPlot) > 0; },
@@ -29,7 +30,7 @@ const ranchMethods = {
         const a = this.animals[i];
         if (!a) return ''; // 空栏位/越界(menuPlot=-1)时安全返回
         const total = ANIMALS[a.type].grow;
-        return fmtDur(Math.max(0, Math.ceil(total - this.ranchGrowth(i) * total))) + '后成熟';
+        return fmtDur(Math.max(0, Math.ceil(total - this.ranchGrowth(i) * total))) + ' 后成熟';
     },
     ranchStageText(i) {
         const pr = this.ranchGrowth(i);
@@ -161,8 +162,7 @@ const ranchMethods = {
             produceCount: 0, // 累计产出次数(自动累积,即进度)
             stored: 0,       // 已入仓的产物次数
         });
-        this.addXp(1);
-        this.addLog('投放了 ' + ANIMALS[key].name + ' 幼崽 +1 经验');
+        this.addLog('投放了 ' + ANIMALS[key].name + ' 幼崽');
         this.hideContextMenu();
         this.save();
     },
@@ -185,8 +185,8 @@ const ranchMethods = {
         this.$set(this.inventory.items, a.type, (this.inventory.items[a.type] || 0) + 1);
         this.$set(this.animals, i, null);
         this.hideContextMenu();
-        this.addLog(ANIMALS[a.type].name + ' 已完成使命,收获到仓库 +' + ANIMALS[a.type].xp + ' 经验');
-        this.addXp(ANIMALS[a.type].xp);
+        this.addLog(ANIMALS[a.type].name + ' 已完成使命,收获到仓库 +' + (ANIMALS[a.type].xp + 10) + ' 经验');
+        this.addXp(ANIMALS[a.type].xp + 10);
         this.save();
     },
     doClearAnimal(i) {
@@ -258,6 +258,7 @@ const ranchMethods = {
     animalLocked(key) { return this.level < ANIMALS[key].level; },
     animalLevelReq(key) { return ANIMALS[key].level; },
     productName(key) { return ANIMAL_PRODUCTS[ANIMALS[key].product].name; },
+    productSell(key) { return ANIMAL_PRODUCTS[ANIMALS[key].product].sell; },
     buyAnimal(key) {
         const a = ANIMALS[key];
         const qty = this.qtyFor('ranch', key);
@@ -287,10 +288,9 @@ const ranchMethods = {
         }
         this.save();
     },
-    // 打开添入牧槽弹窗(显示仓库库存与剩余容量,可输入数量,防溢出)
+    // 打开添入牧槽弹窗(显示仓库库存与剩余容量,数量默认 0)
     openFeedAdd() {
         this.hideContextMenu();
-        this.$set(this.qtys.feedadd, 'siliao', 0);
         this.modalMode = 'feedadd';
         this.modalTitle = '添入牧槽';
     },

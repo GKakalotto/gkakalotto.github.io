@@ -1,8 +1,4 @@
-/* 鱼塘:3 行 × 4 列,与农田同网格布局(工具栏在其上方,无需额外上边距) */
-.pond-wrap {
-    margin-top: 0;
-}
-
+/* 鱼塘:3 行 × 4 列,与农田同网格布局 */
 .pond {
     display: grid;
     grid-template-columns: repeat(4, 1fr);

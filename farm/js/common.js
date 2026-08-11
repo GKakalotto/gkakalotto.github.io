@@ -114,7 +114,7 @@ const commonMethods = {
         while (this.xp >= xpNeeded(this.level)) {
             this.xp -= xpNeeded(this.level);
             this.level += 1;
-            const bonus = 500;
+            const bonus = Math.floor(100 * Math.sqrt(this.level) * Math.log(this.level)); // 奖励金币 = 100·√等级·ln(等级)
             this.coins += bonus;
             this.addLog('等级提升!升到 Lv.' + this.level + ',奖励 ' + bonus + ' 金币,商店可能有新种子');
         }
@@ -136,6 +136,7 @@ const commonMethods = {
     },
     /* 时间格式化包装方法(供模板直接调用全局纯函数) */
     fmtDur(s) { return fmtDur(s); },
+    fmtDurHM(s) { return fmtDurHM(s); },
     fmtRemain(s) { return fmtRemain(s); },
     fmtTime(t) { return fmtTime(t); },
 
@@ -150,40 +151,35 @@ const commonMethods = {
         return g ? (g[key] || 0) : 0;
     },
     clampQty(group, key, v) {
-        if (v < 0) v = 0;
-        if (v > QTY_MAX) v = QTY_MAX; // 全局上限,防极端输入导致溢出/异常
-        if (group === 'warehouseItems') {
-            const owned = this.inventory.items[key] || 0;
-            if (v > owned) v = Math.max(0, owned);
-        } else if (group === 'warehouseSeeds') {
-            const owned = this.inventory.seeds[key] || 0;
-            if (v > owned) v = Math.max(0, owned);
-        } else if (group === 'fishFries') {
-            const owned = this.fish.fries[key] || 0;
-            if (v > owned) v = Math.max(0, owned);
-        } else if (group === 'young') {
-            const owned = this.inventory.young[key] || 0;
-            if (v > owned) v = Math.max(0, owned);
-        } else if (group === 'feedadd') {
-            // 添入牧槽:不超过仓库牧草数,也不超过牧槽剩余容量(防溢出)
+        if (group === 'feedadd') {
+            // 牧槽:范围 0~min(牧草库存, 牧槽剩余容量);库存为 0 时滑块禁用(模板 disabled)
+            if (v < 0) v = 0;
             const max = Math.min(this.inventory.items['siliao'] || 0, FEED_TROUGH_CAP - this.feedTrough);
-            if (v > max) v = Math.max(0, max);
+            if (v > max) v = max;
+            return v;
         }
+        if (group === 'warehouseItems' || group === 'warehouseSeeds' || group === 'fishFries' || group === 'young') {
+            // 仓库/背包:上限为对应库存,可一次选到库存全量,不受 99 限制
+            const owned = group === 'warehouseItems' ? (this.inventory.items[key] || 0)
+                : group === 'warehouseSeeds' ? (this.inventory.seeds[key] || 0)
+                : group === 'fishFries' ? (this.fish.fries[key] || 0)
+                : (this.inventory.young[key] || 0);
+            if (v < 0) v = 0;
+            if (v > owned) v = Math.max(0, owned);
+            return v;
+        }
+        // 商店购买:范围 0~99
+        if (v < 0) v = 0;
+        if (v > 99) v = 99;
         return v;
     },
     qtyChange(group, key, delta) {
         if (!this.qtys[group]) this.$set(this.qtys, group, {});
         this.$set(this.qtys[group], key, this.clampQty(group, key, (this.qtys[group][key] || 0) + delta));
     },
-    qtyInput(group, key, val) {
-        let v = parseInt(val, 10);
-        if (isNaN(v)) v = 0;
-        if (!this.qtys[group]) this.$set(this.qtys, group, {});
-        this.$set(this.qtys[group], key, this.clampQty(group, key, v));
-    },
     qtyInputLive(group, key, val) {
         let v = parseInt(val, 10);
-        if (isNaN(v) || v < 0) v = 0;
+        if (isNaN(v)) v = 0; // 范围钳制统一交给 clampQty
         if (!this.qtys[group]) this.$set(this.qtys, group, {});
         // 实时输入也走边界检查,避免输入超限/超大值
         this.$set(this.qtys[group], key, this.clampQty(group, key, v));
@@ -201,7 +197,7 @@ const commonMethods = {
     },
     closeShopDetail() {
         this.shopDetail = null;
-        // 关闭详情时重置数量,再次打开从 0 开始
+        // 关闭详情时重置数量,再次打开默认从 0 开始
         this.qtys.shop = {};
         this.qtys.fishshop = {};
         this.qtys.ranch = {};
@@ -285,7 +281,7 @@ const commonMethods = {
     },
     closeInvDetail() {
         this.invDetail = null;
-        // 关闭详情重置数量,再次打开从 0 开始(与商店详情一致)
+        // 关闭详情重置数量,再次打开默认从 0 开始(与商店详情一致)
         this.qtys.warehouseItems = {};
         this.qtys.warehouseSeeds = {};
         this.qtys.fishFries = {};
