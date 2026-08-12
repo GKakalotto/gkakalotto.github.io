@@ -2,8 +2,6 @@
 const pondComputed = {
     pondHasFish() { return !!this.pond[this.menuPlot]; }, // !! 使 undefined(menuPlot=-1) 与 null 都判为空
     menuPondHarvestEnabled() { const p = this.pond[this.menuPlot]; return !!p && this.pondProgress(this.menuPlot) >= 1; },
-    pondUnlockLevel() { return POND_UNLOCK_LEVEL; },
-    pondUnlockCost() { return POND_UNLOCK_COST; },
 };
 
 const pondMethods = {
@@ -70,37 +68,10 @@ const pondMethods = {
         this.menuVisible = true;
     },
 
-    /* ---------- 鱼塘解锁 ---------- */
-    openPondUnlock() {
-        this.hideContextMenu();
-        this.modalMode = 'pondunlock';
-        this.modalTitle = '解锁鱼塘';
-    },
-    pondUnlockOk() {
-        return this.level >= POND_UNLOCK_LEVEL && this.coins >= POND_UNLOCK_COST;
-    },
-    doPondUnlock() {
-        if (this.level < POND_UNLOCK_LEVEL) {
-            this.addLog('等级不足,需要 Lv.' + POND_UNLOCK_LEVEL + ' 才能解锁鱼塘');
-        } else if (this.coins < POND_UNLOCK_COST) {
-            this.addLog('金币不足,解锁鱼塘需要 ' + POND_UNLOCK_COST + ' 金币');
-        } else {
-            this.coins -= POND_UNLOCK_COST;
-            this.pondUnlocked = true;
-            // 区域解锁后自动开放初始 POND_INITIAL_OPEN 格(其余格花金币扩张)
-            for (let i = 0; i < POND_INITIAL_OPEN && i < TOTAL_PONDS; i++) {
-                this.$set(this.unlockedPonds, i, true);
-            }
-            this.$set(this.fish.fries, POND_BONUS_FRY, (this.fish.fries[POND_BONUS_FRY] || 0) + POND_BONUS_COUNT);
-            this.addLog('解锁了鱼塘!开放初始 ' + POND_INITIAL_OPEN + ' 格,赠送 ' + FISH[POND_BONUS_FRY].name + ' 鱼苗 x' + POND_BONUS_COUNT);
-        }
-        this.closeModal();
-        this.save();
-    },
-    /* ---------- 鱼塘单格解锁(初始格自动开放,扩张格花金币) ---------- */
+    /* ---------- 鱼塘单格解锁(默认开放前 N 格,其余格花金币扩张) ---------- */
     pondCellUnlocked(i) { return !!this.unlockedPonds[i]; },
     pondCellLevelReq(i) {
-        return i < POND_INITIAL_OPEN ? POND_UNLOCK_LEVEL : POND_UNLOCK_LEVEL + (i - POND_INITIAL_OPEN + 1) * POND_EXPAND_INTERVAL;
+        return i < POND_INITIAL_OPEN ? 1 : POND_OPEN_LEVEL + (i - POND_INITIAL_OPEN) * POND_EXPAND_INTERVAL;
     },
     pondCellCost(i) {
         return i < POND_INITIAL_OPEN ? 0 : (POND_CELL_UNLOCK_COST[i - POND_INITIAL_OPEN] || 0);
@@ -159,10 +130,11 @@ const pondMethods = {
         }
         this.hideContextMenu();
         const type = p.type;
+        const gain = harvestXp(f.xp, f.level);
         this.$set(this.inventory.items, type, (this.inventory.items[type] || 0) + 1);
         this.$set(this.pond, i, null);
-        this.addLog('收获 ' + f.name + ' x1,已放入仓库 +' + (f.xp + 10) + ' 经验');
-        this.addXp(f.xp + 10);
+        this.addLog('收获 ' + f.name + ' x1,已放入仓库 +' + gain + ' 经验');
+        this.addXp(gain);
         this.save();
     },
     checkFishMature() {
@@ -184,7 +156,7 @@ const pondMethods = {
                 this.$set(this.inventory.items, type, (this.inventory.items[type] || 0) + 1);
                 this.$set(this.pond, i, null);
                 n++;
-                xp += FISH[type].xp + 10; // 捕捞奖励:本身经验 + 额外 10
+                xp += harvestXp(FISH[type].xp, FISH[type].level); // 捕捞奖励:1-2 级 5 倍,3 级起 +10
             }
         });
         if (n > 0) {
@@ -207,7 +179,7 @@ const pondMethods = {
     /* ---------- 商店鱼类 / 鱼苗 ---------- */
     fishName(key) { return FISH[key].name; },
     fishLevelReq(key) { return FISH[key].level; },
-    fishLocked(key) { return !this.pondUnlocked || this.level < FISH[key].level; }, // 鱼塘未解锁时鱼苗全部锁定
+    fishLocked(key) { return this.level < FISH[key].level; }, // 鱼苗按各自解锁等级锁定
     buyFry(key) {
         const f = FISH[key];
         const qty = this.qtyFor('fishshop', key);

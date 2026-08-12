@@ -11,7 +11,6 @@ const app = new Vue({
             plots: d.plots,
             unlockedPlots: d.unlockedPlots,
             pond: d.pond,
-            pondUnlocked: d.pondUnlocked,
             unlockedPonds: d.unlockedPonds,
             animals: d.animals,
             unlockedRanches: d.unlockedRanches,
@@ -23,7 +22,7 @@ const app = new Vue({
             now: Date.now(),              // 每秒刷新的时钟,驱动进度/倒计时
             scene: 'farm',                // 'farm' 农场 | 'ranch' 养殖场
             settingsOpen: false,
-            modalMode: null,              // 'shop' | 'backpack' | 'warehouse' | 'unlock' | 'pondunlock' | 'pondcell' | 'ranchcell' | 'feedadd' | 'log' | 'confirm'
+            modalMode: null,              // 'shop' | 'backpack' | 'warehouse' | 'unlock' | 'pondcell' | 'ranchcell' | 'feedadd' | 'log' | 'confirm'
             modalTitle: '',
             modalPlot: -1,
             modalHtml: '',

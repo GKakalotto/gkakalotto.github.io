@@ -53,7 +53,7 @@ const commonMethods = {
             localStorage.setItem(SAVE_KEY, JSON.stringify({
                 coins: this.coins, level: this.level, xp: this.xp, theme: this.theme,
                 plots: this.plots, unlockedPlots: this.unlockedPlots, pond: this.pond,
-                pondUnlocked: this.pondUnlocked, unlockedPonds: this.unlockedPonds,
+                unlockedPonds: this.unlockedPonds,
                 animals: this.animals, unlockedRanches: this.unlockedRanches,
                 feedTrough: this.feedTrough, scene: this.scene,
                 inventory: this.inventory, fish: this.fish, log: this.log,
@@ -78,7 +78,6 @@ const commonMethods = {
         this.plots = s.plots;
         this.unlockedPlots = s.unlockedPlots;
         this.pond = Array.isArray(s.pond) && s.pond.length === TOTAL_PONDS ? s.pond : d.pond;
-        this.pondUnlocked = !!s.pondUnlocked;
         this.unlockedPonds = Array.isArray(s.unlockedPonds) && s.unlockedPonds.length === TOTAL_PONDS ? s.unlockedPonds : d.unlockedPonds;
         this.animals = Array.isArray(s.animals) && s.animals.length === RANCH_TOTAL ? s.animals : d.animals;
         this.unlockedRanches = Array.isArray(s.unlockedRanches) && s.unlockedRanches.length === RANCH_TOTAL ? s.unlockedRanches : d.unlockedRanches;
@@ -97,7 +96,6 @@ const commonMethods = {
             this.plots = d.plots;
             this.unlockedPlots = d.unlockedPlots;
             this.pond = d.pond;
-            this.pondUnlocked = d.pondUnlocked;
             this.unlockedPonds = d.unlockedPonds;
             this.animals = d.animals;
             this.unlockedRanches = d.unlockedRanches;

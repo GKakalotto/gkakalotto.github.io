@@ -2,6 +2,9 @@
 /* 升级经验:exp = 100 × level^1.5,越往后每级所需经验越多 */
 function xpNeeded(level) { return Math.floor(100 * Math.pow(level, 1.5)); }
 
+/* 收获经验:作物/鱼 1-2 级 = 自身 5 倍,3 级起 = 自身 +10;动物只用 +10 方案(调用方直接传 xp+10) */
+function harvestXp(xp, level) { return level < 3 ? xp * 5 : xp + 10; }
+
 /* 时长统一格式 hh:mm:ss,小时/分钟/秒均两位补零 */
 function fmtDur(s) {
     const pad = (n) => (n < 10 ? '0' : '') + n;
@@ -33,13 +36,12 @@ function makeDefaultState() {
         plots: Array.from({ length: TOTAL_PLOTS }, () => null),
         unlockedPlots: Array.from({ length: TOTAL_PLOTS }, (_, i) => i < INITIAL_UNLOCKED),
         pond: Array.from({ length: TOTAL_PONDS }, () => null), // 鱼塘 3×4 共 12 格
-        pondUnlocked: false,             // 鱼塘默认锁定,5级+2000金币整体解锁
-        unlockedPonds: Array.from({ length: TOTAL_PONDS }, () => false), // 各鱼塘格是否开放(区域解锁后前 N 格自动开放,其余花金币扩张)
+        unlockedPonds: Array.from({ length: TOTAL_PONDS }, (_, i) => i < POND_INITIAL_OPEN), // 各鱼塘格是否开放(默认开放前 N 格,其余花金币扩张)
         animals: Array.from({ length: RANCH_TOTAL }, () => null), // 养殖栏位
         unlockedRanches: Array.from({ length: RANCH_TOTAL }, (_, i) => i < RANCH_INITIAL_OPEN), // 各栏位是否开放
         feedTrough: 0,                 // 牧槽牧草量(上限 FEED_TROUGH_CAP)
         inventory: { seeds: { luobo: 3 }, items: {}, locks: {}, young: {} },
-        fish: { fries: {} },             // 鱼苗库存(成鱼收获后进 inventory.items)
+        fish: { fries: { [POND_BONUS_FRY]: POND_BONUS_COUNT } }, // 新游戏赠送鱼苗;成鱼收获后进 inventory.items
         log: [{ t: Date.now(), msg: '欢迎来到 星露谷农场!点空地种菜,收获后土地可能干枯,干枯的地需浇水后才能种植;达到等级后解锁更多土地。' }],
     };
 }

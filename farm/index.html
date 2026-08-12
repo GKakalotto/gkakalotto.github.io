@@ -80,17 +80,12 @@
                 <!-- 工具栏 -->
                 <div class="toolbar">
                     <button @click="harvestAll()">一键收获</button>
-                    <button @click="harvestFishAll()" :disabled="!pondUnlocked">一键捕捞</button>
+                    <button @click="harvestFishAll()">一键捕捞</button>
                 </div>
 
-                <!-- 鱼塘:5级+2000金币解锁区域,解锁后开放初始4格,其余格随等级花金币逐格扩张(3×4共12格) -->
+                <!-- 鱼塘:默认开放,初始 4 格可用,其余格随等级花金币逐格扩张(3×4共12格) -->
                 <div class="pond-wrap">
-                    <div v-if="!pondUnlocked" class="pond-locked" @click="openPondUnlock()">
-                        <div>鱼塘未解锁</div>
-                        <div class="state">需 Lv.{{ pondUnlockLevel }} · {{ pondUnlockCost }} 金币</div>
-                        <div class="state">点击查看解锁条件</div>
-                    </div>
-                    <div v-else class="pond">
+                    <div class="pond">
                         <div v-for="(p, i) in pond" :key="i" class="plot" :class="pondClass(i)"
                              @click="onPondClick(i, $event)" :title="pondTitle(i)">
                             <template v-if="!pondCellUnlocked(i)">
@@ -228,7 +223,7 @@
                         <!-- 简化卡片:只显示 名字 / 售价 -->
                         <div v-if="shopTab === 'crops'" class="cards">
                             <div v-for="(c, key) in crops" :key="key" class="card shop-card" @click="openShopDetail('crops', key)">
-                                <b>&nbsp;{{ c.name }}</b>
+                                <b>{{ c.name }}</b>
                                 <div class="stat">💰{{ c.cost }}</div>
                                 <div v-if="seedLocked(key)" class="card-mask">
                                     <div class="lock">🔒</div>
@@ -238,22 +233,22 @@
                         </div>
                         <div v-else-if="shopTab === 'fish'" class="cards">
                             <div v-for="(f, key) in fishes" :key="key" class="card shop-card" @click="openShopDetail('fish', key)">
-                                <b>&nbsp;{{ f.name }}</b>
+                                <b>{{ f.name }}</b>
                                 <div class="stat">💰{{ f.cost }}</div>
                                 <div v-if="fishLocked(key)" class="card-mask">
                                     <div class="lock">🔒</div>
-                                    <div class="lock-tip">{{ pondUnlocked ? 'Lv.' + fishLevelReq(key) + ' 解锁' : '先解锁鱼塘' }}</div>
+                                    <div class="lock-tip">Lv.{{ fishLevelReq(key) }} 解锁</div>
                                 </div>
                             </div>
                         </div>
                         <!-- 牧场:牧草(排第一,点击进详情) + 幼崽 -->
                         <div v-else class="cards">
                             <div class="card shop-card" @click="openShopDetail('feed', 'siliao')">
-                                <b>&nbsp;牧草</b>
+                                <b>牧草</b>
                                 <div class="stat">💰{{ feedCost }}</div>
                             </div>
                             <div v-for="(a, key) in animalTypes" :key="key" class="card shop-card" @click="openShopDetail('ranch', key)">
-                                <b>&nbsp;{{ a.name }}</b>
+                                <b>{{ a.name }}</b>
                                 <div class="stat">💰{{ a.cost }}</div>
                                 <div v-if="animalLocked(key)" class="card-mask">
                                     <div class="lock">🔒</div>
@@ -307,17 +302,7 @@
                         </div>
                     </div>
 
-                    <!-- 鱼塘解锁 -->
-                    <div v-else-if="modalMode === 'pondunlock'" class="center-tip">
-                        <div>解锁等级:<b>Lv.{{ pondUnlockLevel }}</b><template v-if="level >= pondUnlockLevel"> — 已满足</template><template v-else> — 当前 Lv.{{ level }},等级不足</template></div>
-                        <div style="margin-top:6px;">解锁费用:<b>{{ pondUnlockCost }}</b> 金币<template v-if="coins >= pondUnlockCost"> — 可支付</template><template v-else> — 金币不足</template></div>
-                        <div style="margin-top:14px;">
-                            <button @click="doPondUnlock()" :disabled="!pondUnlockOk()">解锁鱼塘</button>
-                            <button class="ghost" @click="closeModal()">取消</button>
-                        </div>
-                    </div>
-
-                    <!-- 鱼塘单格解锁(初始格自动开放,扩张格花金币) -->
+                    <!-- 鱼塘单格解锁(默认开放前 N 格,扩张格花金币) -->
                     <div v-else-if="modalMode === 'pondcell'" class="center-tip">
                         <div>解锁等级:<b>Lv.{{ pondCellLevelReq(modalPlot) }}</b><template v-if="level >= pondCellLevelReq(modalPlot)"> — 已满足</template><template v-else> — 当前 Lv.{{ level }},等级不足</template></div>
                         <div style="margin-top:6px;">解锁费用:<b>{{ pondCellCost(modalPlot) }}</b> 金币<template v-if="coins >= pondCellCost(modalPlot)"> — 可支付</template><template v-else> — 金币不足</template></div>

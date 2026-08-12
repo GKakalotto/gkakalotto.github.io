@@ -140,16 +140,17 @@ const farmMethods = {
         const prod = CROPS[type].product || type; // 收获物 key(草籽等特殊作物产出别的物品)
         const prodItem = CROPS[prod] || ANIMAL_PRODUCTS[prod];
         const prodName = prodItem ? prodItem.name : prod;
+        const gain = harvestXp(c.xp, c.level);
         this.$set(this.inventory.items, prod, (this.inventory.items[prod] || 0) + 1);
         // 收获后地块有 10% 概率干枯,干枯的地需浇水后才能种植
         if (Math.random() < PLOT_DRY_CHANCE) {
             this.$set(this.plots, i, { dry: true });
-            this.addLog('收获 ' + prodName + ' x1,已放入仓库 +' + (c.xp + 10) + ' 经验,但土地干枯了,浇水后才能种植');
+            this.addLog('收获 ' + prodName + ' x1,已放入仓库 +' + gain + ' 经验,但土地干枯了,浇水后才能种植');
         } else {
             this.$set(this.plots, i, null);
-            this.addLog('收获 ' + prodName + ' x1,已放入仓库 +' + (c.xp + 10) + ' 经验');
+            this.addLog('收获 ' + prodName + ' x1,已放入仓库 +' + gain + ' 经验');
         }
-        this.addXp(c.xp + 10);
+        this.addXp(gain);
         if (Math.random() < SEED_DROP_CHANCE) {
             this.$set(this.inventory.seeds, type, (this.inventory.seeds[type] || 0) + 1);
             this.addLog('掉落种子!获得 ' + c.name + ' 种子 x1');
@@ -170,7 +171,7 @@ const farmMethods = {
                     this.$set(this.plots, i, null);
                 }
                 n++;
-                xp += CROPS[type].xp + 10; // 收获奖励:本身经验 + 额外 10
+                xp += harvestXp(CROPS[type].xp, CROPS[type].level); // 收获奖励:1-2 级 5 倍,3 级起 +10
                 if (Math.random() < SEED_DROP_CHANCE) {
                     this.$set(this.inventory.seeds, type, (this.inventory.seeds[type] || 0) + 1);
                     seeds++;
