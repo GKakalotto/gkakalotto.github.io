@@ -27,19 +27,26 @@ const pondMethods = {
         return '快成熟';
     },
     pondClass(i) {
-        if (!this.pondCellUnlocked(i)) return 'plot locked';
+        if (!this.pondCellUnlocked(i)) {
+            return (i > 0 && !this.unlockedPonds[i - 1]) ? 'plot locked disabled' : 'plot locked';
+        }
         const p = this.pond[i];
         if (p === null) return 'plot empty';
         return this.pondProgress(i) >= 1 ? 'plot mature' : 'plot growing';
     },
     pondTitle(i) {
-        if (!this.pondCellUnlocked(i)) return '点击查看解锁条件';
+        if (!this.pondCellUnlocked(i)) {
+            return '';
+        }
         const p = this.pond[i];
         if (p === null) return '点击投放';
         return this.pondProgress(i) >= 1 ? '点击收获' : '';
     },
     onPondClick(i, e) {
-        if (!this.pondCellUnlocked(i)) { this.openPondCellUnlock(i); return; }
+        if (!this.pondCellUnlocked(i)) {
+            if (i > 0 && !this.unlockedPonds[i - 1]) return;
+            this.openPondCellUnlock(i); return;
+        }
         const p = this.pond[i];
         if (p === null) {
             // 空鱼塘:直接出鱼苗列表(隐藏返回按钮)

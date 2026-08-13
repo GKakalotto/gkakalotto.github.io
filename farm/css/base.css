@@ -260,6 +260,15 @@ body {
     box-shadow: var(--shadow-soft);
 }
 
+.plot.locked.disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+.plot.locked.disabled:hover {
+    border-color: var(--plot-locked-border);
+    box-shadow: none;
+}
+
 .plot.growing {
     background: var(--plot-growing);
     border-color: var(--plot-growing-border);
@@ -559,6 +568,12 @@ button:disabled {
 
 .card-mask .lock-tip {
     color: #fff;
+    font-size: 12px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .6);
+}
+
+.card-mask .unlock-ready {
+    color: #cbd5e1;
     font-size: 12px;
     text-shadow: 0 1px 2px rgba(0, 0, 0, .6);
 }

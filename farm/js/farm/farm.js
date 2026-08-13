@@ -39,7 +39,9 @@ const farmMethods = {
 
     /* ---------- 地块渲染辅助 ---------- */
     plotClass(i) {
-        if (!this.unlockedPlots[i]) return 'plot locked';
+        if (!this.unlockedPlots[i]) {
+            return (i > 0 && !this.unlockedPlots[i - 1]) ? 'plot locked disabled' : 'plot locked';
+        }
         const p = this.plots[i];
         if (p === null) return 'plot empty';
         if (this.isDryPlot(p)) return 'plot dry';
@@ -47,14 +49,19 @@ const farmMethods = {
         return 'plot ' + cls;
     },
     plotTitle(i) {
-        if (!this.unlockedPlots[i]) return '点击查看解锁条件';
+        if (!this.unlockedPlots[i]) {
+            return '';
+        }
         const p = this.plots[i];
         if (p === null) return '点击种植';
         if (this.isDryPlot(p)) return '点击浇水';
         return this.plotProgress(i) >= 1 ? '点击收获' : '';
     },
     onPlotClick(i, e) {
-        if (!this.unlockedPlots[i]) { this.openUnlockModal(i); return; }
+        if (!this.unlockedPlots[i]) {
+            if (i > 0 && !this.unlockedPlots[i - 1]) return;
+            this.openUnlockModal(i); return;
+        }
         const p = this.plots[i];
         if (p === null) {
             // 空地:直接出种子列表(隐藏返回按钮)

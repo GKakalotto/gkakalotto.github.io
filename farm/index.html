@@ -51,9 +51,9 @@
                     <div v-for="(p, i) in plots" :key="i" class="plot" :class="plotClass(i)"
                          @click="onPlotClick(i, $event)" :title="plotTitle(i)">
                         <template v-if="!unlockedPlots[i]">
-                            <div class="card-mask">
-                                <div class="lock">🔒</div>
+                            <div class="card-mask" v-if="i === 0 || unlockedPlots[i - 1]">
                                 <div class="lock-tip">Lv.{{ plotLevelReq(i) }}</div>
+                                <div class="unlock-ready">可扩建</div>
                             </div>
                         </template>
                         <template v-else-if="p === null">

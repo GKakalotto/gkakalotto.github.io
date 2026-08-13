@@ -60,14 +60,18 @@ const ranchMethods = {
 
     /* ---------- 栏位渲染 / 点击 ---------- */
     ranchClass(i) {
-        if (!this.ranchCellUnlocked(i)) return 'plot locked';
+        if (!this.ranchCellUnlocked(i)) {
+            return (i > 0 && !this.unlockedRanches[i - 1]) ? 'plot locked disabled' : 'plot locked';
+        }
         const a = this.animals[i];
         if (a === null) return 'plot empty';
         const cls = a.hungry ? 'dry' : (this.ranchGrowth(i) >= 1 ? 'mature' : 'growing');
         return 'plot ' + cls;
     },
     ranchTitle(i) {
-        if (!this.ranchCellUnlocked(i)) return '点击查看解锁条件';
+        if (!this.ranchCellUnlocked(i)) {
+            return '';
+        }
         const a = this.animals[i];
         if (a === null) return '点击投放幼崽';
         if (a.hungry) return '饥饿中,牧槽缺牧草';
@@ -76,7 +80,10 @@ const ranchMethods = {
         return '点击查看';
     },
     onRanchClick(i, e) {
-        if (!this.ranchCellUnlocked(i)) { this.openRanchCellUnlock(i); return; }
+        if (!this.ranchCellUnlocked(i)) {
+            if (i > 0 && !this.unlockedRanches[i - 1]) return;
+            this.openRanchCellUnlock(i); return;
+        }
         const a = this.animals[i];
         if (a === null) {
             // 空栏位:直接出幼崽列表(隐藏返回按钮)
