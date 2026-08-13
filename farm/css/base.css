@@ -172,6 +172,7 @@ body {
     background: var(--surface2);
     color: var(--text);
     box-shadow: 0 1px 4px rgba(0, 0, 0, .25);
+    text-decoration: none; /* 链接型切换按钮(农场/牧场)去掉默认下划线 */
     transition: background .15s, border-color .15s, color .15s, transform .05s;
 }
 
@@ -871,18 +872,47 @@ button.danger:hover {
 }
 
 /* 牧槽:牧场栏位上方扁长条,显示牧草存量/容量 */
+/* 牧槽与一键捕捞同处一行:牧槽居左、一键捕捞右对齐,上下留合适间距 */
+.ranch-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 6px 0 6px;
+}
+
 .feed-trough {
+    flex: 1;
+    min-width: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    margin-bottom: 10px;
+    margin-bottom: 0;
     padding: 6px 16px;
     height: 34px;
     border: 1px solid var(--border2);
     border-radius: 12px;
     background: var(--surface2);
     font-size: 13px;
+    cursor: pointer;
+    transition: border-color .15s, box-shadow .15s;
+}
+
+.feed-trough:hover {
+    border-color: var(--accent);
+    box-shadow: var(--shadow-soft);
+}
+
+.ranch-bar .toolbar {
+    margin: 0;
+    flex-shrink: 0;
+}
+
+/* 农场底部固定操作栏:桌面端隐藏,仅移动端媒体查询中显示 */
+.farm-bottom-bar {
+    display: none;
 }
 
 .feed-trough .trough-label {
@@ -894,11 +924,6 @@ button.danger:hover {
     font-weight: bold;
 }
 
-.feed-trough .trough-add {
-    padding: 2px 14px;
-    font-size: 12px;
-}
-
 /* ---------- 移动端适配(不影响桌面端布局) ---------- */
 @media (max-width: 768px) {
     body {
@@ -908,7 +933,7 @@ button.danger:hover {
         max-width: none;
         margin: 0;
         overflow: hidden; /* 防止网格/工具栏视觉超出容器 */
-        padding: 12px 14px; /* 减小内边距,留出更多内容空间 */
+        padding: 12px 14px 84px; /* 底部留白给固定操作栏 */
     }
     .topbar {
         grid-template-columns: 1fr; /* 移动端纵向堆叠:status 一行,按钮组换行一行 */
@@ -967,5 +992,42 @@ button.danger:hover {
         border: 1px solid var(--border2);
         border-bottom: none;
         flex-shrink: 0;
+    }
+    /* 移动端:隐藏原有内联工具栏,改用底部固定操作栏 */
+    .farm-toolbar {
+        display: none;
+    }
+    /* 农场移动端底部固定操作栏:一键收获常驻底部 */
+    .farm-bottom-bar {
+        display: flex;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 50;
+        padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+        background: var(--surface2);
+        border-top: 1px solid var(--border2);
+        box-shadow: 0 -2px 12px rgba(0, 0, 0, .35);
+        justify-content: center;
+    }
+    .farm-bottom-bar button {
+        padding: 8px 16px;
+        font-size: 13px;
+        font-weight: bold;
+        border-radius: 999px;
+        border: 1px solid var(--border2);
+        background: var(--surface2);
+        color: var(--text);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, .25);
+        transition: background .15s, border-color .15s, color .15s, transform .05s;
+    }
+    .farm-bottom-bar button:hover {
+        background: var(--surface2);
+        border-color: var(--accent);
+        box-shadow: var(--shadow-soft);
+    }
+    .farm-bottom-bar button:active {
+        transform: translateY(1px);
     }
 }

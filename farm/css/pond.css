@@ -14,29 +14,3 @@
     border-color: var(--pond-empty-border);
 }
 
-/* 鱼塘未解锁:整块锁定面板 */
-.pond-locked {
-    border: 1px solid var(--border2);
-    border-radius: 10px;
-    background: var(--surface2);
-    min-height: 200px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    cursor: pointer;
-    font-weight: bold;
-    color: var(--text-dim);
-}
-
-.pond-locked:hover {
-    border-color: var(--accent);
-}
-
-.pond-locked .state {
-    font-weight: normal;
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-top: 6px;
-}
