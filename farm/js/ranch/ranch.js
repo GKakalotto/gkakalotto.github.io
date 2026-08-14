@@ -178,10 +178,13 @@ const ranchMethods = {
         const n = this.ranchPending(i);
         if (n <= 0) return;
         const p = ANIMALS[a.type].product;
-        this.$set(this.inventory.items, p, (this.inventory.items[p] || 0) + n);
-        a.stored = (a.stored || 0) + n; // 已收产物入仓
+        // 每个待收产出周期随机产 50~80 个(含端点),多周期待收则累加
+        let qty = 0;
+        for (let k = 0; k < n; k++) qty += 50 + Math.floor(Math.random() * 31);
+        this.$set(this.inventory.items, p, (this.inventory.items[p] || 0) + qty);
+        a.stored = (a.stored || 0) + n; // 已收产物周期入仓
         this.hideContextMenu();
-        this.addLog('收取 ' + ANIMALS[a.type].name + ' 的产物 ' + ANIMAL_PRODUCTS[p].name + ' x' + n + '(累计 ' + a.produceCount + '/' + ANIMAL_MAX_PRODUCE + ')');
+        this.addLog('收取 ' + ANIMALS[a.type].name + ' 的产物 ' + ANIMAL_PRODUCTS[p].name + ' x' + qty + '(累计 ' + a.produceCount + '/' + ANIMAL_MAX_PRODUCE + ')');
         this.save();
     },
     /* 产满后收获动物本体进仓库(成体物品),栏位清空 */
@@ -262,10 +265,20 @@ const ranchMethods = {
 
     /* ---------- 养殖商店(幼崽 + 牧草) ---------- */
     animalName(key) { return ANIMALS[key].name; },
+    ranchPawStyle(n) {
+        return { animationDelay: '-' + (n - 1) + 's' };
+    },
+    randomizePaw(e) {
+        const top = (10 + Math.random() * 70).toFixed(1);
+        const left = (10 + Math.random() * 70).toFixed(1);
+        e.target.style.top = top + '%';
+        e.target.style.left = left + '%';
+    },
     animalLocked(key) { return this.level < ANIMALS[key].level; },
     animalLevelReq(key) { return ANIMALS[key].level; },
     productName(key) { return ANIMAL_PRODUCTS[ANIMALS[key].product].name; },
     productSell(key) { return ANIMAL_PRODUCTS[ANIMALS[key].product].sell; },
+    animalAdultSell(key) { return ANIMAL_PRODUCTS[key].sell; },
     buyAnimal(key) {
         const a = ANIMALS[key];
         const qty = this.qtyFor('ranch', key);

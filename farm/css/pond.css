@@ -14,3 +14,50 @@
     border-color: var(--pond-empty-border);
 }
 
+/* 鱼塘水面波浪动效:三层填充式半透明水波横向无缝滚动 + 轻微上下浮动(bob),
+   三层均从各自波峰一直填充到格子底部、波峰高度错落,水体自然融合无硬边;
+   pointer-events 穿透,不干扰点击 */
+.pond-wave {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    border-radius: inherit;
+    z-index: 0;
+    background: linear-gradient(to bottom, transparent 45%, var(--pond-water) 100%);
+}
+/* 每层水波:负责上下浮动;内部 svg 负责横向滚动 */
+.wave-layer {
+    position: absolute;
+    inset: 0;
+    animation: pondWaveBob var(--bob, 4s) ease-in-out infinite alternate;
+}
+.wave-layer svg {
+    position: absolute;
+    left: 0;
+    width: 200%;
+    height: 100%;
+    display: block;
+    animation: pondWaveScroll var(--scroll, 9s) linear infinite;
+}
+.wave-layer svg .wfill { fill: var(--pond-wave-fill); stroke: none; }
+.wave-layer svg .wcrest { fill: none; stroke: var(--pond-wave); stroke-width: 1.2; }
+/* 后层:最慢、波峰最高、最淡;前层:最快、波峰最低、最明显,形成视差 */
+.wave-back { --bob: 5s;   --scroll: 11s;  opacity: .5; }
+.wave-mid  { --bob: 4s;   --scroll: 8s;   opacity: .35; animation-delay: -1.5s; }
+.wave-front{ --bob: 3s;   --scroll: 5.5s; opacity: .2;  animation-delay: -1s; }
+@keyframes pondWaveScroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+@keyframes pondWaveBob {
+    from { transform: translateY(0); }
+    to { transform: translateY(4px); }
+}
+
+/* 鱼塘格子内的文字/蒙版内容置于波浪层之上,保证可读性与点击正常 */
+.pond .plot > div:not(.pond-wave) {
+    position: relative;
+    z-index: 1;
+}
+

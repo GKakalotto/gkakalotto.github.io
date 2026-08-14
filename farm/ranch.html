@@ -50,6 +50,27 @@
                 <div class="pond">
                     <div v-for="(p, i) in pond" :key="i" class="plot" :class="pondClass(i)"
                          @click="onPondClick(i, $event)" :title="pondTitle(i)">
+                        <!-- 已解锁且有鱼且未成熟的鱼塘格:水面波浪动效 -->
+                        <div v-if="pondCellUnlocked(i) && p && pondProgress(i) < 1" class="pond-wave">
+                            <div class="wave-layer wave-back">
+                                <svg viewBox="0 0 200 100" preserveAspectRatio="none">
+                                    <path class="wfill" d="M0 55 Q 12.5 45 25 55 T 50 55 T 75 55 T 100 55 T 125 55 T 150 55 T 175 55 T 200 55 V100 H0 Z" />
+                                    <path class="wcrest" d="M0 55 Q 12.5 45 25 55 T 50 55 T 75 55 T 100 55 T 125 55 T 150 55 T 175 55 T 200 55" />
+                                </svg>
+                            </div>
+                            <div class="wave-layer wave-mid">
+                                <svg viewBox="0 0 200 100" preserveAspectRatio="none">
+                                    <path class="wfill" d="M0 68 Q 12.5 58 25 68 T 50 68 T 75 68 T 100 68 T 125 68 T 150 68 T 175 68 T 200 68 V100 H0 Z" />
+                                    <path class="wcrest" d="M0 68 Q 12.5 58 25 68 T 50 68 T 75 68 T 100 68 T 125 68 T 150 68 T 175 68 T 200 68" />
+                                </svg>
+                            </div>
+                            <div class="wave-layer wave-front">
+                                <svg viewBox="0 0 200 100" preserveAspectRatio="none">
+                                    <path class="wfill" d="M0 82 Q 12.5 72 25 82 T 50 82 T 75 82 T 100 82 T 125 82 T 150 82 T 175 82 T 200 82 V100 H0 Z" />
+                                    <path class="wcrest" d="M0 82 Q 12.5 72 25 82 T 50 82 T 75 82 T 100 82 T 125 82 T 150 82 T 175 82 T 200 82" />
+                                </svg>
+                            </div>
+                        </div>
                         <template v-if="!pondCellUnlocked(i)">
                             <div class="card-mask" v-if="i === 0 || unlockedPonds[i - 1]">
                                 <div class="lock-tip">Lv.{{ pondCellLevelReq(i) }}</div>
@@ -92,7 +113,8 @@
                             <div>[栏位{{ i + 1 }}]</div>
                         </template>
                         <template v-else>
-                            <div>[{{ animalName(a.type) }}]</div>
+                            <div class="ranch-paw" v-for="n in 3" :key="n" :style="ranchPawStyle(n)" @animationiteration="randomizePaw($event)">🐾</div>
+                            <div class="ranch-name">[{{ animalName(a.type) }}]</div>
                             <div v-if="ranchGrowth(i) >= 1" class="state">
                                 <template v-if="ranchDone(i) && ranchPending(i) === 0"><span class="r-pending">已产满</span><span class="r-sep"> · </span><span class="r-total">点击收获</span></template>
                                 <template v-else>
@@ -326,7 +348,8 @@
                         <button class="close" @click="closeShopDetail()">×</button>
                     </div>
                     <div class="stat">售价：{{ animalTypes[shopDetail.key].cost }} 金币</div>
-                    <div class="stat">收入：{{ productSell(shopDetail.key) }} 金币</div>
+                    <div class="stat">产物收入：{{ productSell(shopDetail.key) }} 金币/个</div>
+                    <div class="stat">成年售价：{{ animalAdultSell(shopDetail.key) }} 金币</div>
                     <div class="stat">成熟：{{ fmtDurHM(animalTypes[shopDetail.key].grow) }}</div>
                     <div class="stat">经验：{{ animalTypes[shopDetail.key].xp }}</div>
                     <div class="stat">每 {{ fmtDurHM(animalTypes[shopDetail.key].produceEvery) }} 产{{ productName(shopDetail.key) }}</div>

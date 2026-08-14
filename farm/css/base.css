@@ -23,6 +23,9 @@
     --plot-empty-border: #34543f;
     --pond-empty: #1d3a4a;
     --pond-empty-border: #2e5a70;
+    --pond-wave: rgba(180, 225, 255, .55); /* 鱼塘波浪波峰高光线(淡蓝海水) */
+    --pond-wave-fill: rgba(110, 195, 255, .22); /* 鱼塘水波填充色(淡蓝海水) */
+    --pond-water: rgba(90, 180, 255, .10); /* 鱼塘水面淡蓝底色 */
     --plot-locked: #242a27;
     --plot-locked-border: #333b37;
     --plot-locked-text: #5c6b63;
@@ -81,6 +84,9 @@ body[data-theme="light"] {
     --plot-empty-border: #a5d6a7;
     --pond-empty: #b8dff0;
     --pond-empty-border: #8ec8e0;
+    --pond-wave: rgba(30, 110, 165, .4); /* 鱼塘波浪波峰高光线(淡蓝海水) */
+    --pond-wave-fill: rgba(70, 160, 220, .2); /* 鱼塘水波填充色(淡蓝海水) */
+    --pond-water: rgba(90, 175, 225, .12); /* 鱼塘水面淡蓝底色 */
     --plot-locked: #eceff1;
     --plot-locked-border: #cfd8dc;
     --plot-locked-text: #b0bec5;
@@ -990,6 +996,28 @@ button.danger:hover {
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 12px;
+}
+/* 牧栏有动物时:裁剪行走的图标,不溢出圆角 */
+.ranch .plot { overflow: hidden; }
+/* 动物脚印:牧栏内有动物时,3 枚 🐾 各自在随机位置淡入、驻留、淡出;
+   三枚动画周期错开 1/3,可见窗口互不重叠 → 逐个随机出现、同一时刻最多一只;
+   位置(随机)由 JS 在每次循环结束时重设,移动发生在透明态,故无漂移、落点不重复 */
+.ranch-paw {
+    position: absolute;
+    top: 20%;
+    left: 20%;
+    font-size: 13px;
+    line-height: 1;
+    z-index: 0; /* 置于文字之下 */
+    pointer-events: none;
+    opacity: 0;
+    animation: ranchPawFade 3s ease-in-out infinite;
+}
+.ranch-name { position: relative; z-index: 1; }
+@keyframes ranchPawFade {
+    0%        { opacity: 0;   transform: scale(.7); }
+    10%, 30%  { opacity: .45; transform: scale(1); }
+    45%, 100% { opacity: 0;   transform: scale(.7); }
 }
 
 /* 牧槽:牧场栏位上方扁长条,显示牧草存量/容量 */
