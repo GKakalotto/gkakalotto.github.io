@@ -108,6 +108,7 @@ const farmApp = new Vue({
                 this.applyTheme();
                 this.closeModal();
                 this.save();
+                location.reload(); // 重置完成后刷新,恢复全新状态
             });
         },
         tick() {

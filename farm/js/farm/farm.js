@@ -11,11 +11,16 @@ const farmMethods = {
     isDryPlot(p) { return !!p && !p.type && !!p.dry; },
 
     /* ---------- 地块进度 ---------- */
+    /* 当前季生长时长:有 regrow 的作物第一季(harvested=0)用 grow,第二季(harvested=1)用 regrow */
+    plotSeasonGrow(p) {
+        const c = CROPS[p.type];
+        return (c.regrow && p.harvested) ? c.regrow : c.grow;
+    },
     plotProgress(i) {
         const p = this.plots[i];
         if (!p || this.isDryPlot(p)) return 0;
         // 已种植时长 × 当前等级速率 ÷ 基准生长时长(黄土地速率=1);等级越高速率越快
-        const total = CROPS[p.type].grow * 1000;
+        const total = this.plotSeasonGrow(p) * 1000;
         const grown = Math.max(0, this.now - p.resumedAt) * this.plotGrowMult(i);
         return Math.min(1, grown / total);
     },
@@ -23,13 +28,19 @@ const farmMethods = {
     plotRemainSec(i) {
         const p = this.plots[i];
         if (!p || this.isDryPlot(p)) return 0;
-        const grow = CROPS[p.type].grow / this.plotGrowMult(i);
+        const grow = this.plotSeasonGrow(p) / this.plotGrowMult(i);
         return Math.max(0, Math.ceil(grow - this.plotProgress(i) * grow));
     },
-    /* 生长阶段图标:随进度在 幼苗→生长中→成熟 间切换(🌱🌿🌾) */
+    /* 是否处于生长动效中:有作物、未干枯、尚未成熟(第二季生长中也算) */
+    plotHasActiveGrowth(i) {
+        const p = this.plots[i];
+        return !!p && !this.isDryPlot(p) && this.plotProgress(i) < 1;
+    },
+    /* 生长阶段图标:随进度在 幼苗→生长中→成熟 间切换(🌱🌿🌾);第二季已是成熟株,始终显示 🌾 */
     plotStageIcon(i) {
+        const p = this.plots[i];
+        if (p && p.harvested) return '🌾';
         const pr = this.plotProgress(i);
-        if (pr >= 1) return '🌾';
         if (pr < 0.35) return '🌱';
         if (pr < 0.7) return '🌿';
         return '🌾';
@@ -40,11 +51,9 @@ const farmMethods = {
         let s = (seed * 9301 + 49297) % 233280;
         return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
     },
-    /* 为生长中地块生成随机粒子:横向位置/大小/上升时长/相位/左右漂移均随机 → 真随机非周期排布 */
+    /* 为生长中地块生成随机粒子:横向位置/大小/上升时长/相位/左右漂移均随机 → 真随机非周期排布
+       (调用方已由 plotHasActiveGrowth 保证仅生长中地块渲染,无需再判条件) */
     plotParticles(i) {
-        if (!this.unlockedPlots[i]) return [];
-        const p = this.plots[i];
-        if (!p || this.isDryPlot(p) || this.plotProgress(i) >= 1) return [];
         const rnd = this.seededRand(i * 137 + 11);
         const arr = [];
         const n = 36;
@@ -94,7 +103,9 @@ const farmMethods = {
         const p = this.plots[i];
         if (p === null) return 'plot empty' + g;
         if (this.isDryPlot(p)) return 'plot dry' + g;
-        const cls = this.plotProgress(i) >= 1 ? 'mature' : 'growing';
+        // 第二季:已是成熟株,按成熟地块显示(橙色背景、无生长粒子)
+        const mature = this.plotProgress(i) >= 1 || p.harvested;
+        const cls = mature ? 'mature' : 'growing';
         return 'plot ' + cls + g;
     },
     plotTitle(i) {
@@ -171,10 +182,9 @@ const farmMethods = {
         this.inventory.seeds[key]--;
         if (this.inventory.seeds[key] <= 0) this.$delete(this.inventory.seeds, key);
         const c = CROPS[key];
-        const now = Date.now();
         this.$set(this.plots, i, {
             type: key,
-            resumedAt: now,
+            resumedAt: Date.now(),
             announced: false,
         });
         this.addLog('种下了 ' + c.name);
@@ -189,6 +199,37 @@ const farmMethods = {
         this.addLog('第 ' + (i + 1) + ' 块地浇过水了,可以种植');
         this.save();
     },
+    /* 收获单个地块的公共效果:入仓、加经验、第二季/干枯/释放、种子掉落。
+       返回本次收获信息供 harvest/harvestAll 打日志或计数 */
+    doHarvestPlot(p, i) {
+        const type = p.type;
+        const c = CROPS[type];
+        const prod = c.product || type;
+        const qty = this.plotYieldMult(i);
+        this.$set(this.inventory.items, prod, (this.inventory.items[prod] || 0) + qty);
+        // 经验:先乘土地倍率(金土地 +20%),3 级起最后 +10;1-2 级为基础 5 倍
+        const gain = c.level < 3
+            ? Math.round(c.xp * 5 * this.plotXpMult(i))
+            : Math.round(c.xp * this.plotXpMult(i)) + 10;
+        const regrow = !!c.regrow && !p.harvested; // 第一季收获,进入第二季生长(不干枯)
+        let dry = false;
+        if (regrow) {
+            this.$set(this.plots, i, { type: type, resumedAt: Date.now(), announced: false, harvested: 1 });
+        } else if (Math.random() < PLOT_DRY_CHANCE) {
+            // 收获后地块有 10% 概率干枯,干枯的地需浇水后才能种植
+            this.$set(this.plots, i, { dry: true });
+            dry = true;
+        } else {
+            this.$set(this.plots, i, null);
+        }
+        this.addXp(gain);
+        let seed = false;
+        if (Math.random() < SEED_DROP_CHANCE) {
+            this.$set(this.inventory.seeds, type, (this.inventory.seeds[type] || 0) + 1);
+            seed = true;
+        }
+        return { prodName: this.itemName(prod), qty: qty, gain: gain, regrow: regrow, dry: dry, seed: seed };
+    },
     harvest(i) {
         const p = this.plots[i];
         if (!p) return;
@@ -199,50 +240,32 @@ const farmMethods = {
             return;
         }
         this.hideContextMenu();
-        const type = p.type;
-        const prod = CROPS[type].product || type; // 收获物 key(草籽等特殊作物产出别的物品)
-        const prodName = this.itemName(prod);
-        const gain = Math.round(harvestXp(c.xp, c.level) * this.plotXpMult(i));
-        const qty = this.plotYieldMult(i);
-        this.$set(this.inventory.items, prod, (this.inventory.items[prod] || 0) + qty);
-        // 收获后地块有 10% 概率干枯,干枯的地需浇水后才能种植
-        if (Math.random() < PLOT_DRY_CHANCE) {
-            this.$set(this.plots, i, { dry: true });
-            this.addLog('收获 ' + prodName + ' x' + qty + ',已放入仓库 +' + gain + ' 经验,但土地干枯了,浇水后才能种植');
+        const r = this.doHarvestPlot(p, i);
+        if (r.regrow) {
+            this.addLog('收获 ' + r.prodName + ' x' + r.qty + ',已放入仓库 +' + r.gain + ' 经验,' + c.name + ' 继续生长第2季');
+        } else if (r.dry) {
+            this.addLog('收获 ' + r.prodName + ' x' + r.qty + ',已放入仓库 +' + r.gain + ' 经验,但土地干枯了,浇水后才能种植');
         } else {
-            this.$set(this.plots, i, null);
-            this.addLog('收获 ' + prodName + ' x' + qty + ',已放入仓库 +' + gain + ' 经验');
+            this.addLog('收获 ' + r.prodName + ' x' + r.qty + ',已放入仓库 +' + r.gain + ' 经验');
         }
-        this.addXp(gain);
-        if (Math.random() < SEED_DROP_CHANCE) {
-            this.$set(this.inventory.seeds, type, (this.inventory.seeds[type] || 0) + 1);
-            this.addLog('掉落种子!获得 ' + c.name + ' 种子 x1');
-        }
+        if (r.seed) this.addLog('掉落种子!获得 ' + c.name + ' 种子 x1');
         this.save();
     },
     harvestAll() {
-        let n = 0, xp = 0, seeds = 0, dry = 0;
+        let n = 0, xp = 0, seeds = 0, dry = 0, regrow = 0;
         this.plots.forEach((p, i) => {
             if (p && this.plotProgress(i) >= 1) {
-                const type = p.type;
-                const prod = CROPS[type].product || type;
-                this.$set(this.inventory.items, prod, (this.inventory.items[prod] || 0) + this.plotYieldMult(i));
-                if (Math.random() < PLOT_DRY_CHANCE) {
-                    this.$set(this.plots, i, { dry: true });
-                    dry++;
-                } else {
-                    this.$set(this.plots, i, null);
-                }
+                const r = this.doHarvestPlot(p, i);
                 n++;
-                xp += Math.round(harvestXp(CROPS[type].xp, CROPS[type].level) * this.plotXpMult(i)); // 收获奖励:4 级土地经验 +20%
-                if (Math.random() < SEED_DROP_CHANCE) {
-                    this.$set(this.inventory.seeds, type, (this.inventory.seeds[type] || 0) + 1);
-                    seeds++;
-                }
+                xp += r.gain;
+                if (r.regrow) regrow++;
+                if (r.dry) dry++;
+                if (r.seed) seeds++;
             }
         });
         if (n > 0) {
             this.addLog('一键收获 ' + n + ' 株,已放入仓库 +' + xp + ' 经验'
+                + (regrow > 0 ? ',' + regrow + ' 株进入第2季生长' : '')
                 + (seeds > 0 ? ',掉落 ' + seeds + ' 颗种子' : '')
                 + (dry > 0 ? ',有 ' + dry + ' 块地干枯需浇水' : ''));
             this.addXp(xp);

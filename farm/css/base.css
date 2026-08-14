@@ -211,6 +211,14 @@ body {
     transform: translateY(1px);
 }
 
+/* 升级土地模式下禁用的顶部按钮(含牧场链接):置灰且不可点击 */
+.top-btn:disabled,
+.top-btn.disabled {
+    opacity: .5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 .farm-wrap {
     min-width: 420px;
 }
@@ -606,6 +614,16 @@ button:disabled {
     position: relative;
     cursor: pointer;
     transition: border-color .15s, transform .05s;
+}
+
+/* 二季作物角标:可收获两季的种子在卡片右上角显示 ⭐ */
+.regrow-badge {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    font-size: 13px;
+    line-height: 1;
+    pointer-events: none;
 }
 
 /* 商店卡片(不含背包/仓库的 inv-card):名字居中靠上,售价左下角 */

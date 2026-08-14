@@ -21,10 +21,10 @@
                     <span>等级：<b>{{ levelText }}</b></span>
                 </div>
                 <div class="top-right">
-                    <a class="top-btn" href="ranch.html">牧场</a>
-                    <button class="top-btn" @click="openShop()">商店</button>
-                    <button class="top-btn" @click="openBackpack()">背包</button>
-                    <button class="top-btn" @click="openWarehouse()">仓库</button>
+                    <a class="top-btn" :class="{ disabled: upgradeSelecting }" href="ranch.html">牧场</a>
+                    <button class="top-btn" :disabled="upgradeSelecting" @click="openShop()">商店</button>
+                    <button class="top-btn" :disabled="upgradeSelecting" @click="openBackpack()">背包</button>
+                    <button class="top-btn" :disabled="upgradeSelecting" @click="openWarehouse()">仓库</button>
                     <div class="settings-wrap" ref="settingsWrap" @click.stop>
                     <button class="gear-btn" @click="toggleSettings()" title="设置">
                         <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
@@ -72,7 +72,8 @@
                                 </template>
                             </template>
                         </template>
-                        <div class="pt-layer" v-if="plotClass(i).indexOf('growing') >= 0">
+                        <!-- 升级模式下不可升级的地块被蒙版盖住,不显示生长粒子 -->
+                        <div class="pt-layer" v-if="plotHasActiveGrowth(i) && !(upgradeSelecting && !plotUpgradable(i))">
                             <span class="pt" v-for="(pt, k) in plotParticles(i)" :key="k"
                                   :style="{ left: pt.left, width: pt.sz, height: pt.sz, '--dur': pt.dur, '--dl': pt.dl, '--dr': pt.dr }"></span>
                         </div>
@@ -83,14 +84,14 @@
             <!-- 工具栏(桌面端;移动端由底部固定栏替代) -->
             <div class="toolbar farm-toolbar">
                 <button @click="harvestAll()">一键收获</button>
-                <button :class="{ active: upgradeSelecting }" @click="toggleUpgradeSelect()">升级土地</button>
+                <button :class="{ active: upgradeSelecting }" @click="toggleUpgradeSelect()">{{ upgradeSelecting ? '取消' : '升级土地' }}</button>
                 <span v-if="upgradeSelecting" class="upgrade-hint">请选择要升级的地块</span>
             </div>
 
             <!-- 移动端底部固定操作栏 -->
             <div class="farm-bottom-bar">
                 <button @click="harvestAll()">一键收获</button>
-                <button :class="{ active: upgradeSelecting }" @click="toggleUpgradeSelect()">升级土地</button>
+                <button :class="{ active: upgradeSelecting }" @click="toggleUpgradeSelect()">{{ upgradeSelecting ? '取消' : '升级土地' }}</button>
                 <span v-if="upgradeSelecting" class="upgrade-hint">请选择要升级的地块</span>
             </div>
 
@@ -133,6 +134,7 @@
                     <div v-if="modalMode === 'shop'">
                         <div class="cards">
                             <div v-for="(c, key) in crops" :key="key" class="card shop-card" @click="openShopDetail('crops', key)">
+                                <span v-if="c.regrow" class="regrow-badge">⭐</span>
                                 <b>{{ c.name }}</b>
                                 <div class="stat">💰{{ c.cost }}</div>
                                 <div v-if="seedLocked(key)" class="card-mask">
@@ -237,7 +239,7 @@
                     </div>
                     <div class="stat">售价：{{ crops[shopDetail.key].cost }} 金币</div>
                     <div class="stat">收入：{{ crops[shopDetail.key].sell }} 金币</div>
-                    <div class="stat">成熟：{{ fmtDurHM(crops[shopDetail.key].grow) }}</div>
+                    <div class="stat">成熟：{{ fmtDurHM(crops[shopDetail.key].grow) }}{{ crops[shopDetail.key].regrow ? ' · 二季 ' + fmtDurHM(crops[shopDetail.key].regrow) : '' }}</div>
                     <div class="stat">经验：{{ crops[shopDetail.key].xp }}</div>
                     <div class="stepper">
                         <button @click="qtyChange('shop', shopDetail.key, -1)">-</button>
