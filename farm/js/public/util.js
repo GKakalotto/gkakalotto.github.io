@@ -60,6 +60,12 @@ function writeShared(coins, items, locks, theme) {
         }));
     } catch (e) { /* 无持久化时游戏仍可运行 */ }
 }
+/* 重置:清除农场、牧场与共享三段存档(任意页面调用都能清空全部) */
+function clearAllSaves() {
+    try {
+        ['qqfarm_farm_v1', 'qqfarm_ranch_v1', 'qqfarm_shared_v1'].forEach(k => localStorage.removeItem(k));
+    } catch (e) { /* 忽略 */ }
+}
 
 /* 牧草(siliao)是两页共享资源,其显示名/售价在所有页面应一致。
    农场页不加载 ANIMAL_PRODUCTS,若不在共享层定义会回退成原始 key 'siliao',故在此集中定义。 */

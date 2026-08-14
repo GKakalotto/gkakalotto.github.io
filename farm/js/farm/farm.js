@@ -14,39 +14,88 @@ const farmMethods = {
     plotProgress(i) {
         const p = this.plots[i];
         if (!p || this.isDryPlot(p)) return 0;
+        // 已种植时长 × 当前等级速率 ÷ 基准生长时长(黄土地速率=1);等级越高速率越快
         const total = CROPS[p.type].grow * 1000;
-        const grown = p.accrued + Math.max(0, this.now - p.resumedAt);
+        const grown = Math.max(0, this.now - p.resumedAt) * this.plotGrowMult(i);
         return Math.min(1, grown / total);
     },
     plotPercent(i) { return Math.floor(this.plotProgress(i) * 100); },
     plotRemainSec(i) {
         const p = this.plots[i];
         if (!p || this.isDryPlot(p)) return 0;
-        return Math.max(0, Math.ceil(CROPS[p.type].grow - this.plotProgress(i) * CROPS[p.type].grow));
+        const grow = CROPS[p.type].grow / this.plotGrowMult(i);
+        return Math.max(0, Math.ceil(grow - this.plotProgress(i) * grow));
     },
-    stageText(i) {
+    /* 生长阶段图标:随进度在 幼苗→生长中→成熟 间切换(🌱🌿🌾) */
+    plotStageIcon(i) {
         const pr = this.plotProgress(i);
-        if (pr >= 1) return '已成熟';
-        if (pr < 0.35) return '幼苗';
-        if (pr < 0.7) return '生长中';
-        return '快成熟';
+        if (pr >= 1) return '🌾';
+        if (pr < 0.35) return '🌱';
+        if (pr < 0.7) return '🌿';
+        return '🌾';
     },
     cropName(key) { return CROPS[key].name; },
-    /* 读取 data.js 中的静态解锁数据 */
+    /* 确定性伪随机:同一地块每次渲染得到相同随机布局(不抖动),不同地块各异 */
+    seededRand(seed) {
+        let s = (seed * 9301 + 49297) % 233280;
+        return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+    },
+    /* 为生长中地块生成随机粒子:横向位置/大小/上升时长/相位/左右漂移均随机 → 真随机非周期排布 */
+    plotParticles(i) {
+        if (!this.unlockedPlots[i]) return [];
+        const p = this.plots[i];
+        if (!p || this.isDryPlot(p) || this.plotProgress(i) >= 1) return [];
+        const rnd = this.seededRand(i * 137 + 11);
+        const arr = [];
+        const n = 36;
+        for (let k = 0; k < n; k++) {
+            arr.push({
+                left: (rnd() * 92 + 4).toFixed(2) + '%',   // 4%~96% 横向随机
+                sz:   (1.1 + rnd() * 1.8).toFixed(2) + 'px', // 1.1~2.9px 随机大小
+                dur:  (4.5 + rnd() * 3.5).toFixed(2) + 's',  // 4.5~8.0s 随机速度(更慢)
+                dl:   (-rnd() * 5).toFixed(2) + 's',         // 0~-5s 随机相位
+                dr:   (rnd() * 10 - 5).toFixed(1) + 'px',    // ±5px 随机左右漂移
+            });
+        }
+        return arr;
+    },
+    /* 读取 data.js 中的静态扩建数据 */
     seedLevelReq(key) { return CROPS[key].level; },
     plotLevelReq(i) { return PLOT_LEVEL_REQ[i]; },
     plotUnlockCost(i) { return PLOT_UNLOCK_COST[i]; },
 
+    /* ---------- 土地分级查询 ---------- */
+    plotGradeName(i) { return PLOT_GRADE_NAME[this.plotGrade[i]]; },
+    plotYieldMult(i) { return PLOT_GRADE_YIELD[this.plotGrade[i]]; },
+    plotGrowMult(i) { return PLOT_GRADE_GROW[this.plotGrade[i]]; },
+    plotXpMult(i) { return PLOT_GRADE_XP[this.plotGrade[i]]; },
+    plotNextGrade(i) { return this.plotGrade[i] < 3 ? this.plotGrade[i] + 1 : null; },
+    plotNextGradeName(i) { const g = this.plotNextGrade(i); return g !== null ? PLOT_GRADE_NAME[g] : ''; },
+    plotUpgradeReq(i) { return this.plotGrade[i] < 3 ? PLOT_UPGRADE[i][this.plotGrade[i]] : null; },
+    plotUpgradeOk(i) {
+        const req = this.plotUpgradeReq(i);
+        return !!req && this.level >= req.level && this.coins >= req.cost;
+    },
+    plotUpgradable(i) {
+        // 仅"已解锁的空地且未满级"可升级(升级只允许空地)
+        return this.unlockedPlots[i] && this.plots[i] === null && this.plotGrade[i] < 3;
+    },
+
     /* ---------- 地块渲染辅助 ---------- */
     plotClass(i) {
+        // 升级模式下,不能升级的地块按"锁定禁用"样式显示(纯色蒙版,禁止点击)
+        if (this.upgradeSelecting && !this.plotUpgradable(i)) {
+            return 'plot locked disabled';
+        }
         if (!this.unlockedPlots[i]) {
             return (i > 0 && !this.unlockedPlots[i - 1]) ? 'plot locked disabled' : 'plot locked';
         }
+        const g = ' grade-' + this.plotGrade[i];
         const p = this.plots[i];
-        if (p === null) return 'plot empty';
-        if (this.isDryPlot(p)) return 'plot dry';
+        if (p === null) return 'plot empty' + g;
+        if (this.isDryPlot(p)) return 'plot dry' + g;
         const cls = this.plotProgress(i) >= 1 ? 'mature' : 'growing';
-        return 'plot ' + cls;
+        return 'plot ' + cls + g;
     },
     plotTitle(i) {
         if (!this.unlockedPlots[i]) {
@@ -58,6 +107,14 @@ const farmMethods = {
         return this.plotProgress(i) >= 1 ? '点击收获' : '';
     },
     onPlotClick(i, e) {
+        if (this.upgradeSelecting) {
+            // 仅空地可升级;不能升级的已被蒙版盖住,点击无效
+            if (this.plotUpgradable(i)) {
+                this.upgradeSelecting = false;
+                this.openUpgradeModal(i);
+            }
+            return;
+        }
         if (!this.unlockedPlots[i]) {
             if (i > 0 && !this.unlockedPlots[i - 1]) return;
             this.openUnlockModal(i); return;
@@ -117,7 +174,6 @@ const farmMethods = {
         const now = Date.now();
         this.$set(this.plots, i, {
             type: key,
-            accrued: 0,
             resumedAt: now,
             announced: false,
         });
@@ -146,15 +202,16 @@ const farmMethods = {
         const type = p.type;
         const prod = CROPS[type].product || type; // 收获物 key(草籽等特殊作物产出别的物品)
         const prodName = this.itemName(prod);
-        const gain = harvestXp(c.xp, c.level);
-        this.$set(this.inventory.items, prod, (this.inventory.items[prod] || 0) + 1);
+        const gain = Math.round(harvestXp(c.xp, c.level) * this.plotXpMult(i));
+        const qty = this.plotYieldMult(i);
+        this.$set(this.inventory.items, prod, (this.inventory.items[prod] || 0) + qty);
         // 收获后地块有 10% 概率干枯,干枯的地需浇水后才能种植
         if (Math.random() < PLOT_DRY_CHANCE) {
             this.$set(this.plots, i, { dry: true });
-            this.addLog('收获 ' + prodName + ' x1,已放入仓库 +' + gain + ' 经验,但土地干枯了,浇水后才能种植');
+            this.addLog('收获 ' + prodName + ' x' + qty + ',已放入仓库 +' + gain + ' 经验,但土地干枯了,浇水后才能种植');
         } else {
             this.$set(this.plots, i, null);
-            this.addLog('收获 ' + prodName + ' x1,已放入仓库 +' + gain + ' 经验');
+            this.addLog('收获 ' + prodName + ' x' + qty + ',已放入仓库 +' + gain + ' 经验');
         }
         this.addXp(gain);
         if (Math.random() < SEED_DROP_CHANCE) {
@@ -169,7 +226,7 @@ const farmMethods = {
             if (p && this.plotProgress(i) >= 1) {
                 const type = p.type;
                 const prod = CROPS[type].product || type;
-                this.$set(this.inventory.items, prod, (this.inventory.items[prod] || 0) + 1);
+                this.$set(this.inventory.items, prod, (this.inventory.items[prod] || 0) + this.plotYieldMult(i));
                 if (Math.random() < PLOT_DRY_CHANCE) {
                     this.$set(this.plots, i, { dry: true });
                     dry++;
@@ -177,7 +234,7 @@ const farmMethods = {
                     this.$set(this.plots, i, null);
                 }
                 n++;
-                xp += harvestXp(CROPS[type].xp, CROPS[type].level); // 收获奖励:1-2 级 5 倍,3 级起 +10
+                xp += Math.round(harvestXp(CROPS[type].xp, CROPS[type].level) * this.plotXpMult(i)); // 收获奖励:4 级土地经验 +20%
                 if (Math.random() < SEED_DROP_CHANCE) {
                     this.$set(this.inventory.seeds, type, (this.inventory.seeds[type] || 0) + 1);
                     seeds++;
@@ -203,12 +260,36 @@ const farmMethods = {
         this.save();
     },
 
-    /* ---------- 解锁土地 ---------- */
+    /* ---------- 扩建土地 ---------- */
     openUnlockModal(i) {
         this.hideContextMenu();
         this.modalPlot = i;
         this.modalMode = 'unlock';
-        this.modalTitle = '解锁土地(第 ' + (i + 1) + ' 块)';
+        this.modalTitle = '扩建土地(第 ' + (i + 1) + ' 块)';
+    },
+
+    /* ---------- 升级土地(逐级:黄→红→黑→金),弹窗操作 ---------- */
+    toggleUpgradeSelect() {
+        this.upgradeSelecting = !this.upgradeSelecting;
+        if (this.upgradeSelecting) this.hideContextMenu();
+    },
+    openUpgradeModal(i) {
+        this.hideContextMenu();
+        this.modalPlot = i;
+        this.modalMode = 'upgrade';
+        this.modalTitle = '升级土地(第 ' + (i + 1) + ' 块)';
+    },
+    doUpgrade(i) {
+        const req = this.plotUpgradeReq(i);
+        if (!req) { this.closeModal(); return; }
+        const next = PLOT_GRADE_NAME[this.plotGrade[i] + 1];
+        if (this.level < req.level) { this.addLog('等级不足,需要 Lv.' + req.level + ' 才能升级为' + next); this.closeModal(); return; }
+        if (this.coins < req.cost) { this.addLog('金币不足,升级需要 ' + req.cost + ' 金币'); this.closeModal(); return; }
+        this.coins -= req.cost;
+        this.$set(this.plotGrade, i, this.plotGrade[i] + 1);
+        this.addLog('第 ' + (i + 1) + ' 块地升级为' + PLOT_GRADE_NAME[this.plotGrade[i]] + ',花费 ' + req.cost + ' 金币');
+        this.closeModal();
+        this.save();
     },
     unlockOk(i) {
         return this.level >= this.plotLevelReq(i) && this.coins >= this.plotUnlockCost(i);
@@ -216,45 +297,45 @@ const farmMethods = {
     doUnlock(i) {
         const req = this.plotLevelReq(i);
         const cost = this.plotUnlockCost(i);
-        if (this.level < req) { this.addLog('等级不足,需要 Lv.' + req + ' 才能解锁这块地'); }
-        else if (this.coins < cost) { this.addLog('金币不足,解锁需要 ' + cost + ' 金币'); }
+        if (this.level < req) { this.addLog('等级不足,需要 Lv.' + req + ' 才能扩建这块地'); }
+        else if (this.coins < cost) { this.addLog('金币不足,扩建需要 ' + cost + ' 金币'); }
         else {
             this.coins -= cost;
             this.$set(this.unlockedPlots, i, true);
-            this.addLog('解锁了第 ' + (i + 1) + ' 块地');
+            this.addLog('扩建了第 ' + (i + 1) + ' 块地');
         }
         this.closeModal();
         this.save();
     },
 
 
-/* ---------- 商店:作物种子(农场专属) ---------- */
-buySeed(key) {
-    const c = CROPS[key];
-    const qty = this.qtyFor('shop', key);
-    if (qty <= 0) { this.addLog('请先选择购买数量'); this.save(); return; }
-    const total = c.cost * qty;
-    if (this.coins < total) {
-        this.addLog('金币不足,需要 ' + total + ' 金币');
-    } else {
-        this.coins -= total;
-        this.$set(this.inventory.seeds, key, (this.inventory.seeds[key] || 0) + qty);
-        this.addLog('购买了 ' + c.name + ' 种子 x' + qty);
-        this.closeShopDetail();
-    }
-    this.save();
-},
-sellSeed(key) {
-    const qty = Math.min(this.qtyFor('warehouseSeeds', key), this.inventory.seeds[key] || 0);
-    if (qty <= 0) return;
-    const price = this.seedSellPrice(key);
-    this.inventory.seeds[key] -= qty;
-    if (this.inventory.seeds[key] <= 0) this.$delete(this.inventory.seeds, key);
-    this.coins += price * qty;
-    this.addLog('回收 ' + CROPS[key].name + ' 种子 x' + qty + ',获得 ' + (price * qty) + ' 金币');
-    this.closeInvDetail();
-    this.save();
-},
+    /* ---------- 商店:作物种子(农场专属) ---------- */
+    buySeed(key) {
+        const c = CROPS[key];
+        const qty = this.qtyFor('shop', key);
+        if (qty <= 0) { this.addLog('请先选择购买数量'); this.save(); return; }
+        const total = c.cost * qty;
+        if (this.coins < total) {
+            this.addLog('金币不足,需要 ' + total + ' 金币');
+        } else {
+            this.coins -= total;
+            this.$set(this.inventory.seeds, key, (this.inventory.seeds[key] || 0) + qty);
+            this.addLog('购买了 ' + c.name + ' 种子 x' + qty);
+            this.closeShopDetail();
+        }
+        this.save();
+    },
+    sellSeed(key) {
+        const qty = Math.min(this.qtyFor('warehouseSeeds', key), this.inventory.seeds[key] || 0);
+        if (qty <= 0) return;
+        const price = this.seedSellPrice(key);
+        this.inventory.seeds[key] -= qty;
+        if (this.inventory.seeds[key] <= 0) this.$delete(this.inventory.seeds, key);
+        this.coins += price * qty;
+        this.addLog('回收 ' + CROPS[key].name + ' 种子 x' + qty + ',获得 ' + (price * qty) + ' 金币');
+        this.closeInvDetail();
+        this.save();
+    },
 
 /* ---------- 每秒检查:成熟提醒(由 app.js 的 tick 调用) ---------- */
 checkMature() {

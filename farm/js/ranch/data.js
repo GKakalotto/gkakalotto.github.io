@@ -63,14 +63,14 @@ const FISH = {
    wawayu:           { name: '娃娃鱼', cost: 5760 , sell: 28800, grow: 43200, xp: 1620, level: 59, },
    zhonghuabie:      { name: '中华鳖', cost: 11520, sell: 57600, grow: 86400, xp: 3240, level: 60, },
 };
-/* ---------- 鱼塘:默认开放,无区域解锁条件 ----------
+/* ---------- 鱼塘:默认开放,无区域扩建条件 ----------
    鱼塘默认开放,初始 POND_INITIAL_OPEN 格直接可用;
    其余格每升 POND_EXPAND_INTERVAL 级花金币再开 1 格(共 TOTAL_PONDS 格),扩张格费用见 POND_CELL_UNLOCK_COST;
    新游戏赠送 POND_BONUS_COUNT 条鱼苗 ---------- */
-const POND_OPEN_LEVEL = 5;      // 单格扩张解锁的起始等级基准(鱼塘本身无需此等级即可使用)
+const POND_OPEN_LEVEL = 5;      // 单格扩张扩建的起始等级基准(鱼塘本身无需此等级即可使用)
 const POND_INITIAL_OPEN = 4;    // 默认开放的鱼塘格数(区域默认开放,初始即开放这些格)
 const POND_EXPAND_INTERVAL = 2; // 每升多少级再开放 1 格鱼塘
-const POND_CELL_UNLOCK_COST = [5000, 10000, 20000, 30000, 40000, 60000, 80000, 100000]; // 扩张格(下标 4~11)解锁费用,60000 后每块 +20000
+const POND_CELL_UNLOCK_COST = [5000, 10000, 20000, 30000, 40000, 60000, 80000, 100000]; // 扩张格(下标 4~11)扩建费用,60000 后每块 +20000
 const POND_BONUS_FRY = 'caoyu'; // 新游戏赠送的鱼苗种类
 const POND_BONUS_COUNT = 3;     // 赠送鱼苗数量
 const POND_COLS = 4;            // 鱼塘列数
@@ -208,7 +208,7 @@ const RANCH_TOTAL = 20;              // 栏位总数(4 行 × 5 列)
 const RANCH_INITIAL_OPEN = 4;        // 初始开放栏位数
 const RANCH_FIRST_LEVEL = 5;         // 扩张栏位起始等级
 const RANCH_EXPAND_INTERVAL = 2;     // 每升多少级开放 1 格
-const RANCH_UNLOCK_COST = [5000, 10000, 20000, 30000, 40000, 60000, 80000, 100000, 120000, 140000, 160000, 180000, 200000, 220000, 240000, 260000]; // 扩张格(下标 4~19)解锁费用,60000 后每块 +20000
+const RANCH_UNLOCK_COST = [5000, 10000, 20000, 30000, 40000, 60000, 80000, 100000, 120000, 140000, 160000, 180000, 200000, 220000, 240000, 260000]; // 扩张格(下标 4~19)扩建费用,60000 后每块 +20000
 const FEED_COST = 10;                // 牧草单价(金币)
 const FEED_TROUGH_CAP = 1000;        // 牧槽容量(牧草上限)
 const FEED_EVERY = 2;                // 每产出 FEED_EVERY 个周期后需要喂食一次(饥饿间隔 = produceEvery*FEED_EVERY)

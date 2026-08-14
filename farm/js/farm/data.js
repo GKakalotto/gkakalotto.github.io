@@ -104,18 +104,51 @@ const CROPS = {
    xingzi:       { name: '杏子', cost: 10160, sell: 100800, grow: 64800 , xp: 4158, level: 99, },
    jinju:        { name: '金桔', cost: 40320, sell: 201600, grow: 129600, xp: 8316, level: 100, },
 };
-/* ---------- 地块解锁等级(按地块下标,共 24 块)
-   前 6 块(下标 0-5)初始解锁;第 7 块起 5 级开放,每升 2 级再扩 1 块 ---------- */
+/* ---------- 地块扩建等级(按地块下标,共 24 块)
+   前 6 块(下标 0-5)初始即扩建;第 7 块起 5 级开放,每升 2 级再扩 1 块 ---------- */
 const PLOT_LEVEL_REQ = [1, 1, 1, 1, 1, 1, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39];
 
-/* ---------- 地块解锁费用(金币,按地块下标;前 6 块初始解锁为 0,5000 起,60000 后每块 +20000) ---------- */
+/* ---------- 地块扩建费用(金币,按地块下标;前 6 块初始即扩建为 0,5000 起,60000 后每块 +20000) ---------- */
 const PLOT_UNLOCK_COST = [0, 0, 0, 0, 0, 0, 5000, 10000, 20000, 30000, 40000, 60000, 80000, 100000, 120000, 140000, 160000, 180000, 200000, 220000, 240000, 260000, 280000, 300000];
+
+/* ---------- 土地分级:0 黄 1 红 2 黑 3 金(逐级升级,颜色用于地块边框与角标区分) ---------- */
+const PLOT_GRADE_NAME = ['黄土地', '红土地', '黑土地', '金土地'];
+const PLOT_GRADE_YIELD = [1, 2, 3, 4];                 // 收获数量倍率(随等级提升)
+const PLOT_GRADE_GROW = [1, 1, 1 / 0.9, 1 / 0.8];      // 生长速度倍率(>1 更快:3 级 -10%、4 级 -20%)
+const PLOT_GRADE_XP = [1, 1, 1, 1.2];                  // 收获经验倍率(4 级 +20%)
+/* 升级条件:按地块下标(0=第1块…23=第24块),每项 [升到2/3/4级] 的 {level, cost} */
+const PLOT_UPGRADE = [
+    [{ level: 28, cost: 200000 }, { level: 40, cost: 600000 }, { level: 58, cost: 1000000 }],
+    [{ level: 29, cost: 250000 }, { level: 41, cost: 800000 }, { level: 59, cost: 1400000 }],
+    [{ level: 30, cost: 300000 }, { level: 42, cost: 1000000 }, { level: 60, cost: 1800000 }],
+    [{ level: 31, cost: 350000 }, { level: 43, cost: 1200000 }, { level: 61, cost: 2200000 }],
+    [{ level: 32, cost: 400000 }, { level: 44, cost: 1400000 }, { level: 62, cost: 2600000 }],
+    [{ level: 33, cost: 500000 }, { level: 45, cost: 1600000 }, { level: 63, cost: 3000000 }],
+    [{ level: 34, cost: 600000 }, { level: 46, cost: 1800000 }, { level: 64, cost: 3400000 }],
+    [{ level: 35, cost: 700000 }, { level: 47, cost: 2200000 }, { level: 65, cost: 4200000 }],
+    [{ level: 36, cost: 800000 }, { level: 48, cost: 2600000 }, { level: 66, cost: 5000000 }],
+    [{ level: 37, cost: 900000 }, { level: 49, cost: 3000000 }, { level: 67, cost: 5800000 }],
+    [{ level: 38, cost: 1000000 }, { level: 50, cost: 3400000 }, { level: 68, cost: 6600000 }],
+    [{ level: 39, cost: 1100000 }, { level: 51, cost: 3800000 }, { level: 69, cost: 7400000 }],
+    [{ level: 40, cost: 1200000 }, { level: 52, cost: 4200000 }, { level: 70, cost: 8200000 }],
+    [{ level: 41, cost: 1300000 }, { level: 53, cost: 4600000 }, { level: 71, cost: 9000000 }],
+    [{ level: 42, cost: 1400000 }, { level: 54, cost: 5000000 }, { level: 72, cost: 9800000 }],
+    [{ level: 43, cost: 1500000 }, { level: 55, cost: 5400000 }, { level: 73, cost: 10600000 }],
+    [{ level: 44, cost: 1600000 }, { level: 56, cost: 5800000 }, { level: 74, cost: 11400000 }],
+    [{ level: 45, cost: 1700000 }, { level: 57, cost: 6200000 }, { level: 75, cost: 12200000 }],
+    [{ level: 47, cost: 1800000 }, { level: 59, cost: 6600000 }, { level: 77, cost: 13000000 }],
+    [{ level: 49, cost: 1900000 }, { level: 61, cost: 7000000 }, { level: 79, cost: 13800000 }],
+    [{ level: 51, cost: 2000000 }, { level: 63, cost: 7400000 }, { level: 81, cost: 14600000 }],
+    [{ level: 53, cost: 2100000 }, { level: 65, cost: 7800000 }, { level: 83, cost: 15400000 }],
+    [{ level: 55, cost: 2200000 }, { level: 67, cost: 8200000 }, { level: 85, cost: 16200000 }],
+    [{ level: 57, cost: 2300000 }, { level: 69, cost: 8600000 }, { level: 87, cost: 17000000 }],
+];
 const COLS = 6;
 const ROWS = 4;
 const TOTAL_PLOTS = COLS * ROWS; // 24 块地
-const INITIAL_UNLOCKED = 6;      // 初始解锁 6 块
-const PLOT_DRY_CHANCE = 0.1;     // 收获后地块干枯的概率
-const SEED_DROP_CHANCE = 0.08;   // 作物收获时额外掉落 1 颗对应种子的概率(鱼不再掉落鱼苗)
+const INITIAL_UNLOCKED = 6;      // 初始已扩建 6 块
+const PLOT_DRY_CHANCE = 0.1;   // 收获后地块干枯的概率(约 10%)
+const SEED_DROP_CHANCE = 0.08;   // 作物收获时额外掉落 1 颗对应种子的概率
 
 /* ---------- 农场存档键 + 默认状态 ---------- */
 const FARM_SAVE_KEY = 'qqfarm_farm_v1';
@@ -127,7 +160,8 @@ function makeDefaultFarm() {
         xp: 0,
         plots: Array.from({ length: TOTAL_PLOTS }, () => null),
         unlockedPlots: Array.from({ length: TOTAL_PLOTS }, (_, i) => i < INITIAL_UNLOCKED),
+        plotGrade: Array.from({ length: TOTAL_PLOTS }, () => 0),
         inventory: { seeds: { luobo: 3 } }, // items/locks 来自共享段
-        log: [{ t: Date.now(), msg: '欢迎来到 星露谷农场!点空地种菜,收获后土地可能干枯,干枯的地需浇水后才能种植;达到等级后解锁更多土地。' }],
+        log: [{ t: Date.now(), msg: '欢迎来到 星露谷农场!点空地种菜,收获后土地可能干枯,干枯的地需浇水后才能种植;达到等级后扩建更多土地。' }],
     };
 }

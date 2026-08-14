@@ -75,7 +75,7 @@ const pondMethods = {
         this.menuVisible = true;
     },
 
-    /* ---------- 鱼塘单格解锁(默认开放前 N 格,其余格花金币扩张) ---------- */
+    /* ---------- 鱼塘单格扩建(默认开放前 N 格,其余格花金币扩张) ---------- */
     pondCellUnlocked(i) { return !!this.unlockedPonds[i]; },
     pondCellLevelReq(i) {
         return i < POND_INITIAL_OPEN ? 1 : POND_OPEN_LEVEL + (i - POND_INITIAL_OPEN) * POND_EXPAND_INTERVAL;
@@ -90,18 +90,18 @@ const pondMethods = {
         this.hideContextMenu();
         this.modalPlot = i;
         this.modalMode = 'pondcell';
-        this.modalTitle = '解锁鱼塘(第 ' + (i + 1) + ' 格)';
+        this.modalTitle = '扩建鱼塘(第 ' + (i + 1) + ' 格)';
     },
     doUnlockPondCell(i) {
         const cost = this.pondCellCost(i);
         if (this.level < this.pondCellLevelReq(i)) {
-            this.addLog('等级不足,需要 Lv.' + this.pondCellLevelReq(i) + ' 才能解锁该鱼塘格');
+            this.addLog('等级不足,需要 Lv.' + this.pondCellLevelReq(i) + ' 才能扩建该鱼塘格');
         } else if (this.coins < cost) {
-            this.addLog('金币不足,解锁该鱼塘格需要 ' + cost + ' 金币');
+            this.addLog('金币不足,扩建该鱼塘格需要 ' + cost + ' 金币');
         } else {
             this.coins -= cost;
             this.$set(this.unlockedPonds, i, true);
-            this.addLog('解锁了第 ' + (i + 1) + ' 个鱼塘格,花费 ' + cost + ' 金币');
+            this.addLog('扩建了第 ' + (i + 1) + ' 个鱼塘格,花费 ' + cost + ' 金币');
         }
         this.closeModal();
         this.save();

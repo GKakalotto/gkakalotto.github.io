@@ -72,7 +72,8 @@ const ranchApp = new Vue({
             if (!s || !Array.isArray(s.pond) || s.pond.length !== TOTAL_PONDS
                 || !Array.isArray(s.unlockedPonds) || s.unlockedPonds.length !== TOTAL_PONDS
                 || !Array.isArray(s.animals) || s.animals.length !== RANCH_TOTAL
-                || !Array.isArray(s.unlockedRanches) || s.unlockedRanches.length !== RANCH_TOTAL) {
+                || !Array.isArray(s.unlockedRanches) || s.unlockedRanches.length !== RANCH_TOTAL
+                || !s.fish) {
                 const d = makeDefaultRanch();
                 this.coins = shared.coins;
                 this.level = d.level;
@@ -97,16 +98,16 @@ const ranchApp = new Vue({
             this.animals = s.animals;
             this.unlockedRanches = s.unlockedRanches;
             this.feedTrough = s.feedTrough || 0;
-            this.fish = Object.assign({ fries: {} }, s.fish || {});
+            this.fish = s.fish;
             this.inventory = { young: (s.inventory && s.inventory.young) || {}, items: items, locks: locks };
             this.log = Array.isArray(s.log) ? s.log : makeDefaultRanch().log;
         },
         resetGame() {
             this.settingsOpen = false;
-            this.confirmModal('重置进度', '确定要重置牧场进度吗?此操作不可恢复(金币与仓库为共享资源,不会被重置)', () => {
+            this.confirmModal('重置进度', '确定要重置牧场、农场及共享数据吗?此操作不可恢复', () => {
+                clearAllSaves(); // 牧场 + 农场 + 共享三段存档一并清除
                 const d = makeDefaultRanch();
-                const shared = readShared(); // 保留共享金币/仓库
-                this.coins = shared.coins;
+                this.coins = d.coins;
                 this.level = d.level;
                 this.xp = d.xp;
                 this.pond = d.pond;
@@ -116,8 +117,10 @@ const ranchApp = new Vue({
                 this.feedTrough = d.feedTrough;
                 this.fish = d.fish;
                 this.qtys = { shop: {}, fishshop: {}, warehouseItems: {}, warehouseSeeds: {}, fishFries: {}, young: {}, ranch: {}, ranchfeed: {}, feedadd: {} };
-                this.inventory = { young: d.inventory.young, items: shared.items || {}, locks: shared.locks || {} };
+                this.inventory = { young: d.inventory.young, items: {}, locks: {} };
                 this.log = d.log;
+                this.theme = 'dark';
+                this.applyTheme();
                 this.closeModal();
                 this.save();
             });

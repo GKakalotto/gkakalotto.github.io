@@ -114,7 +114,7 @@ const ranchMethods = {
         this.menuVisible = true;
     },
 
-    /* ---------- 栏位解锁 ---------- */
+    /* ---------- 栏位扩建 ---------- */
     ranchCellUnlocked(i) { return !!this.unlockedRanches[i]; },
     ranchCellLevelReq(i) {
         return i < RANCH_INITIAL_OPEN ? 1 : RANCH_FIRST_LEVEL + (i - RANCH_INITIAL_OPEN) * RANCH_EXPAND_INTERVAL;
@@ -129,18 +129,18 @@ const ranchMethods = {
         this.hideContextMenu();
         this.modalPlot = i;
         this.modalMode = 'ranchcell';
-        this.modalTitle = '解锁栏位(第 ' + (i + 1) + ' 格)';
+        this.modalTitle = '扩建栏位(第 ' + (i + 1) + ' 格)';
     },
     doUnlockRanchCell(i) {
         const cost = this.ranchCellCost(i);
         if (this.level < this.ranchCellLevelReq(i)) {
-            this.addLog('等级不足,需要 Lv.' + this.ranchCellLevelReq(i) + ' 才能解锁该栏位');
+            this.addLog('等级不足,需要 Lv.' + this.ranchCellLevelReq(i) + ' 才能扩建该栏位');
         } else if (this.coins < cost) {
-            this.addLog('金币不足,解锁该栏位需要 ' + cost + ' 金币');
+            this.addLog('金币不足,扩建该栏位需要 ' + cost + ' 金币');
         } else {
             this.coins -= cost;
             this.$set(this.unlockedRanches, i, true);
-            this.addLog('解锁了第 ' + (i + 1) + ' 个栏位,花费 ' + cost + ' 金币');
+            this.addLog('扩建了第 ' + (i + 1) + ' 个栏位,花费 ' + cost + ' 金币');
         }
         this.closeModal();
         this.save();
@@ -299,7 +299,7 @@ const ranchMethods = {
     openFeedAdd() {
         this.hideContextMenu();
         this.modalMode = 'feedadd';
-        this.modalTitle = '添入牧槽';
+        this.modalTitle = '添加牧草';
     },
     confirmFeedAdd() {
         const qty = this.qtyFor('feedadd', 'siliao');
@@ -307,12 +307,12 @@ const ranchMethods = {
         const max = Math.min(this.inventory.items['siliao'] || 0, FEED_TROUGH_CAP - this.feedTrough);
         const add = Math.min(qty, max); // 防溢出双保险
         if (add <= 0) {
-            this.addLog('没有可添入的牧草');
+            this.addLog('没有可添加的牧草');
         } else {
             this.inventory.items['siliao'] -= add;
             if (this.inventory.items['siliao'] <= 0) this.$delete(this.inventory.items, 'siliao');
             this.feedTrough += add;
-            this.addLog('添入 ' + add + ' 个牧草到牧槽');
+            this.addLog('添加 ' + add + ' 个牧草到牧槽');
         }
         this.closeModal();
         this.save();

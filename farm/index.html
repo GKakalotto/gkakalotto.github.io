@@ -50,28 +50,32 @@
                 <div class="farm">
                     <div v-for="(p, i) in plots" :key="i" class="plot" :class="plotClass(i)"
                          @click="onPlotClick(i, $event)" :title="plotTitle(i)">
-                        <template v-if="!unlockedPlots[i]">
-                            <div class="card-mask" v-if="i === 0 || unlockedPlots[i - 1]">
-                                <div class="lock-tip">Lv.{{ plotLevelReq(i) }}</div>
-                                <div class="unlock-ready">可扩建</div>
-                            </div>
-                        </template>
-                        <template v-else-if="p === null">
-                            <div>[空地{{ i + 1 }}]</div>
-                        </template>
-                        <template v-else-if="isDryPlot(p)">
-                            <div>[干枯]</div>
-                            <div class="state">需浇水</div>
-                        </template>
-                        <template v-else>
-                            <div>[{{ cropName(p.type) }}]</div>
-                            <template v-if="plotProgress(i) >= 1">
-                                <div class="state">已成熟</div>
+                        <div class="card-mask" v-if="(!unlockedPlots[i] && (i === 0 || unlockedPlots[i - 1])) || (upgradeSelecting && !plotUpgradable(i))">
+                            <div v-if="!upgradeSelecting" class="lock-tip">Lv.{{ plotLevelReq(i) }}</div>
+                            <div v-if="!upgradeSelecting" class="unlock-ready">可扩建</div>
+                        </div>
+                        <template v-else-if="unlockedPlots[i]">
+                            <template v-if="p === null">
+                                <div>[空地{{ i + 1 }}]</div>
+                            </template>
+                            <template v-else-if="isDryPlot(p)">
+                                <div>[干枯]</div>
+                                <div class="state">💧 需浇水</div>
                             </template>
                             <template v-else>
-                                <div class="state">{{ stageText(i) }} {{ plotPercent(i) }}%</div>
+                                <div>[{{ cropName(p.type) }}]</div>
+                                <template v-if="plotProgress(i) >= 1">
+                                    <div class="state">⭐ 可收获</div>
+                                </template>
+                                <template v-else>
+                                    <div class="state">{{ plotStageIcon(i) }} {{ plotPercent(i) }}%</div>
+                                </template>
                             </template>
                         </template>
+                        <div class="pt-layer" v-if="plotClass(i).indexOf('growing') >= 0">
+                            <span class="pt" v-for="(pt, k) in plotParticles(i)" :key="k"
+                                  :style="{ left: pt.left, width: pt.sz, height: pt.sz, '--dur': pt.dur, '--dl': pt.dl, '--dr': pt.dr }"></span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -79,11 +83,15 @@
             <!-- 工具栏(桌面端;移动端由底部固定栏替代) -->
             <div class="toolbar farm-toolbar">
                 <button @click="harvestAll()">一键收获</button>
+                <button :class="{ active: upgradeSelecting }" @click="toggleUpgradeSelect()">升级土地</button>
+                <span v-if="upgradeSelecting" class="upgrade-hint">请选择要升级的地块</span>
             </div>
 
             <!-- 移动端底部固定操作栏 -->
             <div class="farm-bottom-bar">
                 <button @click="harvestAll()">一键收获</button>
+                <button :class="{ active: upgradeSelecting }" @click="toggleUpgradeSelect()">升级土地</button>
+                <span v-if="upgradeSelecting" class="upgrade-hint">请选择要升级的地块</span>
             </div>
 
         <!-- 地块右键菜单(仅农场地块) -->
@@ -169,14 +177,29 @@
                         </template>
                     </div>
 
-                    <!-- 解锁 -->
+                    <!-- 扩建 -->
                     <div v-else-if="modalMode === 'unlock'" class="center-tip">
-                        <div>解锁等级:<b>Lv.{{ plotLevelReq(modalPlot) }}</b><template v-if="level >= plotLevelReq(modalPlot)"> — 已满足</template><template v-else> — 当前 Lv.{{ level }},等级不足</template></div>
-                        <div style="margin-top:6px;">解锁费用:<b>{{ plotUnlockCost(modalPlot) }}</b> 金币<template v-if="coins >= plotUnlockCost(modalPlot)"> — 可支付</template><template v-else> — 金币不足</template></div>
+                        <div>等级：<span :class="level >= plotLevelReq(modalPlot) ? 'ok' : 'bad'">{{ level }}</span>/{{ plotLevelReq(modalPlot) }} 级</div>
+                        <div style="margin-top:4px;">花费：<span :class="coins >= plotUnlockCost(modalPlot) ? 'ok' : 'bad'">{{ plotUnlockCost(modalPlot) }}</span> 金币</div>
                         <div style="margin-top:14px;">
-                            <button @click="doUnlock(modalPlot)" :disabled="!unlockOk(modalPlot)">解锁这块地</button>
-                            <button class="ghost" @click="closeModal()">取消</button>
+                            <button @click="doUnlock(modalPlot)" :disabled="!unlockOk(modalPlot)">扩建</button>
                         </div>
+                    </div>
+
+                    <!-- 升级土地 -->
+                    <div v-else-if="modalMode === 'upgrade'" class="center-tip">
+                        <template v-if="plotNextGrade(modalPlot) !== null">
+                            <div><b>{{ plotGradeName(modalPlot) }}</b> &nbsp;&gt;&gt;&gt;&nbsp; <b>{{ plotNextGradeName(modalPlot) }}</b></div>
+                            <div style="margin-top:8px;">等级：<span :class="level >= plotUpgradeReq(modalPlot).level ? 'ok' : 'bad'">{{ level }}</span>/{{ plotUpgradeReq(modalPlot).level }} 级</div>
+                            <div style="margin-top:4px;">花费：<span :class="coins >= plotUpgradeReq(modalPlot).cost ? 'ok' : 'bad'">{{ plotUpgradeReq(modalPlot).cost }}</span> 金币</div>
+                            <div style="margin-top:14px;">
+                                <button @click="doUpgrade(modalPlot)" :disabled="!plotUpgradeOk(modalPlot)">升级</button>
+                            </div>
+                        </template>
+                        <template v-else>
+                            <div>已是最高等级(金土地)</div>
+                            <div style="margin-top:14px;"><button class="ghost" @click="closeModal()">关闭</button></div>
+                        </template>
                     </div>
 
                     <!-- 日志 -->
@@ -272,7 +295,6 @@
     <script src="js/public/util.js"></script>
     <script src="js/public/ui.js"></script>
     <script src="js/farm/data.js"></script>
-    <script src="js/ranch/data.js"></script>
     <script src="js/farm/farm.js"></script>
     <script src="js/farm/app.js"></script>
 </body>

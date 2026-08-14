@@ -331,7 +331,7 @@ const uiMethods = {
         if (wrap && !wrap.contains(e.target)) this.settingsOpen = false;
     },
     onKeydown(e) {
-        if (e.key === 'Escape') this.hideContextMenu();
+        if (e.key === 'Escape') { this.hideContextMenu(); this.upgradeSelecting = false; }
     },
     onContextMenu(e) { e.preventDefault(); },
 

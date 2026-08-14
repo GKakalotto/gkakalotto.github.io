@@ -71,7 +71,7 @@
             <!-- 养殖:牧槽 + 栏位(初始开放 4 格,Lv.5 起每升 2 级花金币再开 1 格,4 行 × 5 列共 20 格) -->
             <div class="ranch-wrap">
                 <div class="ranch-bar">
-                <div class="feed-trough" @click="openFeedAdd()" title="点击添入牧草">
+                <div class="feed-trough" @click="openFeedAdd()" title="点击添加牧草">
                     <span class="trough-label">牧槽</span>
                     <span class="trough-num">{{ feedTroughCount }} / {{ feedTroughCap }}</span>
                 </div>
@@ -225,30 +225,28 @@
                         </template>
                     </div>
 
-                    <!-- 鱼塘单格解锁 -->
+                    <!-- 鱼塘单格扩建 -->
                     <div v-else-if="modalMode === 'pondcell'" class="center-tip">
-                        <div>解锁等级:<b>Lv.{{ pondCellLevelReq(modalPlot) }}</b><template v-if="level >= pondCellLevelReq(modalPlot)"> — 已满足</template><template v-else> — 当前 Lv.{{ level }},等级不足</template></div>
-                        <div style="margin-top:6px;">解锁费用:<b>{{ pondCellCost(modalPlot) }}</b> 金币<template v-if="coins >= pondCellCost(modalPlot)"> — 可支付</template><template v-else> — 金币不足</template></div>
+                        <div>等级：<span :class="level >= pondCellLevelReq(modalPlot) ? 'ok' : 'bad'">{{ level }}</span>/{{ pondCellLevelReq(modalPlot) }} 级</div>
+                        <div style="margin-top:4px;">花费：<span :class="coins >= pondCellCost(modalPlot) ? 'ok' : 'bad'">{{ pondCellCost(modalPlot) }}</span> 金币</div>
                         <div style="margin-top:14px;">
-                            <button @click="doUnlockPondCell(modalPlot)" :disabled="!pondCellUnlockOk(modalPlot)">解锁该鱼塘格</button>
-                            <button class="ghost" @click="closeModal()">取消</button>
+                            <button @click="doUnlockPondCell(modalPlot)" :disabled="!pondCellUnlockOk(modalPlot)">扩建</button>
                         </div>
                     </div>
 
-                    <!-- 栏位解锁 -->
+                    <!-- 栏位扩建 -->
                     <div v-else-if="modalMode === 'ranchcell'" class="center-tip">
-                        <div>解锁等级:<b>Lv.{{ ranchCellLevelReq(modalPlot) }}</b><template v-if="level >= ranchCellLevelReq(modalPlot)"> — 已满足</template><template v-else> — 当前 Lv.{{ level }},等级不足</template></div>
-                        <div style="margin-top:6px;">解锁费用:<b>{{ ranchCellCost(modalPlot) }}</b> 金币<template v-if="coins >= ranchCellCost(modalPlot)"> — 可支付</template><template v-else> — 金币不足</template></div>
+                        <div>等级：<span :class="level >= ranchCellLevelReq(modalPlot) ? 'ok' : 'bad'">{{ level }}</span>/{{ ranchCellLevelReq(modalPlot) }} 级</div>
+                        <div style="margin-top:4px;">花费：<span :class="coins >= ranchCellCost(modalPlot) ? 'ok' : 'bad'">{{ ranchCellCost(modalPlot) }}</span> 金币</div>
                         <div style="margin-top:14px;">
-                            <button @click="doUnlockRanchCell(modalPlot)" :disabled="!ranchCellUnlockOk(modalPlot)">解锁该栏位</button>
-                            <button class="ghost" @click="closeModal()">取消</button>
+                            <button @click="doUnlockRanchCell(modalPlot)" :disabled="!ranchCellUnlockOk(modalPlot)">扩建</button>
                         </div>
                     </div>
 
                     <!-- 添入牧槽 -->
                     <div v-else-if="modalMode === 'feedadd'" class="center-tip">
                         <div>仓库牧草:<b>{{ feedCount }}</b> · 牧槽空余:<b>{{ feedTroughCap - feedTroughCount }}</b></div>
-                        <div style="margin-top:8px;">要添入的数量: <b style="display:inline-block; width:5ch; font-variant-numeric:tabular-nums;">{{ qtyFor('feedadd', 'siliao') }}</b></div>
+                        <div style="margin-top:8px;">要添加的数量: <b style="display:inline-block; width:5ch; font-variant-numeric:tabular-nums;">{{ qtyFor('feedadd', 'siliao') }}</b></div>
                         <div class="stepper">
                             <button @click="qtyChange('feedadd', 'siliao', -1)">-</button>
                             <input type="range" min="0" :max="feedAddMax" :disabled="feedCount <= 0" :value="qtyFor('feedadd', 'siliao')"
@@ -256,8 +254,7 @@
                             <button @click="qtyChange('feedadd', 'siliao', 1)">+</button>
                         </div>
                         <div style="margin-top:14px;">
-                            <button @click="confirmFeedAdd()" :disabled="qtyFor('feedadd', 'siliao') <= 0 || feedCount <= 0 || feedTroughCount >= feedTroughCap || qtyFor('feedadd', 'siliao') > feedAddMax">添入</button>
-                            <button class="ghost" @click="closeModal()">取消</button>
+                            <button @click="confirmFeedAdd()" :disabled="qtyFor('feedadd', 'siliao') <= 0 || feedCount <= 0 || feedTroughCount >= feedTroughCap || qtyFor('feedadd', 'siliao') > feedAddMax">添加</button>
                         </div>
                     </div>
 
@@ -389,7 +386,6 @@
     <script src="js/public/util.js"></script>
     <script src="js/public/ui.js"></script>
     <script src="js/ranch/data.js"></script>
-    <script src="js/farm/data.js"></script>
     <script src="js/ranch/pond.js"></script>
     <script src="js/ranch/ranch.js"></script>
     <script src="js/ranch/app.js"></script>
