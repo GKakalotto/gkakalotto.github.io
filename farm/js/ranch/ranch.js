@@ -43,7 +43,7 @@ const ranchMethods = {
     ranchPending(i) {
         const a = this.animals[i];
         if (!a || a.hungry || this.ranchGrowth(i) < 1) return 0;
-        return Math.max(0, (a.produceCount || 0) - (a.stored || 0));
+        return a.pendingQty || 0;
     },
     /* 动物是否已产满(累计产出达到 ANIMAL_MAX_PRODUCE 次,进度自动累积,与是否收获无关) */
     ranchDone(i) {
@@ -167,7 +167,7 @@ const ranchMethods = {
             lastProduce: now,
             announced: false,
             produceCount: 0, // 累计产出次数(自动累积,即进度)
-            stored: 0,       // 已入仓的产物次数
+            pendingQty: 0,   // 待收产物实际数量(每周期 50~80 随机累加)
         });
         this.addLog('投放了 ' + ANIMALS[key].name + ' 幼崽');
         this.hideContextMenu();
@@ -175,14 +175,11 @@ const ranchMethods = {
     },
     collectProduct(i) {
         const a = this.animals[i];
-        const n = this.ranchPending(i);
-        if (n <= 0) return;
+        const qty = a.pendingQty || 0;
+        if (qty <= 0) return;
         const p = ANIMALS[a.type].product;
-        // 每个待收产出周期随机产 50~80 个(含端点),多周期待收则累加
-        let qty = 0;
-        for (let k = 0; k < n; k++) qty += 50 + Math.floor(Math.random() * 31);
         this.$set(this.inventory.items, p, (this.inventory.items[p] || 0) + qty);
-        a.stored = (a.stored || 0) + n; // 已收产物周期入仓
+        a.pendingQty = 0;
         this.hideContextMenu();
         this.addLog('收取 ' + ANIMALS[a.type].name + ' 的产物 ' + ANIMAL_PRODUCTS[p].name + ' x' + qty + '(累计 ' + a.produceCount + '/' + ANIMAL_MAX_PRODUCE + ')');
         this.save();
@@ -238,8 +235,13 @@ const ranchMethods = {
                 const produceEnd = (a.hungerAt && a.hungerAt < now) ? a.hungerAt : now;
                 const due = Math.floor((produceEnd - a.lastProduce) / interval);
                 if (due > 0) {
+                    const before = a.produceCount || 0;
+                    const added = Math.min(due, ANIMAL_MAX_PRODUCE - before); // 不超过产满上限
                     a.lastProduce += due * interval;
-                    a.produceCount = Math.min(ANIMAL_MAX_PRODUCE, (a.produceCount || 0) + due);
+                    a.produceCount = before + added;
+                    // 每完成 1 个产出周期,按实际随机量(50~80)累加进待收数量
+                    if (a.pendingQty === undefined) this.$set(a, 'pendingQty', 0);
+                    for (let k = 0; k < added; k++) a.pendingQty = (a.pendingQty || 0) + 50 + Math.floor(Math.random() * 31);
                     hit = true;
                 }
             }
@@ -247,6 +249,7 @@ const ranchMethods = {
             if (!a.hungry && a.hungerAt && now >= a.hungerAt) {
                 if (this.feedTrough > 0) {
                     this.feedTrough--; // 自动消耗 1 牧草
+                    this.addLog(ANIMALS[a.type].name + ' 消耗了 1 牧草(牧槽剩余 ' + this.feedTrough + ')');
                     a.hungerAt = now + ANIMALS[a.type].produceEvery * FEED_EVERY * 1000;
                     hit = true;
                 } else {

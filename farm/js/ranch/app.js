@@ -30,6 +30,7 @@ const ranchApp = new Vue({
         document.addEventListener('mousedown', this.onDocMousedown);
         document.addEventListener('keydown', this.onKeydown);
         document.addEventListener('contextmenu', this.onContextMenu);
+        window.addEventListener('resize', this.checkMobile);
         this.load();
         this.applyTheme();
         this.timer = setInterval(this.tick, 1000);
@@ -39,6 +40,7 @@ const ranchApp = new Vue({
         document.removeEventListener('mousedown', this.onDocMousedown);
         document.removeEventListener('keydown', this.onKeydown);
         document.removeEventListener('contextmenu', this.onContextMenu);
+        window.removeEventListener('resize', this.checkMobile);
     },
     methods: Object.assign({}, uiMethods, pondMethods, ranchMethods, {
         /* ---------- 存档:牧场进度各自存,金币/仓库/锁定/主题写入共享段 ---------- */

@@ -21,7 +21,7 @@
                     <span>等级：<b>{{ levelText }}</b></span>
                 </div>
                 <div class="top-right">
-                    <a class="top-btn" :class="{ disabled: upgradeSelecting }" href="ranch.html">牧场</a>
+                    <button class="top-btn" :disabled="upgradeSelecting" @click="location.href='ranch.html'">牧场</button>
                     <button class="top-btn" :disabled="upgradeSelecting" @click="openShop()">商店</button>
                     <button class="top-btn" :disabled="upgradeSelecting" @click="openBackpack()">背包</button>
                     <button class="top-btn" :disabled="upgradeSelecting" @click="openWarehouse()">仓库</button>
@@ -72,8 +72,8 @@
                                 </template>
                             </template>
                         </template>
-                        <!-- 升级模式下不可升级的地块被蒙版盖住,不显示生长粒子 -->
-                        <div class="pt-layer" v-if="plotHasActiveGrowth(i) && !(upgradeSelecting && !plotUpgradable(i))">
+                        <!-- 升级模式下不可升级的地块被蒙版盖住;粒子层保持挂载(仅隐藏)以免取消后重启动画产生卡顿 -->
+                        <div class="pt-layer" v-if="plotHasActiveGrowth(i)" :class="{ 'pt-hidden': upgradeSelecting && !plotUpgradable(i) }">
                             <span class="pt" v-for="(pt, k) in plotParticles(i)" :key="k"
                                   :style="{ left: pt.left, width: pt.sz, height: pt.sz, '--dur': pt.dur, '--dl': pt.dl, '--dr': pt.dr }"></span>
                         </div>
@@ -168,11 +168,10 @@
                                 <div v-for="key in itemKeys" :key="key" class="card card-lockable shop-card inv-card"
                                      :class="{ locked: inventory.locks[key] }"
                                      @click="!inventory.locks[key] && openInvDetail('warehouse', 'item', key)">
-                                    <button class="lock-btn" :title="inventory.locks[key] ? '已锁定,不参与一键出售' : '点击锁定,不参与一键出售'" @click.stop="toggleLock(key)">{{ inventory.locks[key] ? '🔒' : '🔓' }}</button>
                                     <b>{{ itemName(key) }}</b>
                                     <div class="inv-foot">
-                                        <span class="inv-price">💰 {{ itemSell(key) }}</span>
-                                        <span class="inv-qty">x{{ inventory.items[key] }}</span>
+                                        <span class="inv-price">💰 {{ fmtNum(itemSell(key)) }}</span>
+                                        <button class="lock-btn" :title="inventory.locks[key] ? '已锁定,不参与一键出售' : '点击锁定,不参与一键出售'" @click.stop="toggleLock(key)">{{ inventory.locks[key] ? '🔒' : '🔓' }}</button>
                                     </div>
                                 </div>
                             </div>
@@ -297,6 +296,7 @@
     <script src="js/public/util.js"></script>
     <script src="js/public/ui.js"></script>
     <script src="js/farm/data.js"></script>
+    <script src="js/ranch/data.js"></script>
     <script src="js/farm/farm.js"></script>
     <script src="js/farm/app.js"></script>
 </body>
