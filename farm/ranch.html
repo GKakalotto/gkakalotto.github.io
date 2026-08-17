@@ -238,8 +238,8 @@
                                      @click="!inventory.locks[key] && openInvDetail('warehouse', 'item', key)">
                                     <b>{{ itemName(key) }}</b>
                                     <div class="inv-foot">
-                                        <span class="inv-price">💰 {{ fmtNum(itemSell(key)) }}</span>
                                         <button class="lock-btn" :title="inventory.locks[key] ? '已锁定,不参与一键出售' : '点击锁定,不参与一键出售'" @click.stop="toggleLock(key)">{{ inventory.locks[key] ? '🔒' : '🔓' }}</button>
+                                        <span class="inv-qty">×{{ inventory.items[key] }}</span>
                                     </div>
                                 </div>
                             </div>

@@ -76,14 +76,9 @@ const uiMethods = {
     fmtRemain(s) { return fmtRemain(s); },
     fmtTime(t) { return fmtTime(t); },
 
-    /* ---------- 数字缩写(移动端 >=10000 显示为 10k 形式,桌面端原样) ---------- */
+    /* ---------- 响应式:检测移动端视口 ---------- */
     checkMobile() {
         this.isMobile = (typeof window !== 'undefined') ? (window.innerWidth <= 768) : false;
-    },
-    fmtNum(n) {
-        n = Number(n) || 0;
-        if (this.isMobile && n >= 10000) return Math.floor(n / 1000) + 'k';
-        return '' + n;
     },
 
     /* ---------- 仓库:作物/鱼/动物产物统一查名查价(带 typeof 防护) ---------- */

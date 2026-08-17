@@ -574,7 +574,7 @@ button:disabled {
     align-items: center;
     gap: 6px;
     width: 100%;
-    margin-top: 6px;
+    margin-top: 12px;
     font-size: 12px;
     line-height: 1.2;
 }
@@ -850,6 +850,14 @@ button:disabled {
 /* 条件满足/不满足配色(扩建、升级弹窗用) */
 .ok { color: #43b85a; }
 .bad { color: #e5534b; }
+
+/* 升级弹窗增益信息(当前 → 升级后) */
+.buff-list { margin-top: 10px; padding: 8px 0; border-top: 1px solid #3a352b; border-bottom: 1px solid #3a352b; line-height: 1.9; font-size: 14px; text-align: left; }
+.buff-row { white-space: nowrap; }
+.buff-name { display: inline-block; width: 64px; color: #b8a98a; }
+.buff-val { display: inline-block; width: 40px; text-align: right; }
+.buff-arrow { margin: 0 8px; color: #8a8170; letter-spacing: 1px; }
+.buff-gain { color: #43b85a; font-weight: 600; }
 
 /* ================= 右键菜单(点击位置弹出) ================= */
 .context-menu {

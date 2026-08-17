@@ -80,6 +80,13 @@ const farmMethods = {
     plotXpMult(i) { return PLOT_GRADE_XP[this.plotGrade[i]]; },
     plotNextGrade(i) { return this.plotGrade[i] < 3 ? this.plotGrade[i] + 1 : null; },
     plotNextGradeName(i) { const g = this.plotNextGrade(i); return g !== null ? PLOT_GRADE_NAME[g] : ''; },
+    /* 增益百分比:当前等级 / 升级后等级(相对黄土地基准) */
+    plotYieldPct(i) { return Math.round((PLOT_GRADE_YIELD[this.plotGrade[i]] - 1) * 100); },
+    plotNextYieldPct(i) { const g = this.plotNextGrade(i); return g !== null ? Math.round((PLOT_GRADE_YIELD[g] - 1) * 100) : 0; },
+    plotGrowPct(i) { return Math.round((1 - 1 / PLOT_GRADE_GROW[this.plotGrade[i]]) * 100); },
+    plotNextGrowPct(i) { const g = this.plotNextGrade(i); return g !== null ? Math.round((1 - 1 / PLOT_GRADE_GROW[g]) * 100) : 0; },
+    plotXpPct(i) { return Math.round((PLOT_GRADE_XP[this.plotGrade[i]] - 1) * 100); },
+    plotNextXpPct(i) { const g = this.plotNextGrade(i); return g !== null ? Math.round((PLOT_GRADE_XP[g] - 1) * 100) : 0; },
     plotUpgradeReq(i) { return this.plotGrade[i] < 3 ? PLOT_UPGRADE[i][this.plotGrade[i]] : null; },
     plotUpgradeOk(i) {
         const req = this.plotUpgradeReq(i);

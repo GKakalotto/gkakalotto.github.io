@@ -170,8 +170,8 @@
                                      @click="!inventory.locks[key] && openInvDetail('warehouse', 'item', key)">
                                     <b>{{ itemName(key) }}</b>
                                     <div class="inv-foot">
-                                        <span class="inv-price">💰 {{ fmtNum(itemSell(key)) }}</span>
                                         <button class="lock-btn" :title="inventory.locks[key] ? '已锁定,不参与一键出售' : '点击锁定,不参与一键出售'" @click.stop="toggleLock(key)">{{ inventory.locks[key] ? '🔒' : '🔓' }}</button>
+                                        <span class="inv-qty">×{{ inventory.items[key] }}</span>
                                     </div>
                                 </div>
                             </div>
@@ -191,6 +191,11 @@
                     <div v-else-if="modalMode === 'upgrade'" class="center-tip">
                         <template v-if="plotNextGrade(modalPlot) !== null">
                             <div><b>{{ plotGradeName(modalPlot) }}</b> &nbsp;&gt;&gt;&gt;&nbsp; <b>{{ plotNextGradeName(modalPlot) }}</b></div>
+                            <div class="buff-list">
+                                <div class="buff-row"><span class="buff-name">产量提升</span><span class="buff-val">{{ plotYieldPct(modalPlot) }}%</span><span class="buff-arrow">---------</span><span :class="plotNextYieldPct(modalPlot) > plotYieldPct(modalPlot) ? 'buff-gain' : ''">{{ plotNextYieldPct(modalPlot) }}%</span></div>
+                                <div class="buff-row"><span class="buff-name">成长提速</span><span class="buff-val">{{ plotGrowPct(modalPlot) }}%</span><span class="buff-arrow">---------</span><span :class="plotNextGrowPct(modalPlot) > plotGrowPct(modalPlot) ? 'buff-gain' : ''">{{ plotNextGrowPct(modalPlot) }}%</span></div>
+                                <div class="buff-row"><span class="buff-name">经验加成</span><span class="buff-val">{{ plotXpPct(modalPlot) }}%</span><span class="buff-arrow">---------</span><span :class="plotNextXpPct(modalPlot) > plotXpPct(modalPlot) ? 'buff-gain' : ''">{{ plotNextXpPct(modalPlot) }}%</span></div>
+                            </div>
                             <div style="margin-top:8px;">等级：<span :class="level >= plotUpgradeReq(modalPlot).level ? 'ok' : 'bad'">{{ level }}</span>/{{ plotUpgradeReq(modalPlot).level }} 级</div>
                             <div style="margin-top:4px;">花费：<span :class="coins >= plotUpgradeReq(modalPlot).cost ? 'ok' : 'bad'">{{ plotUpgradeReq(modalPlot).cost }}</span> 金币</div>
                             <div style="margin-top:14px;">
