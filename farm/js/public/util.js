@@ -27,6 +27,26 @@ function fmtTime(t) {
     return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2);
 }
 
+/* 有限非负整数(防 NaN/Infinity/负数污染存档与金币) */
+function saneInt(v, def, min, max) {
+    const n = Math.floor(Number(v));
+    if (!Number.isFinite(n)) return def;
+    let x = n;
+    if (min != null && x < min) x = min;
+    if (max != null && x > max) x = max;
+    return x;
+}
+/* 数量字典:只保留 >0 的有限整数 */
+function sanitizeCountMap(obj) {
+    const out = {};
+    if (!obj || typeof obj !== 'object') return out;
+    Object.keys(obj).forEach((k) => {
+        const n = saneInt(obj[k], 0, 0, null);
+        if (n > 0) out[k] = n;
+    });
+    return out;
+}
+
 /* ================= 跨页面共享存储(金币 + 仓库 + 锁定 + 主题) =================
    农场页与牧场页是两个独立页面,彼此无法直接共享 Vue 状态;
    通过 localStorage 中的共享段传递两页需要互通的数据:
@@ -38,12 +58,15 @@ function readShared() {
     try {
         const o = JSON.parse(localStorage.getItem(SHARED_KEY));
         if (o && typeof o === 'object') {
-            const items = (o.items && typeof o.items === 'object') ? o.items : {};
-            const locks = (o.locks && typeof o.locks === 'object') ? o.locks : {};
+            const items = sanitizeCountMap(o.items);
+            const locks = {};
+            if (o.locks && typeof o.locks === 'object') {
+                Object.keys(o.locks).forEach((k) => { if (o.locks[k]) locks[k] = true; });
+            }
             return {
-                coins: typeof o.coins === 'number' ? o.coins : 0,
-                items: Object.assign({}, items),
-                locks: Object.assign({}, locks),
+                coins: saneInt(o.coins, 0, 0, 1e12),
+                items: items,
+                locks: locks,
                 theme: o.theme === 'light' ? 'light' : 'dark',
             };
         }
@@ -53,9 +76,9 @@ function readShared() {
 function writeShared(coins, items, locks, theme) {
     try {
         localStorage.setItem(SHARED_KEY, JSON.stringify({
-            coins: coins || 0,
-            items: items || {},
-            locks: locks || {},
+            coins: saneInt(coins, 0, 0, 1e12),
+            items: sanitizeCountMap(items),
+            locks: (locks && typeof locks === 'object') ? locks : {},
             theme: theme === 'light' ? 'light' : 'dark',
         }));
     } catch (e) { /* 无持久化时游戏仍可运行 */ }

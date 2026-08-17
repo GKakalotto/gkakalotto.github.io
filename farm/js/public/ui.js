@@ -244,7 +244,8 @@ const uiMethods = {
         let total = 0, n = 0;
         this.itemKeys.forEach((key) => {
             if (this.inventory.locks[key]) return;
-            const qty = this.inventory.items[key];
+            const qty = saneInt(this.inventory.items[key], 0, 0, null);
+            if (qty <= 0) { this.$delete(this.inventory.items, key); return; }
             total += this.itemSell(key) * qty;
             n += qty;
             this.$delete(this.inventory.items, key);
@@ -252,7 +253,7 @@ const uiMethods = {
         if (n === 0) {
             this.addLog(this.itemKeys.length === 0 ? '没有可出售的收获品' : '收获品已全部锁定');
         } else {
-            this.coins += total;
+            this.coins = saneInt(this.coins, 0, 0, 1e12) + total;
             this.addLog('出售全部 ' + n + ' 个物品,获得 ' + total + ' 金币');
         }
         this.save();
@@ -261,18 +262,21 @@ const uiMethods = {
         let total = 0, n = 0;
         this.seedKeys.forEach((key) => {
             const qty = this.inventory.seeds[key];
+            if (!(qty > 0)) return;
             total += this.seedSellPrice(key) * qty;
             n += qty;
             this.$delete(this.inventory.seeds, key);
         });
         this.fishFryKeys.forEach((key) => {
             const qty = this.fish.fries[key];
+            if (!(qty > 0)) return;
             total += this.fishSellPrice(key) * qty;
             n += qty;
             this.$delete(this.fish.fries, key);
         });
         this.youngKeys.forEach((key) => {
             const qty = this.inventory.young[key];
+            if (!(qty > 0)) return;
             total += this.animalSellPrice(key) * qty;
             n += qty;
             this.$delete(this.inventory.young, key);
@@ -342,14 +346,43 @@ const uiMethods = {
 
     /* ---------- 升级(奖励金币写入共享金币,经验等级各自独立) ---------- */
     addXp(n) {
-        this.xp += n;
-        while (this.xp >= xpNeeded(this.level)) {
+        n = Math.floor(Number(n));
+        if (!Number.isFinite(n) || n <= 0) return;
+        this.xp = saneInt(this.xp, 0, 0, null) + n;
+        let guard = 0;
+        while (this.xp >= xpNeeded(this.level) && guard++ < 10000) {
             this.xp -= xpNeeded(this.level);
             this.level += 1;
             const bonus = Math.floor(100 * Math.sqrt(this.level) * Math.log(this.level));
-            this.coins += bonus;
+            this.coins = saneInt(this.coins, 0, 0, 1e12) + bonus;
             this.addLog('等级提升!升到 Lv.' + this.level + ',奖励 ' + bonus + ' 金币,商店可能有新种子');
         }
+    },
+
+    /* ---------- 双页签共享段同步:他页写入 / 切回前台时拉取金币仓库 ---------- */
+    pullShared() {
+        const shared = readShared();
+        this.coins = shared.coins;
+        this.$set(this.inventory, 'items', shared.items);
+        this.$set(this.inventory, 'locks', shared.locks);
+        if (this.theme !== shared.theme) {
+            this.theme = shared.theme;
+            this.applyTheme();
+        }
+    },
+    onSharedStorage(e) {
+        if (e && e.key === SHARED_KEY) this.pullShared();
+    },
+    onSharedVisibility() {
+        if (document.visibilityState === 'visible') this.pullShared();
+    },
+    bindSharedSync() {
+        window.addEventListener('storage', this.onSharedStorage);
+        document.addEventListener('visibilitychange', this.onSharedVisibility);
+    },
+    unbindSharedSync() {
+        window.removeEventListener('storage', this.onSharedStorage);
+        document.removeEventListener('visibilitychange', this.onSharedVisibility);
     },
 };
 

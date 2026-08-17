@@ -172,7 +172,13 @@ const farmMethods = {
 
     /* ---------- 种植/浇水/收获 ---------- */
     doPlant(i, key) {
+        if (!CROPS[key]) return;
         const p = this.plots[i];
+        if (p && !this.isDryPlot(p)) {
+            this.addLog('这块地已有作物');
+            this.hideContextMenu();
+            return;
+        }
         if (this.isDryPlot(p)) {
             this.addLog('这块地干枯了,请先浇水再种植');
             this.hideContextMenu();
@@ -284,10 +290,11 @@ const farmMethods = {
     },
     doClear(i) {
         const p = this.plots[i];
-        if (!p) return;
+        if (!p || this.isDryPlot(p)) return;
+        const name = (p.type && CROPS[p.type]) ? CROPS[p.type].name : '作物';
         this.$set(this.plots, i, null);
         this.hideContextMenu();
-        this.addLog('铲除了第 ' + (i + 1) + ' 块地的' + CROPS[p.type].name);
+        this.addLog('铲除了第 ' + (i + 1) + ' 块地的' + name);
         this.save();
     },
 

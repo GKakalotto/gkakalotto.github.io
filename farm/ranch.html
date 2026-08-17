@@ -364,7 +364,7 @@
                         <button @click="qtyChange(invQtyGroup(invDetail.kind), invDetail.key, 1)">+</button>
                     </div>
                     <div class="total">总收入：<span class="total-num">{{ invSellPrice(invDetail.kind, invDetail.key) * qtyFor(invQtyGroup(invDetail.kind), invDetail.key) }}</span> 金币</div>
-                    <button @click="invDetail.kind === 'seed' ? sellSeed(invDetail.key) : (invDetail.kind === 'fry' ? recycleFry(invDetail.key) : recycleYoung(invDetail.key))" :disabled="invSellDisabled(invQtyGroup(invDetail.kind), invDetail.key, invQty(invDetail.kind, invDetail.key), false)">回收</button>
+                    <button @click="invDetail.kind === 'fry' ? recycleFry(invDetail.key) : recycleYoung(invDetail.key)" :disabled="invSellDisabled(invQtyGroup(invDetail.kind), invDetail.key, invQty(invDetail.kind, invDetail.key), false)">回收</button>
                 </template>
                 <template v-else>
                     <div class="dialog-head">

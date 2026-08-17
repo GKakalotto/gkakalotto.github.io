@@ -8,9 +8,9 @@ const pondMethods = {
     /* ---------- 鱼塘:生长/投放/收获 ---------- */
     pondProgress(i) {
         const p = this.pond[i];
-        if (!p) return 0;
+        if (!p || !FISH[p.type]) return 0;
         const total = FISH[p.type].grow * 1000;
-        const grown = p.accrued + Math.max(0, this.now - p.resumedAt);
+        const grown = Math.max(0, this.now - p.resumedAt);
         return Math.min(1, grown / total);
     },
     pondPercent(i) { return Math.floor(this.pondProgress(i) * 100); },
@@ -122,6 +122,12 @@ const pondMethods = {
         this.save();
     },
     stockFry(i, key) {
+        if (!FISH[key]) return;
+        if (this.pond[i]) {
+            this.addLog('该鱼塘已有鱼');
+            this.hideContextMenu();
+            return;
+        }
         const fries = this.fish.fries[key];
         if (!fries || fries <= 0) {
             this.addLog('没有 ' + FISH[key].name + ' 鱼苗');
@@ -133,7 +139,6 @@ const pondMethods = {
         if (this.fish.fries[key] <= 0) this.$delete(this.fish.fries, key);
         this.$set(this.pond, i, {
             type: key,
-            accrued: 0,
             resumedAt: Date.now(),
             announced: false,
         });
@@ -143,7 +148,7 @@ const pondMethods = {
     },
     harvestFish(i) {
         const p = this.pond[i];
-        if (!p) return;
+        if (!p || !FISH[p.type]) return;
         const f = FISH[p.type];
         if (this.pondProgress(i) < 1) {
             this.addLog(f.name + ' 还没长大');
@@ -192,9 +197,10 @@ const pondMethods = {
     doClearPond(i) {
         const p = this.pond[i];
         if (!p) return;
+        const name = (p.type && FISH[p.type]) ? FISH[p.type].name : '鱼';
         this.$set(this.pond, i, null);
         this.hideContextMenu();
-        this.addLog('移除了第 ' + (i + 1) + ' 个鱼塘的' + FISH[p.type].name);
+        this.addLog('移除了第 ' + (i + 1) + ' 个鱼塘的' + name);
         this.save();
     },
 

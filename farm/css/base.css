@@ -222,8 +222,7 @@ body {
 }
 
 /* 升级土地模式下禁用的顶部按钮(含牧场链接):置灰且不可点击 */
-.top-btn:disabled,
-.top-btn.disabled {
+.top-btn:disabled {
     opacity: .5;
     cursor: not-allowed;
     pointer-events: none;

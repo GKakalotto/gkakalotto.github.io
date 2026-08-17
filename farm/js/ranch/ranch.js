@@ -4,7 +4,6 @@
    牧槽不空时动物每 FEED_EVERY 个产出周期自动消耗 1 牧草,缺草则生长/产出暂停。 */
 const ranchComputed = {
     animalTypes() { return ANIMALS; },
-    youngKeys() { return Object.keys(this.inventory.young); },
     feedCount() { return this.inventory.items['siliao'] || 0; }, // 仓库中的牧草库存
     feedTroughCount() { return this.feedTrough; },              // 牧槽内的牧草
     feedTroughCap() { return FEED_TROUGH_CAP; },
@@ -20,7 +19,7 @@ const ranchMethods = {
     /* ---------- 栏位:生长 / 产出 ---------- */
     ranchGrowth(i) {
         const a = this.animals[i];
-        if (!a) return 0;
+        if (!a || !ANIMALS[a.type]) return 0;
         const total = ANIMALS[a.type].grow * 1000;
         const grown = a.accrued + (a.hungry ? 0 : Math.max(0, this.now - a.resumedAt));
         return Math.min(1, grown / total);
@@ -59,7 +58,7 @@ const ranchMethods = {
         const a = this.animals[i];
         if (!a || this.ranchGrowth(i) < 1 || a.hungry || this.ranchDone(i)) return 0;
         const interval = ANIMALS[a.type].produceEvery * 1000;
-        return Math.max(0, Math.ceil((a.lastProduce + interval - Date.now()) / 1000));
+        return Math.max(0, Math.ceil((a.lastProduce + interval - this.now) / 1000));
     },
 
     /* ---------- 栏位渲染 / 点击 ---------- */
@@ -152,6 +151,12 @@ const ranchMethods = {
 
     /* ---------- 投放 / 喂食 / 收取 ---------- */
     stockAnimal(i, key) {
+        if (!ANIMALS[key]) return;
+        if (this.animals[i]) {
+            this.addLog('该栏位已有动物');
+            this.hideContextMenu();
+            return;
+        }
         const young = this.inventory.young[key];
         if (!young || young <= 0) {
             this.addLog('没有 ' + ANIMALS[key].name + ' 幼崽,请先到商店购买');
@@ -179,8 +184,9 @@ const ranchMethods = {
     },
     collectProduct(i) {
         const a = this.animals[i];
-        const qty = a.pendingQty || 0;
-        if (qty <= 0) return;
+        if (!a || !ANIMALS[a.type]) return;
+        const qty = saneInt(a.pendingQty, 0, 0, null);
+        if (qty <= 0) { a.pendingQty = 0; return; }
         const p = ANIMALS[a.type].product;
         this.$set(this.inventory.items, p, (this.inventory.items[p] || 0) + qty);
         a.pendingQty = 0;
@@ -208,7 +214,7 @@ const ranchMethods = {
         this.save();
     },
 
-    /* ---------- 每秒检查:由 common.js 的 tick 统一调用 ---------- */
+    /* ---------- 每秒检查:由 ranch/app.js 的 tick 统一调用 ---------- */
     checkAnimals() {
         const now = Date.now();
         let hit = false;

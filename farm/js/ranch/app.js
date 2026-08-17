@@ -31,6 +31,7 @@ const ranchApp = new Vue({
         document.addEventListener('keydown', this.onKeydown);
         document.addEventListener('contextmenu', this.onContextMenu);
         window.addEventListener('resize', this.checkMobile);
+        this.bindSharedSync();
         this.load();
         this.applyTheme();
         this.timer = setInterval(this.tick, 1000);
@@ -41,6 +42,7 @@ const ranchApp = new Vue({
         document.removeEventListener('keydown', this.onKeydown);
         document.removeEventListener('contextmenu', this.onContextMenu);
         window.removeEventListener('resize', this.checkMobile);
+        this.unbindSharedSync();
     },
     methods: Object.assign({}, uiMethods, pondMethods, ranchMethods, {
         /* ---------- 存档:牧场进度各自存,金币/仓库/锁定/主题写入共享段 ---------- */
@@ -93,18 +95,19 @@ const ranchApp = new Vue({
                 return;
             }
             this.coins = shared.coins;
-            this.level = s.level;
-            this.xp = s.xp;
+            this.level = saneInt(s.level, 1, 1, 9999);
+            this.xp = saneInt(s.xp, 0, 0, null);
             this.theme = shared.theme;
             this.pond = s.pond;
             this.unlockedPonds = s.unlockedPonds;
             this.animals = s.animals;
             this.unlockedRanches = s.unlockedRanches;
-            this.feedTrough = s.feedTrough || 0;
+            this.feedTrough = saneInt(s.feedTrough, 0, 0, FEED_TROUGH_CAP);
             this.fish = s.fish;
-            this.inventory = { young: (s.inventory && s.inventory.young) || {}, items: items, locks: locks };
+            if (this.fish && this.fish.fries) this.fish.fries = sanitizeCountMap(this.fish.fries);
+            this.inventory = { young: sanitizeCountMap(s.inventory && s.inventory.young), items: items, locks: locks };
             this.log = Array.isArray(s.log) ? s.log : makeDefaultRanch().log;
-            this.catchUpAnimals(typeof s.savedAt === 'number' ? s.savedAt : null); // 离线补算:等 animals/feedTrough 就位后再跑
+            this.catchUpAnimals(typeof s.savedAt === 'number' && Number.isFinite(s.savedAt) ? s.savedAt : null);
         },
         resetGame() {
             this.settingsOpen = false;
@@ -127,6 +130,7 @@ const ranchApp = new Vue({
                 this.applyTheme();
                 this.closeModal();
                 this.save();
+                location.reload();
             });
         },
         tick() {

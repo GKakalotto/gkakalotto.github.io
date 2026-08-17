@@ -29,6 +29,7 @@ const farmApp = new Vue({
         document.addEventListener('keydown', this.onKeydown);
         document.addEventListener('contextmenu', this.onContextMenu);
         window.addEventListener('resize', this.checkMobile);
+        this.bindSharedSync();
         this.load();
         this.applyTheme();
         this.timer = setInterval(this.tick, 1000);
@@ -39,6 +40,7 @@ const farmApp = new Vue({
         document.removeEventListener('keydown', this.onKeydown);
         document.removeEventListener('contextmenu', this.onContextMenu);
         window.removeEventListener('resize', this.checkMobile);
+        this.unbindSharedSync();
     },
     methods: Object.assign({}, uiMethods, farmMethods, {
         /* ---------- 存档:农场进度各自存,金币/仓库/锁定/主题写入共享段 ---------- */
@@ -83,13 +85,13 @@ const farmApp = new Vue({
                 return;
             }
             this.coins = shared.coins;
-            this.level = s.level;
-            this.xp = s.xp;
+            this.level = saneInt(s.level, 1, 1, 9999);
+            this.xp = saneInt(s.xp, 0, 0, null);
             this.theme = shared.theme;
             this.plots = s.plots;
             this.unlockedPlots = s.unlockedPlots;
             this.plotGrade = s.plotGrade;
-            this.inventory = { seeds: (s.inventory && s.inventory.seeds) || {}, items: items, locks: locks };
+            this.inventory = { seeds: sanitizeCountMap(s.inventory && s.inventory.seeds), items: items, locks: locks };
             this.log = Array.isArray(s.log) ? s.log : makeDefaultFarm().log;
         },
         resetGame() {
