@@ -268,14 +268,19 @@ const ranchMethods = {
 
     /* ---------- 养殖商店(幼崽 + 牧草) ---------- */
     animalName(key) { return ANIMALS[key].name; },
-    ranchPawStyle(n) {
-        return { animationDelay: '-' + (n - 1) + 's' };
-    },
-    randomizePaw(e) {
-        const top = (10 + Math.random() * 70).toFixed(1);
-        const left = (10 + Math.random() * 70).toFixed(1);
-        e.target.style.top = top + '%';
-        e.target.style.left = left + '%';
+    /* 牧栏爱心:每格 6 颗,位置/大小/速度错落(基于 n、i 的确定性伪随机,避免重渲染抖动) */
+    ranchHeartStyle(n, i) {
+        const seed = n * 13 + i * 29;
+        const left = 14 + (seed % 68);            // 14% ~ 81%(分布更开,不扎堆)
+        const size = 12 + (seed % 6);             // 12 ~ 17 px(略小)
+        const dur = 2.8 + (n % 3) * 0.7;          // 2.8 ~ 4.2 s(稍快)
+        const delay = -((n * 1.1 + (i % 3) * 0.6) % dur);
+        return {
+            left: left + '%',
+            fontSize: size + 'px',
+            animationDuration: dur + 's',
+            animationDelay: delay + 's',
+        };
     },
     animalLocked(key) { return this.level < ANIMALS[key].level; },
     animalLevelReq(key) { return ANIMALS[key].level; },
