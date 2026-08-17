@@ -71,7 +71,7 @@ function readShared() {
             };
         }
     } catch (e) { /* 忽略损坏的存档 */ }
-    return { coins: 100, items: {}, locks: {}, theme: 'dark' };
+    return { coins: 1000, items: {}, locks: {}, theme: 'dark' };
 }
 function writeShared(coins, items, locks, theme) {
     try {

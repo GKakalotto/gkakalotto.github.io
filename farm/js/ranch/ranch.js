@@ -176,7 +176,7 @@ const ranchMethods = {
             lastProduce: now,
             announced: false,
             produceCount: 0, // 累计产出次数(自动累积,即进度)
-            pendingQty: 0,   // 待收产物实际数量(每周期 50~80 随机累加)
+            pendingQty: 0,   // 待收产物实际数量(每周期 10±3 随机累加)
         });
         this.addLog('投放了 ' + ANIMALS[key].name + ' 幼崽');
         this.hideContextMenu();
@@ -248,9 +248,9 @@ const ranchMethods = {
                     const added = Math.min(due, ANIMAL_MAX_PRODUCE - before); // 不超过产满上限
                     a.lastProduce += due * interval;
                     a.produceCount = before + added;
-                    // 每完成 1 个产出周期,按实际随机量(50~80)累加进待收数量
+                    // 每完成 1 个产出周期,按 10±3 累加进待收数量
                     if (a.pendingQty === undefined) this.$set(a, 'pendingQty', 0);
-                    for (let k = 0; k < added; k++) a.pendingQty = (a.pendingQty || 0) + 50 + Math.floor(Math.random() * 31);
+                    for (let k = 0; k < added; k++) a.pendingQty = (a.pendingQty || 0) + rollAnimalProduceQty();
                     hit = true;
                 }
             }
@@ -384,7 +384,7 @@ const ranchMethods = {
         a.lastProduce += due * interval;
         a.produceCount = before + added;
         if (a.pendingQty === undefined) this.$set(a, 'pendingQty', 0);
-        for (let k = 0; k < added; k++) a.pendingQty = (a.pendingQty || 0) + 50 + Math.floor(Math.random() * 31);
+        for (let k = 0; k < added; k++) a.pendingQty = (a.pendingQty || 0) + rollAnimalProduceQty();
         return added;
     },
 
