@@ -206,8 +206,8 @@ const farmMethods = {
         this.addLog('第 ' + (i + 1) + ' 块地浇过水了,可以种植');
         this.save();
     },
-    /* 收获单个地块的公共效果:入仓、加经验、第二季/干枯/释放、种子掉落。
-       返回本次收获信息供 harvest/harvestAll 打日志或计数 */
+    /* 收获单个地块的公共效果:入仓、第二季/干枯/释放、种子掉落。
+       经验不在此处累加(否则日志顺序/重复难控),改为返回 gain 由调用方在打印收获日志后再 addXp */
     doHarvestPlot(p, i) {
         const type = p.type;
         const c = CROPS[type];
@@ -229,7 +229,6 @@ const farmMethods = {
         } else {
             this.$set(this.plots, i, null);
         }
-        this.addXp(gain);
         let seed = false;
         if (Math.random() < SEED_DROP_CHANCE) {
             this.$set(this.inventory.seeds, type, (this.inventory.seeds[type] || 0) + 1);
@@ -255,6 +254,7 @@ const farmMethods = {
         } else {
             this.addLog('收获 ' + r.prodName + ' x' + r.qty + ',已放入仓库 +' + r.gain + ' 经验');
         }
+        this.addXp(r.gain); // 先打印收获日志,再加经验(升级日志自然排在收获之后)
         if (r.seed) this.addLog('掉落种子!获得 ' + c.name + ' 种子 x1');
         this.save();
     },
@@ -275,6 +275,7 @@ const farmMethods = {
                 + (regrow > 0 ? ',' + regrow + ' 株进入第2季生长' : '')
                 + (seeds > 0 ? ',掉落 ' + seeds + ' 颗种子' : '')
                 + (dry > 0 ? ',有 ' + dry + ' 块地干枯需浇水' : ''));
+            // 先打印收获汇总日志,再统一加经验(升级日志排在收获之后);经验不重复加
             this.addXp(xp);
         } else {
             this.addLog('没有可收获的作物');

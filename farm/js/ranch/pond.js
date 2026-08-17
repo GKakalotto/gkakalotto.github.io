@@ -42,12 +42,12 @@ const pondMethods = {
         if (p === null) return '点击投放';
         return this.pondProgress(i) >= 1 ? '点击收获' : '';
     },
-    /* 鱼塘气泡:每格 6 颗,位置/大小/速度错落(基于 n、i 的确定性伪随机,避免重渲染抖动) */
+    /* 鱼塘气泡:6 颗按序号横向均分(~8%~87%)+抖动,避免 PC 宽格扎堆左侧 */
     pondBubbleStyle(n, i) {
         const seed = n * 7 + i * 13;
-        const left = 8 + (seed % 80);           // 8% ~ 87%
+        const left = 8 + (n - 1) * 14 + (seed % 9);
         const size = 6 + (seed % 11);           // 6 ~ 16 px
-        const dur = 2 + (n % 4) * 0.4;          // 2 ~ 3.4 s(更快、更活泼)
+        const dur = 2 + (n % 4) * 0.4;          // 2 ~ 3.4 s
         const delay = -((n * 0.5 + (i % 3) * 0.3) % dur);
         return {
             left: left + '%',

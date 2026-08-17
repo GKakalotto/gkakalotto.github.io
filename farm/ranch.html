@@ -65,7 +65,7 @@
                         </template>
                         <template v-else>
                             <div>[{{ fishName(p.type) }}]</div>
-                            <div v-if="pondProgress(i) >= 1" class="state">已成熟</div>
+                            <div v-if="pondProgress(i) >= 1" class="state">⭐ 可收获</div>
                             <div v-else class="state">{{ pondStageText(i) }} {{ pondPercent(i) }}%</div>
                         </template>
                     </div>
@@ -96,14 +96,14 @@
                             <div>[栏位{{ i + 1 }}]</div>
                         </template>
                         <template v-else>
-                            <div v-if="!a.hungry" class="ranch-hearts">
+                            <div v-if="!a.hungry && !ranchReady(i)" class="ranch-hearts">
                                 <span class="heart" v-for="n in 6" :key="n" :style="ranchHeartStyle(n, i)">♥</span>
                             </div>
                             <div class="ranch-name">[{{ animalName(a.type) }}]</div>
                             <div v-if="ranchGrowth(i) >= 1" class="state">
-                                <template v-if="ranchDone(i) && ranchPending(i) === 0"><span class="r-pending">已产满</span><span class="r-sep"> · </span><span class="r-total">点击收获</span></template>
+                                <template v-if="ranchReady(i)"><span class="r-pending">⭐ 可收获</span></template>
                                 <template v-else>
-                                    <span class="r-pending">待收 {{ ranchPending(i) }}</span><span class="r-sep"> · </span><span class="r-total">累计 {{ a.produceCount || 0 }}/{{ ranchMaxProduce }}</span>
+                                    <span class="r-pending">{{ ranchPending(i) > 0 ? '⭐ · ' + ranchPending(i) : '待收 0' }}</span><span class="r-sep"> · </span><span class="r-total">累计 {{ a.produceCount || 0 }}/{{ ranchMaxProduce }}</span>
                                 </template>
                             </div>
                             <div v-else class="state">{{ ranchStageText(i) }} {{ ranchPercent(i) }}%</div>
@@ -206,7 +206,6 @@
                                  @click="openInvDetail('backpack', it.kind, it.key)">
                                 <b>{{ invName(it.kind, it.key) }}</b>
                                 <div class="inv-foot">
-                                    <span class="inv-price">💰 {{ invSellPrice(it.kind, it.key) }}</span>
                                     <span class="inv-qty">x{{ invQty(it.kind, it.key) }}</span>
                                 </div>
                             </div>

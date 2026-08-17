@@ -57,6 +57,7 @@ const ranchApp = new Vue({
                     inventory: { young: this.inventory.young }, // items(仓库)与 locks(锁定)在共享段
                     fish: this.fish,
                     log: this.log,
+                    savedAt: Date.now(),
                 };
                 localStorage.setItem(RANCH_SAVE_KEY, JSON.stringify(state));
                 writeShared(this.coins, this.inventory.items, this.inventory.locks, this.theme); // 金币 + 仓库 + 锁定 + 主题共享
@@ -103,6 +104,7 @@ const ranchApp = new Vue({
             this.fish = s.fish;
             this.inventory = { young: (s.inventory && s.inventory.young) || {}, items: items, locks: locks };
             this.log = Array.isArray(s.log) ? s.log : makeDefaultRanch().log;
+            this.catchUpAnimals(typeof s.savedAt === 'number' ? s.savedAt : null); // 离线补算:等 animals/feedTrough 就位后再跑
         },
         resetGame() {
             this.settingsOpen = false;

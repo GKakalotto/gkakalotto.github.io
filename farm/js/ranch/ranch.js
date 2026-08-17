@@ -12,7 +12,7 @@ const ranchComputed = {
     feedCost() { return FEED_COST; },
     ranchHasAnimal() { return !!this.animals[this.menuPlot]; }, // !! 使 undefined(menuPlot=-1) 与 null 都判为空
     menuRanchHarvestEnabled() { const a = this.animals[this.menuPlot]; return !!a && this.ranchPending(this.menuPlot) > 0; },
-    menuRanchDoneEnabled() { return this.ranchDone(this.menuPlot); },
+    menuRanchDoneEnabled() { return this.ranchReady(this.menuPlot); },
     ranchMaxProduce() { return ANIMAL_MAX_PRODUCE; },
 };
 
@@ -39,16 +39,20 @@ const ranchMethods = {
         if (pr < 0.7) return '成长中';
         return '快成熟';
     },
-    /* 待收取产物数 = 累计产出(自动累积) - 已入仓次数;饥饿或未成熟时不产出 */
+    /* 待收产物数量(已产出未入仓);未成熟为 0。饥饿只停新产出,已有待收仍可收取/显示 */
     ranchPending(i) {
         const a = this.animals[i];
-        if (!a || a.hungry || this.ranchGrowth(i) < 1) return 0;
+        if (!a || this.ranchGrowth(i) < 1) return 0;
         return a.pendingQty || 0;
     },
     /* 动物是否已产满(累计产出达到 ANIMAL_MAX_PRODUCE 次,进度自动累积,与是否收获无关) */
     ranchDone(i) {
         const a = this.animals[i];
         return !!a && (a.produceCount || 0) >= ANIMAL_MAX_PRODUCE;
+    },
+    /* 产满且产物已收完:可收获动物本体(此时停爱心动画) */
+    ranchReady(i) {
+        return this.ranchDone(i) && this.ranchPending(i) === 0;
     },
     /* 距下次产出的剩余秒数(成熟产出中且未产满/未饥饿) */
     ranchNextProduceSec(i) {
@@ -74,9 +78,9 @@ const ranchMethods = {
         }
         const a = this.animals[i];
         if (a === null) return '点击投放幼崽';
-        if (a.hungry) return '饥饿中,牧槽缺牧草';
         if (this.ranchPending(i) > 0) return '点击收取产物';
-        if (this.ranchDone(i)) return '已产满,点击收获动物';
+        if (a.hungry) return '饥饿中,牧槽缺牧草';
+        if (this.ranchReady(i)) return '已产满,点击收获动物';
         return '点击查看';
     },
     onRanchClick(i, e) {
@@ -97,7 +101,7 @@ const ranchMethods = {
             this.collectProduct(i);
             return;
         }
-        if (this.ranchDone(i)) {
+        if (this.ranchReady(i)) {
             // 已产满且产物已收完:直接收获动物本体进仓库
             this.collectAnimal(i);
             return;
@@ -187,8 +191,7 @@ const ranchMethods = {
     /* 产满后收获动物本体进仓库(成体物品),栏位清空 */
     collectAnimal(i) {
         const a = this.animals[i];
-        if (!this.ranchDone(i)) return;
-        if (this.ranchPending(i) > 0) { this.collectProduct(i); return; } // 有待收产物先收取,避免丢失
+        if (!this.ranchReady(i)) return; // 未产满或仍有待收产物则不收本体
         this.$set(this.inventory.items, a.type, (this.inventory.items[a.type] || 0) + 1);
         this.$set(this.animals, i, null);
         this.hideContextMenu();
@@ -264,6 +267,119 @@ const ranchMethods = {
             }
         });
         if (hit) this.save();
+    },
+
+    /* ---------- 离线补算:页面关闭期间按时间戳补算生长/喂食/产出,与每秒 tick 完全一致 ---------- */
+    /* 思路:以存档时刻 savedAt 为起点、当前 now 为终点,沿"事件时刻"推进(成熟/产出/饥饿各为事件),
+       事件间调用 settle 累积生长与产出,遇到饥饿时刻则像 tick 一样扣 1 牧草续约或冻结。
+       事件总数受牧槽容量与 ANIMAL_MAX_PRODUCE 限制,不会随离线时长爆炸。 */
+    catchUpAnimals(savedAt) {
+        if (!savedAt) return; // 旧存档无时间戳则不补算
+        const now = Date.now();
+        const elapsed = now - savedAt;
+        if (elapsed < 2000) return; // 离线不足 2 秒无需补偿
+        const feedBefore = this.feedTrough;
+        let progressed = false;
+        this.animals.forEach((a, i) => {
+            if (!a) return;
+            if (this.catchUpAnimal(a, i, savedAt, now)) progressed = true;
+        });
+        if (progressed) {
+            if (elapsed >= 60000) {
+                let msg = '离线 ' + fmtDur(Math.floor(elapsed / 1000)) + ',牧栏已自动补算生长/产出';
+                const consumed = feedBefore - this.feedTrough; // 补算只扣不增,离线期间被动物吃掉的牧草数
+                if (consumed > 0) msg += ',消耗牧草 ' + consumed + ' 个';
+                this.addLog(msg);
+            }
+            this.save();
+        }
+    },
+    catchUpAnimal(a, i, start, end) {
+        const interval = ANIMALS[a.type].produceEvery * 1000;
+        const L = interval * FEED_EVERY;
+        const growthTotal = ANIMALS[a.type].grow * 1000;
+        let progressed = false;
+        // 起点已成熟却未宣告:直接宣告,产出计时从起点开始
+        if (!a.announced) {
+            const grown0 = a.accrued + (a.hungry ? 0 : Math.max(0, start - a.resumedAt));
+            if (grown0 >= growthTotal) { a.announced = true; a.lastProduce = start; progressed = true; }
+        }
+        // 起点饥饿且牧槽有草:自动恢复(与 tick 一致,消耗 1 牧草)
+        if (a.hungry && this.feedTrough > 0) {
+            this.feedTrough--;
+            a.hungry = false;
+            a.resumedAt = start;
+            a.lastProduce = start;
+            a.hungerAt = start + L;
+            progressed = true;
+        }
+        let t = start;
+        let guard = 0;
+        while (t < end && guard++ < 100000) {
+            let next = end;
+            if (!a.hungry) {
+                if (!a.announced) {
+                    const grownT = a.accrued + (t - a.resumedAt);
+                    if (grownT < growthTotal) {
+                        const matureAt = a.resumedAt + (growthTotal - a.accrued);
+                        if (matureAt > t && matureAt < next) next = matureAt;
+                    } else {
+                        next = t + 1; // 已成熟待宣告
+                    }
+                } else {
+                    const np = a.lastProduce + interval;
+                    if (np > t && np < next) next = np;
+                }
+                if (a.hungerAt && a.hungerAt > t && a.hungerAt < next) next = a.hungerAt;
+            }
+            if (next <= t) next = Math.min(end, t + interval);
+            // 推进生长/产出到 next
+            if (!a.hungry) {
+                if (!a.announced) {
+                    const grown = a.accrued + (next - a.resumedAt);
+                    if (grown >= growthTotal) { a.announced = true; a.lastProduce = next; progressed = true; }
+                }
+                const produceEnd = (a.hungerAt && a.hungerAt < next) ? a.hungerAt : next;
+                if (this.accrueProduce(a, interval, produceEnd) > 0) progressed = true;
+            }
+            // 饥饿(喂食)到期:有草续约消耗,无草冻结
+            if (!a.hungry && a.hungerAt && next >= a.hungerAt) {
+                if (this.feedTrough > 0) {
+                    this.feedTrough--;
+                    a.hungerAt = next + L;
+                } else {
+                    a.accrued += Math.max(0, next - a.resumedAt);
+                    a.resumedAt = next;
+                    a.lastProduce = next;
+                    a.hungry = true;
+                    a.hungerAt = null;
+                }
+                progressed = true;
+            }
+            t = next;
+        }
+        // 收尾:结算到 end 的尾段(生长/产出),若已饥饿则保持冻结
+        if (!a.hungry) {
+            if (!a.announced) {
+                const grown = a.accrued + (end - a.resumedAt);
+                if (grown >= growthTotal) { a.announced = true; a.lastProduce = end; progressed = true; }
+            }
+            if (this.accrueProduce(a, interval, end) > 0) progressed = true;
+        }
+        return progressed;
+    },
+    /* 累计产出到绝对时刻 to(成熟且未产满时生效),返回本次新增产出次数(0 表示无) */
+    accrueProduce(a, interval, to) {
+        if (!a.announced || (a.produceCount || 0) >= ANIMAL_MAX_PRODUCE) return 0;
+        const due = Math.floor((to - a.lastProduce) / interval);
+        if (due <= 0) return 0;
+        const before = a.produceCount || 0;
+        const added = Math.min(due, ANIMAL_MAX_PRODUCE - before);
+        a.lastProduce += due * interval;
+        a.produceCount = before + added;
+        if (a.pendingQty === undefined) this.$set(a, 'pendingQty', 0);
+        for (let k = 0; k < added; k++) a.pendingQty = (a.pendingQty || 0) + 50 + Math.floor(Math.random() * 31);
+        return added;
     },
 
     /* ---------- 养殖商店(幼崽 + 牧草) ---------- */

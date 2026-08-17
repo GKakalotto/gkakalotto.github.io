@@ -36,6 +36,8 @@
     --plot-mature: #423a24;
     --plot-mature-border: #e6a94e;
     --ranch-heart: #ff8fab;        /* 牧栏上浮爱心(淡粉) */
+    --ranch-hungry: #5a2329;              /* 牧栏动物饥饿:暗红底 */
+    --ranch-hungry-border: #e35d6a;       /* 牧栏动物饥饿:红色描边 */
     /* 土地分级配色:边框 + 角标(黄/红/黑/金),低饱和,明暗两套 */
     --g0: #b5824a;   /* 黄土地:浅棕 */
     --g1: #cf5b52;   /* 红土地 */
@@ -97,6 +99,8 @@ body[data-theme="light"] {
     --plot-mature: #ffe0b2;
     --plot-mature-border: #ef8a1e;
     --ranch-heart: #ff8fab;        /* 牧栏上浮爱心(淡粉) */
+    --ranch-hungry: #ffd2d6;              /* 牧栏动物饥饿:浅红底 */
+    --ranch-hungry-border: #e53935;       /* 牧栏动物饥饿:红色描边 */
     /* 土地分级配色(明亮模式) */
     --g0: #9c6326;   /* 黄土地:浅棕(亮底需更深才清晰) */
     --g1: #c8473f;
@@ -579,13 +583,10 @@ button:disabled {
     line-height: 1.2;
 }
 
-.inv-foot .inv-price {
-    color: var(--text-dim);
-}
-
 .inv-foot .inv-qty {
     color: var(--accent-bright);
     font-weight: bold;
+    margin-left: auto; /* 仅数量时仍落在右下角;与锁同处时锁在左、数量在右 */
 }
 
 .card button {
@@ -1039,12 +1040,16 @@ button.danger:hover {
     position: relative;
     z-index: 1;
 }
-/* 牧栏:空格/生长/成熟/饥饿统一空栏底色(与空牧栏一致),动物状态由文字/爱心区分 */
+/* 牧栏:空格/生长/成熟统一空栏底色(与空牧栏一致),动物状态由文字/爱心区分 */
 .ranch .plot.growing,
-.ranch .plot.mature,
-.ranch .plot.dry {
+.ranch .plot.mature {
     background: var(--plot-empty);
     border-color: var(--plot-empty-border);
+}
+/* 牧栏:动物饥饿(复用 .dry 类)背景改红色,醒目提示缺牧草 */
+.ranch .plot.dry {
+    background: var(--ranch-hungry);
+    border-color: var(--ranch-hungry-border);
 }
 
 /* 牧槽:牧场栏位上方扁长条,显示牧草存量/容量 */
