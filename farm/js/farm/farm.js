@@ -221,9 +221,12 @@ const farmMethods = {
         const qty = this.plotYieldMult(i);
         this.$set(this.inventory.items, prod, (this.inventory.items[prod] || 0) + qty);
         // 经验:先乘土地倍率(金土地 +20%),3 级起最后 +10;1-2 级为基础 5 倍
-        const gain = c.level < 3
-            ? Math.round(c.xp * 5 * this.plotXpMult(i))
-            : Math.round(c.xp * this.plotXpMult(i)) + 10;
+        // flatXp(隐藏种子)只取自身 xp,不走上述额外加成
+        const gain = c.flatXp
+            ? c.xp
+            : (c.level < 3
+                ? Math.round(c.xp * 5 * this.plotXpMult(i))
+                : Math.round(c.xp * this.plotXpMult(i)) + 10);
         const regrow = !!c.regrow && !p.harvested; // 第一季收获,进入第二季生长(不干枯)
         let dry = false;
         if (regrow) {
@@ -240,7 +243,22 @@ const farmMethods = {
             this.$set(this.inventory.seeds, type, (this.inventory.seeds[type] || 0) + 1);
             seed = true;
         }
-        return { prodName: this.itemName(prod), qty: qty, gain: gain, regrow: regrow, dry: dry, seed: seed };
+        // 隐藏种子:每次收获最多掉落 1 种(各 1% 概率,但互斥,不会同时掉两种),仅供掉落获取
+        const bonus = [];
+        for (const k of HIDDEN_SEEDS) {
+            if (Math.random() < HIDDEN_SEED_DROP_CHANCE) {
+                this.$set(this.inventory.seeds, k, (this.inventory.seeds[k] || 0) + 1);
+                bonus.push(k);
+                break; // 命中一种即止,保证每次只掉一种
+            }
+        }
+        return { prodName: this.itemName(prod), qty: qty, gain: gain, regrow: regrow, dry: dry, seed: seed, bonus: bonus };
+    },
+    /* 把掉落种子 key 列表(可能含重复)聚合成 "名称 种子 xN",多种用 、 连接 */
+    bonusSeedText(keys) {
+        const counts = {};
+        keys.forEach((k) => { counts[k] = (counts[k] || 0) + 1; });
+        return Object.keys(counts).map((k) => this.cropName(k) + ' 种子 x' + counts[k]).join('、');
     },
     harvest(i) {
         const p = this.plots[i];
@@ -262,10 +280,12 @@ const farmMethods = {
         }
         this.addXp(r.gain); // 先打印收获日志,再加经验(升级日志自然排在收获之后)
         if (r.seed) this.addLog('掉落种子!获得 ' + c.name + ' 种子 x1');
+        if (r.bonus.length) this.addLog('惊喜掉落:获得 ' + this.bonusSeedText(r.bonus));
         this.save();
     },
     harvestAll() {
         let n = 0, xp = 0, seeds = 0, dry = 0, regrow = 0;
+        const bonus = [];
         this.plots.forEach((p, i) => {
             if (p && this.plotProgress(i) >= 1) {
                 const r = this.doHarvestPlot(p, i);
@@ -274,12 +294,14 @@ const farmMethods = {
                 if (r.regrow) regrow++;
                 if (r.dry) dry++;
                 if (r.seed) seeds++;
+                if (r.bonus.length) bonus.push(...r.bonus);
             }
         });
         if (n > 0) {
             this.addLog('一键收获 ' + n + ' 株,已放入仓库 +' + xp + ' 经验'
                 + (regrow > 0 ? ',' + regrow + ' 株进入第2季生长' : '')
                 + (seeds > 0 ? ',掉落 ' + seeds + ' 颗种子' : '')
+                + (bonus.length ? ',惊喜掉落 ' + this.bonusSeedText(bonus) : '')
                 + (dry > 0 ? ',有 ' + dry + ' 块地干枯需浇水' : ''));
             // 先打印收获汇总日志,再统一加经验(升级日志排在收获之后);经验不重复加
             this.addXp(xp);
@@ -350,6 +372,7 @@ const farmMethods = {
     /* ---------- 商店:作物种子(农场专属) ---------- */
     buySeed(key) {
         const c = CROPS[key];
+        if (c.hidden) return; // 隐藏种子仅供掉落获取,不可在商店购买
         const qty = this.qtyFor('shop', key);
         if (qty <= 0) { this.addLog('请先选择购买数量'); this.save(); return; }
         const total = c.cost * qty;

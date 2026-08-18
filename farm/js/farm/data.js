@@ -104,6 +104,10 @@ const CROPS = {
    baopihua:     { name: '豹皮花', cost: 13440, sell: 33600 , grow: 28800, regrow: 14400, xp: 1386, level: 98, },
    xingzi:       { name: '杏子', cost: 10160, sell: 50400 , grow: 43200, regrow: 21600, xp: 2079, level: 99, },
    jinju:        { name: '金桔', cost: 40320, sell: 100800, grow: 86400, regrow: 43200, xp: 4158, level: 100, },
+   /* 隐藏种子:仅供收获作物时掉落,不在商店出售(hidden:true 由商店列表排除)。
+      摇钱树:收获产物卖 888 金币、无经验;经验包:收获给经验、产物卖 0 金币 */
+   yaoqianshu:   { name: '摇钱树', cost: 0, sell: 888, grow: 60, xp: 0, level: 1, hidden: true, flatXp: true },
+   jingyanbao:   { name: '经验包', cost: 0, sell: 0, grow: 60, xp: 888, level: 1, hidden: true, flatXp: true },
 };
 /* ---------- 地块扩建等级(按地块下标,共 24 块)
    前 6 块(下标 0-5)初始即扩建;第 7 块起 5 级开放,每升 2 级再扩 1 块 ---------- */
@@ -150,6 +154,8 @@ const TOTAL_PLOTS = COLS * ROWS; // 24 块地
 const INITIAL_UNLOCKED = 6;      // 初始已扩建 6 块
 const PLOT_DRY_CHANCE = 0.1;   // 收获后地块干枯的概率(约 10%)
 const SEED_DROP_CHANCE = 0.08;   // 作物收获时额外掉落 1 颗对应种子的概率
+const HIDDEN_SEED_DROP_CHANCE = 0.01; // 隐藏种子(摇钱树/经验包)每次收获最多掉 1 种,各 1% 概率(互斥)
+const HIDDEN_SEEDS = ['yaoqianshu', 'jingyanbao']; // 仅供掉落获取,不在商店出售
 
 /* ---------- 农场存档键 + 默认状态 ---------- */
 const FARM_SAVE_KEY = 'qqfarm_farm_v1';

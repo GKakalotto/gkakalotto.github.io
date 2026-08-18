@@ -133,7 +133,7 @@
                     <!-- 商店:作物种子 -->
                     <div v-if="modalMode === 'shop'">
                         <div class="cards">
-                            <div v-for="(c, key) in crops" :key="key" class="card shop-card" @click="openShopDetail('crops', key)">
+                            <div v-for="(c, key) in crops" v-if="!c.hidden" :key="key" class="card shop-card" @click="openShopDetail('crops', key)">
                                 <span v-if="c.regrow" class="regrow-badge">⭐</span>
                                 <b>{{ c.name }}</b>
                                 <div class="stat">💰{{ c.cost }}</div>
