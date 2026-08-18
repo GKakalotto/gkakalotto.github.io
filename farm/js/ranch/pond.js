@@ -87,7 +87,7 @@ const pondMethods = {
         this.menuY = e.clientY;
         this.menuView = 'main';
         this.menuDirect = false;
-        this.menuVisible = true;
+        this.showContextMenu();
     },
 
     /* ---------- 鱼塘单格扩建(默认开放前 N 格,其余格花金币扩张) ---------- */

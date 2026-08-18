@@ -72,16 +72,10 @@
                 </div>
             </div>
 
-            <!-- 养殖:牧槽 + 栏位(初始开放 4 格,Lv.5 起每升 2 级花金币再开 1 格,4 行 × 5 列共 20 格) -->
+            <!-- 养殖:栏位(初始开放 4 格,Lv.5 起每升 2 级花金币再开 1 格,4 行 × 5 列共 20 格) -->
             <div class="ranch-wrap">
-                <div class="ranch-bar">
-                <div class="feed-trough" @click="openFeedAdd()" title="点击添加牧草">
-                    <span class="trough-label">牧槽</span>
-                    <span class="trough-num">{{ feedTroughCount }} / {{ feedTroughCap }}</span>
-                </div>
                 <div class="toolbar">
                     <button @click="harvestFishAll()">一键捕捞</button>
-                </div>
                 </div>
                 <div class="ranch">
                     <div v-for="(a, i) in animals" :key="i" class="plot" :class="ranchClass(i)"
@@ -96,25 +90,25 @@
                             <div>[栏位{{ i + 1 }}]</div>
                         </template>
                         <template v-else>
-                            <div v-if="!a.hungry && !ranchReady(i)" class="ranch-hearts">
+                            <div v-if="!ranchReady(i) && !ranchHungry(i)" class="ranch-hearts">
                                 <span class="heart" v-for="n in 6" :key="n" :style="ranchHeartStyle(n, i)">♥</span>
                             </div>
                             <div class="ranch-name">[{{ animalName(a.type) }}]</div>
-                            <div v-if="ranchGrowth(i) >= 1" class="state">
+                            <div v-if="ranchHungry(i)" class="state">🍖 需喂养</div>
+                            <div v-else-if="ranchGrowth(i) >= 1" class="state">
                                 <template v-if="ranchReady(i)"><span class="r-pending">⭐ 可收获</span></template>
                                 <template v-else>
                                     <span class="r-pending">{{ ranchPending(i) > 0 ? '⭐ · ' + ranchPending(i) : '待收 0' }}</span><span class="r-sep"> · </span><span class="r-total">累计 {{ a.produceCount || 0 }}/{{ ranchMaxProduce }}</span>
                                 </template>
                             </div>
                             <div v-else class="state">{{ ranchStageText(i) }} {{ ranchPercent(i) }}%</div>
-                            <div v-if="a.hungry" class="state">饥饿</div>
                         </template>
                     </div>
                 </div>
             </div>
 
         <!-- 鱼塘/栏位右键菜单 -->
-        <div v-show="menuVisible" class="context-menu" :style="menuStyle" @mousedown.stop>
+        <div v-show="menuVisible" ref="ctxMenu" class="context-menu" :style="menuStyle" @mousedown.stop>
             <template v-if="menuView === 'main'">
                 <template v-if="menuTarget === 'pond'">
                     <button v-if="!pondHasFish" @click="stockSubmenu()">投放</button>
@@ -124,13 +118,13 @@
                 </template>
                 <template v-else>
                     <button v-if="!ranchHasAnimal" @click="stockSubmenu()">投放</button>
+                    <button v-if="menuRanchFeedEnabled" @click="feedAnimal(menuPlot)" :disabled="!menuRanchFeedEnough">喂养<span class="feed-need" :class="menuRanchFeedEnough ? 'ok' : 'bad'">（x{{ menuRanchFeedNeed }}）</span></button>
                     <button v-if="menuRanchHarvestEnabled" @click="collectProduct(menuPlot)">收取</button>
                     <button v-if="menuRanchDoneEnabled" @click="collectAnimal(menuPlot)">收获</button>
-                    <div v-if="ranchHasAnimal && ranchGrowth(menuPlot) < 1" class="cm-tip">
-                        <template v-if="animals[menuPlot].hungry">停止生长(缺牧草)</template>
-                        <template v-else>{{ ranchRemainText(menuPlot) }}</template>
+                    <div v-if="ranchHasAnimal && !ranchHungry(menuPlot) && ranchGrowth(menuPlot) < 1" class="cm-tip">
+                        {{ ranchRemainText(menuPlot) }}
                     </div>
-                    <div v-if="ranchHasAnimal && ranchGrowth(menuPlot) >= 1 && !ranchDone(menuPlot) && !animals[menuPlot].hungry" class="cm-tip">下次产出 {{ fmtDur(ranchNextProduceSec(menuPlot)) }}</div>
+                    <div v-if="ranchHasAnimal && ranchGrowth(menuPlot) >= 1 && !ranchDone(menuPlot)" class="cm-tip">下次产出 {{ fmtDur(ranchNextProduceSec(menuPlot)) }}</div>
                     <button v-if="ranchHasAnimal" @click="clearConfirm()">移除</button>
                 </template>
             </template>
@@ -223,7 +217,7 @@
                                     <b>{{ itemName(key) }}</b>
                                     <div class="inv-foot">
                                         <button class="lock-btn" :title="inventory.locks[key] ? '已锁定,不参与一键出售' : '点击锁定,不参与一键出售'" @click.stop="toggleLock(key)">{{ inventory.locks[key] ? '🔒' : '🔓' }}</button>
-                                        <span class="inv-qty">×{{ inventory.items[key] }}</span>
+                                        <span class="inv-qty">x{{ inventory.items[key] }}</span>
                                     </div>
                                 </div>
                             </div>
@@ -245,21 +239,6 @@
                         <div style="margin-top:4px;">花费：<span :class="coins >= ranchCellCost(modalPlot) ? 'ok' : 'bad'">{{ ranchCellCost(modalPlot) }}</span> 金币</div>
                         <div style="margin-top:14px;">
                             <button @click="doUnlockRanchCell(modalPlot)" :disabled="!ranchCellUnlockOk(modalPlot)">扩建</button>
-                        </div>
-                    </div>
-
-                    <!-- 添入牧槽 -->
-                    <div v-else-if="modalMode === 'feedadd'" class="center-tip">
-                        <div>仓库牧草:<b>{{ feedCount }}</b> · 牧槽空余:<b>{{ feedTroughCap - feedTroughCount }}</b></div>
-                        <div style="margin-top:8px;">要添加的数量: <b style="display:inline-block; width:5ch; font-variant-numeric:tabular-nums;">{{ qtyFor('feedadd', 'siliao') }}</b></div>
-                        <div class="stepper">
-                            <button @click="qtyChange('feedadd', 'siliao', -1)">-</button>
-                            <input type="range" min="0" :max="feedAddMax" :disabled="feedCount <= 0" :value="qtyFor('feedadd', 'siliao')"
-                                   @input="qtyInputLive('feedadd', 'siliao', $event.target.value)">
-                            <button @click="qtyChange('feedadd', 'siliao', 1)">+</button>
-                        </div>
-                        <div style="margin-top:14px;">
-                            <button @click="confirmFeedAdd()" :disabled="qtyFor('feedadd', 'siliao') <= 0 || feedCount <= 0 || feedTroughCount >= feedTroughCap || qtyFor('feedadd', 'siliao') > feedAddMax">添加</button>
                         </div>
                     </div>
 

@@ -13,7 +13,6 @@ const ranchApp = new Vue({
             unlockedPonds: d.unlockedPonds,
             animals: d.animals,
             unlockedRanches: d.unlockedRanches,
-            feedTrough: d.feedTrough,
             fish: d.fish,
             inventory: d.inventory,
             log: d.log,
@@ -55,11 +54,9 @@ const ranchApp = new Vue({
                     unlockedPonds: this.unlockedPonds,
                     animals: this.animals,
                     unlockedRanches: this.unlockedRanches,
-                    feedTrough: this.feedTrough,
                     inventory: { young: this.inventory.young }, // items(仓库)与 locks(锁定)在共享段
                     fish: this.fish,
                     log: this.log,
-                    savedAt: Date.now(),
                 };
                 localStorage.setItem(RANCH_SAVE_KEY, JSON.stringify(state));
                 writeShared(this.coins, this.inventory.items, this.inventory.locks, this.theme); // 金币 + 仓库 + 锁定 + 主题共享
@@ -88,7 +85,6 @@ const ranchApp = new Vue({
                 this.unlockedPonds = d.unlockedPonds;
                 this.animals = d.animals;
                 this.unlockedRanches = d.unlockedRanches;
-                this.feedTrough = d.feedTrough;
                 this.fish = d.fish;
                 this.inventory = { young: d.inventory.young, items: items, locks: locks };
                 this.log = d.log;
@@ -102,12 +98,13 @@ const ranchApp = new Vue({
             this.unlockedPonds = s.unlockedPonds;
             this.animals = s.animals;
             this.unlockedRanches = s.unlockedRanches;
-            this.feedTrough = saneInt(s.feedTrough, 0, 0, FEED_TROUGH_CAP);
-            this.fish = s.fish;
-            if (this.fish && this.fish.fries) this.fish.fries = sanitizeCountMap(this.fish.fries);
+            this.fish = { fries: {} };
+            if (s.fish && s.fish.fries) {
+                const fm = sanitizeCountMap(s.fish.fries);
+                Object.keys(fm).forEach((k) => { if (FISH[k]) this.fish.fries[k] = fm[k]; });
+            }
             this.inventory = { young: sanitizeCountMap(s.inventory && s.inventory.young), items: items, locks: locks };
             this.log = Array.isArray(s.log) ? s.log : makeDefaultRanch().log;
-            this.catchUpAnimals(typeof s.savedAt === 'number' && Number.isFinite(s.savedAt) ? s.savedAt : null);
         },
         resetGame() {
             this.settingsOpen = false;
@@ -121,9 +118,8 @@ const ranchApp = new Vue({
                 this.unlockedPonds = d.unlockedPonds;
                 this.animals = d.animals;
                 this.unlockedRanches = d.unlockedRanches;
-                this.feedTrough = d.feedTrough;
                 this.fish = d.fish;
-                this.qtys = { shop: {}, fishshop: {}, warehouseItems: {}, warehouseSeeds: {}, fishFries: {}, young: {}, ranch: {}, ranchfeed: {}, feedadd: {} };
+                this.qtys = { shop: {}, fishshop: {}, warehouseItems: {}, warehouseSeeds: {}, fishFries: {}, young: {}, ranch: {}, ranchfeed: {} };
                 this.inventory = { young: d.inventory.young, items: {}, locks: {} };
                 this.log = d.log;
                 this.theme = 'dark';

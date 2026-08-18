@@ -96,7 +96,7 @@
             </div>
 
         <!-- 地块右键菜单(仅农场地块) -->
-        <div v-show="menuVisible" class="context-menu" :style="menuStyle" @mousedown.stop>
+        <div v-show="menuVisible" ref="ctxMenu" class="context-menu" :style="menuStyle" @mousedown.stop>
             <template v-if="menuView === 'main'">
                 <template v-if="menuTarget === 'plot'">
                     <button v-if="plotEmpty" @click="plantSubmenu()">种植</button>
@@ -170,7 +170,7 @@
                                     <b>{{ itemName(key) }}</b>
                                     <div class="inv-foot">
                                         <button class="lock-btn" :title="inventory.locks[key] ? '已锁定,不参与一键出售' : '点击锁定,不参与一键出售'" @click.stop="toggleLock(key)">{{ inventory.locks[key] ? '🔒' : '🔓' }}</button>
-                                        <span class="inv-qty">×{{ inventory.items[key] }}</span>
+                                        <span class="inv-qty">x{{ inventory.items[key] }}</span>
                                     </div>
                                 </div>
                             </div>

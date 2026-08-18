@@ -77,7 +77,7 @@ const POND_COLS = 4;            // 鱼塘列数
 const POND_ROWS = 3;            // 鱼塘行数
 const TOTAL_PONDS = POND_COLS * POND_ROWS; // 12 个鱼塘
 const ANIMALS = {
-   /* grow/produceEvery 单位秒;成熟/产出分钟见 a.md(×60) */
+   /* grow:成长时长(秒);produceEvery:每多少秒产出 1 次 */
    luhuaji:    { name: '芦花鸡', cost: 528  , grow: 7200, produceEvery: 1200 , product: 'luhuajip'   , xp: 549  , level: 1 },
    guifeiji:   { name: '贵妃鸡', cost: 1056 , grow: 14400, produceEvery: 2400 , product: 'guifeijip'  , xp: 1098 , level: 2 },
    huoji:      { name: '火鸡', cost: 1584 , grow: 21600, produceEvery: 3600 , product: 'huojip'     , xp: 1647 , level: 3 },
@@ -213,10 +213,7 @@ const RANCH_INITIAL_OPEN = 4;        // 初始开放栏位数
 const RANCH_FIRST_LEVEL = 5;         // 扩张栏位起始等级
 const RANCH_EXPAND_INTERVAL = 2;     // 每升多少级开放 1 格
 const RANCH_UNLOCK_COST = [5000, 10000, 20000, 30000, 40000, 60000, 80000, 100000, 120000, 140000, 160000, 180000, 200000, 220000, 240000, 260000]; // 扩张格(下标 4~19)扩建费用,60000 后每块 +20000
-const FEED_COST = 10;                // 牧草单价(金币)
-const FEED_TROUGH_CAP = 1000;        // 牧槽容量(牧草上限)
-const FEED_EVERY = 2;                // 每产出 FEED_EVERY 个周期后需要喂食一次(饥饿间隔 = produceEvery*FEED_EVERY)
-
+const SILIAO_COST = 10;               // 牧草单价(金币)
 /* ---------- 牧场存档键 + 默认状态 ---------- */
 const RANCH_SAVE_KEY = 'qqfarm_ranch_v1';
 
@@ -229,7 +226,6 @@ function makeDefaultRanch() {
         unlockedPonds: Array.from({ length: TOTAL_PONDS }, (_, i) => i < POND_INITIAL_OPEN), // 各鱼塘格是否开放(默认开放前 N 格,其余花金币扩张)
         animals: Array.from({ length: RANCH_TOTAL }, () => null), // 养殖栏位
         unlockedRanches: Array.from({ length: RANCH_TOTAL }, (_, i) => i < RANCH_INITIAL_OPEN), // 各栏位是否开放
-        feedTrough: 0,                 // 牧槽牧草量(上限 FEED_TROUGH_CAP)
         inventory: { young: {} }, // items/locks 来自共享段
         fish: { fries: { [POND_BONUS_FRY]: POND_BONUS_COUNT } }, // 新游戏赠送鱼苗;成鱼收获后进 inventory.items
         log: [{ t: Date.now(), msg: '欢迎来到 星露谷牧场!鱼塘养鱼、牧栏养动物,产出需在商店购买鱼苗/幼崽,牧草可在牧场商店购买或农场种植草籽获得。' }],

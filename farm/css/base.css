@@ -851,6 +851,9 @@ button:disabled {
 .ok { color: #43b85a; }
 .bad { color: #e5534b; }
 
+/* 喂养按钮的所需数量小字 */
+.feed-need { font-size: 11px; opacity: .9; }
+
 /* 升级弹窗增益信息(当前 → 升级后) */
 .buff-list { margin-top: 10px; padding: 8px 0; border-top: 1px solid #3a352b; border-bottom: 1px solid #3a352b; line-height: 1.9; font-size: 14px; text-align: left; }
 .buff-row { white-space: nowrap; }
@@ -1051,57 +1054,9 @@ button.danger:hover {
     border-color: var(--ranch-hungry-border);
 }
 
-/* 牧槽:牧场栏位上方扁长条,显示牧草存量/容量 */
-/* 牧槽与一键捕捞同处一行:牧槽居左、一键捕捞右对齐,上下留合适间距 */
-.ranch-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin: 6px 0 6px;
-}
-
-.feed-trough {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 0;
-    padding: 6px 16px;
-    height: 34px;
-    border: 1px solid var(--border2);
-    border-radius: 12px;
-    background: var(--surface2);
-    font-size: 13px;
-    cursor: pointer;
-    transition: border-color .15s, box-shadow .15s;
-}
-
-.feed-trough:hover {
-    border-color: var(--accent);
-    box-shadow: var(--shadow-soft);
-}
-
-.ranch-bar .toolbar {
-    margin: 0;
-    flex-shrink: 0;
-}
-
 /* 农场底部固定操作栏:桌面端隐藏,仅移动端媒体查询中显示 */
 .farm-bottom-bar {
     display: none;
-}
-
-.feed-trough .trough-label {
-    color: var(--text-dim);
-}
-
-.feed-trough .trough-num {
-    color: var(--accent-bright);
-    font-weight: bold;
 }
 
 /* ---------- 移动端适配(不影响桌面端布局) ---------- */

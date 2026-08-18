@@ -167,7 +167,7 @@ const farmMethods = {
         this.menuY = e.clientY;
         this.menuView = 'main';
         this.menuDirect = false;
-        this.menuVisible = true;
+        this.showContextMenu();
     },
 
     /* ---------- 种植/浇水/收获 ---------- */

@@ -60,10 +60,31 @@ const uiMethods = {
         this.menuVisible = false;
         this.menuPlot = -1;
     },
-    plantSubmenu() { this.menuView = 'plant'; },
-    stockSubmenu() { this.menuView = 'stock'; },
-    menuBack() { this.menuView = 'main'; },
-    clearConfirm() { this.menuView = 'clear'; },
+    /* 显示右键菜单,并在渲染完成后把菜单拉回视口内(防止点太靠边导致溢出屏幕) */
+    showContextMenu() {
+        this.menuVisible = true;
+        this.$nextTick(() => this.clampContextMenu());
+    },
+    clampContextMenu() {
+        const el = this.$refs.ctxMenu;
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        if (r.width <= 0 || r.height <= 0) return; // 隐藏状态下尺寸为 0,跳过
+        const m = 8; // 距视口边缘的最小留白
+        const vw = window.innerWidth, vh = window.innerHeight;
+        let x = this.menuX, y = this.menuY;
+        if (x + r.width > vw - m) x = Math.max(m, vw - r.width - m);
+        else if (x < m) x = m;
+        if (y + r.height > vh - m) y = Math.max(m, vh - r.height - m);
+        else if (y < m) y = m;
+        this.menuX = x;
+        this.menuY = y;
+    },
+    gotoMenuView(v) { this.menuView = v; this.$nextTick(() => this.clampContextMenu()); },
+    plantSubmenu() { this.gotoMenuView('plant'); },
+    stockSubmenu() { this.gotoMenuView('stock'); },
+    menuBack() { this.gotoMenuView('main'); },
+    clearConfirm() { this.gotoMenuView('clear'); },
     confirmClear() {
         if (this.menuTarget === 'pond') { if (this.doClearPond) this.doClearPond(this.menuPlot); }
         else if (this.menuTarget === 'ranch') { if (this.doClearAnimal) this.doClearAnimal(this.menuPlot); }
@@ -99,13 +120,6 @@ const uiMethods = {
         return g ? (g[key] || 0) : 0;
     },
     clampQty(group, key, v) {
-        if (group === 'feedadd') {
-            if (v < 0) v = 0;
-            const cap = (typeof FEED_TROUGH_CAP !== 'undefined') ? FEED_TROUGH_CAP : 0;
-            const max = Math.min((this.inventory.items && this.inventory.items['siliao']) || 0, cap - (this.feedTrough || 0));
-            if (v > max) v = max;
-            return v;
-        }
         if (group === 'warehouseItems' || group === 'warehouseSeeds' || group === 'fishFries' || group === 'young') {
             const owned = group === 'warehouseItems' ? (this.inventory.items[key] || 0)
                 : group === 'warehouseSeeds' ? (this.inventory.seeds[key] || 0)
@@ -301,7 +315,6 @@ const uiMethods = {
         if (this.invDetail) { this.closeInvDetail(); return; }
         if (this.modalMode === 'shop') { this.qtys.shop = {}; this.qtys.fishshop = {}; this.qtys.ranch = {}; this.qtys.ranchfeed = {}; }
         else if (this.modalMode === 'warehouse' || this.modalMode === 'backpack') { this.qtys.warehouseItems = {}; this.qtys.warehouseSeeds = {}; this.qtys.fishFries = {}; this.qtys.young = {}; }
-        else if (this.modalMode === 'feedadd') { this.qtys.feedadd = {}; }
         this.shopDetail = null;
         this.invDetail = null;
         this.modalMode = null;
@@ -401,7 +414,7 @@ function makeUiData() {
         shopTab: 'crops',
         shopDetail: null,
         invDetail: null,
-        qtys: { shop: {}, fishshop: {}, warehouseItems: {}, warehouseSeeds: {}, fishFries: {}, young: {}, ranch: {}, ranchfeed: {}, feedadd: {} },
+        qtys: { shop: {}, fishshop: {}, warehouseItems: {}, warehouseSeeds: {}, fishFries: {}, young: {}, ranch: {}, ranchfeed: {} },
         menuVisible: false,
         menuTarget: 'plot',
         menuView: 'main',
