@@ -7,7 +7,8 @@
     <title>Echoes of the End</title>
     <!-- 内联 v-cloak：随 HTML 同步解析，防止刷新时模板闪烁 -->
     <style>[v-cloak] { display: none; }</style>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/shell.css">
 </head>
 <body>
     <!-- @contextmenu.prevent：禁用默认右键菜单；初始内联隐藏，等 Vue 完全加载后再显示 -->
@@ -39,107 +40,10 @@
                 </div>
             </div>
 
-        <!-- ============ 场景区（安全屋 / 地图 / 地点占位） ============ -->
+        <!-- ============ 场景区（iframe 显示，切换场景加载对应页面） ============ -->
         <div class="scene-area">
-
-            <!-- 场景：安全屋（室内 / 大门 / 狗窝 / 防御栅栏置底） -->
-            <div v-show="currentScene === 'safehouse'" class="scene safehouse-scene">
-
-                <!-- 室内：安全屋设施 -->
-                <div class="interior-area">
-                    <div class="furniture-grid">
-                        <div class="furniture-slot" :class="{ unlocked: furniture[0].unlocked }">
-                            <div class="slot-icon" v-text="furniture[0].icon"></div>
-                            <span v-text="furniture[0].name"></span>
-                            <div v-if="!furniture[0].unlocked" class="lock-overlay">🔒</div>
-                        </div>
-                        <div class="furniture-slot" :class="{ unlocked: furniture[1].unlocked }">
-                            <div class="slot-icon" v-text="furniture[1].icon"></div>
-                            <span v-text="furniture[1].name"></span>
-                            <div v-if="!furniture[1].unlocked" class="lock-overlay">🔒</div>
-                        </div>
-                        <div class="furniture-slot" :class="{ unlocked: furniture[2].unlocked }">
-                            <div class="slot-icon" v-text="furniture[2].icon"></div>
-                            <span v-text="furniture[2].name"></span>
-                            <div v-if="!furniture[2].unlocked" class="lock-overlay">🔒</div>
-                        </div>
-                        <div class="furniture-slot" :class="{ unlocked: furniture[3].unlocked }">
-                            <div class="slot-icon" v-text="furniture[3].icon"></div>
-                            <span v-text="furniture[3].name"></span>
-                            <div v-if="!furniture[3].unlocked" class="lock-overlay">🔒</div>
-                        </div>
-                        <div class="furniture-slot" :class="{ unlocked: furniture[4].unlocked }">
-                            <div class="slot-icon" v-text="furniture[4].icon"></div>
-                            <span v-text="furniture[4].name"></span>
-                            <div v-if="!furniture[4].unlocked" class="lock-overlay">🔒</div>
-                        </div>
-                        <div class="furniture-slot" :class="{ unlocked: furniture[5].unlocked }">
-                            <div class="slot-icon" v-text="furniture[5].icon"></div>
-                            <span v-text="furniture[5].name"></span>
-                            <div v-if="!furniture[5].unlocked" class="lock-overlay">🔒</div>
-                        </div>
-                        <div class="furniture-slot" :class="{ unlocked: furniture[6].unlocked }">
-                            <div class="slot-icon" v-text="furniture[6].icon"></div>
-                            <span v-text="furniture[6].name"></span>
-                            <div v-if="!furniture[6].unlocked" class="lock-overlay">🔒</div>
-                        </div>
-                        <div class="furniture-slot" :class="{ unlocked: furniture[7].unlocked }">
-                            <div class="slot-icon" v-text="furniture[7].icon"></div>
-                            <span v-text="furniture[7].name"></span>
-                            <div v-if="!furniture[7].unlocked" class="lock-overlay">🔒</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 大门（狗窝上方）：横线 + 右侧大门 -->
-                <div class="room-divider">
-                    <div class="divider-line"></div>
-                    <button class="divider-door" @click="openDoorConfirm" title="外出探索">
-                        <span class="divider-door-icon">🚪</span>
-                        <span>大门</span>
-                    </button>
-                </div>
-
-                <!-- 室外：狗窝、防御栅栏（默认锁定，栅栏置底） -->
-                <div class="outdoor-area">
-                    <div class="outdoor-item" :class="{ locked: !outdoors[0].unlocked }"
-                         @click="outdoorClick(outdoors[0])">
-                        <div class="outdoor-icon" v-text="outdoors[0].icon"></div>
-                        <div class="outdoor-info">
-                            <div class="outdoor-name" v-text="outdoors[0].name"></div>
-                            <div class="outdoor-desc" v-text="outdoors[0].desc"></div>
-                        </div>
-                        <div v-if="!outdoors[0].unlocked" class="lock-overlay">🔒</div>
-                    </div>
-                    <div class="outdoor-item" :class="{ locked: !outdoors[1].unlocked }"
-                         @click="outdoorClick(outdoors[1])">
-                        <div class="outdoor-icon" v-text="outdoors[1].icon"></div>
-                        <div class="outdoor-info">
-                            <div class="outdoor-name" v-text="outdoors[1].name"></div>
-                            <div class="outdoor-desc" v-text="outdoors[1].desc"></div>
-                        </div>
-                        <div v-if="!outdoors[1].unlocked" class="lock-overlay">🔒</div>
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- 场景：地图（15 列 × 19 行静态格子地图，由 buildMap() 一次性构建，初始内联隐藏） -->
-            <div v-show="currentScene === 'map'" style="display:none" class="scene map-scene">
-                <!-- 静态地图容器：格子与建筑由 JS 原生 DOM 填充 -->
-                <div class="map-grid" ref="mapGrid"></div>
-            </div>
-
-            <!-- 场景：地点占位（进入地点/公园/森林后显示，初始内联隐藏） -->
-            <div v-show="currentScene === 'place'" style="display:none" class="scene place-scene">
-                <div class="place-content">
-                    <div class="place-icon" v-text="currentPlace ? currentPlace.icon : '📍'"></div>
-                    <div class="place-title" v-text="currentPlace ? currentPlace.name : ''"></div>
-                    <p class="place-hint">此处暂未开放，敬请期待后续版本。</p>
-                    <button class="place-back" @click="backToMap">🗺️ 返回地图</button>
-                </div>
-            </div>
-
+            <iframe class="scene-frame" ref="sceneFrame" :src="sceneSrc" title="场景"
+                    @load="onSceneFrameLoad"></iframe>
         </div>
 
         <!-- 确认弹窗（初始内联隐藏，防止刷新闪烁） -->
@@ -165,55 +69,10 @@
                     <button class="stats-close" @click="closeStats">✕</button>
                 </div>
                 <div class="stats-body">
-                    <div class="stat-item hp">
-                        <div class="stat-icon">♥</div>
-                        <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.hp + '%' }"></div><div class="stat-value" v-text="stats.hp"></div></div>
-                        <span class="stat-label">生命</span>
-                    </div>
-                    <div class="stat-item hunger">
-                        <div class="stat-icon">🍖</div>
-                        <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.hunger + '%' }"></div><div class="stat-value" v-text="stats.hunger"></div></div>
-                        <span class="stat-label">饱食</span>
-                    </div>
-                    <div class="stat-item water">
-                        <div class="stat-icon">💧</div>
-                        <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.water + '%' }"></div><div class="stat-value" v-text="stats.water"></div></div>
-                        <span class="stat-label">水分</span>
-                    </div>
-                    <div class="stat-item sanity">
-                        <div class="stat-icon">🧠</div>
-                        <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.sanity + '%' }"></div><div class="stat-value" v-text="stats.sanity"></div></div>
-                        <span class="stat-label">理智</span>
-                    </div>
-                    <div class="stat-item stamina">
-                        <div class="stat-icon">⚡</div>
-                        <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.stamina + '%' }"></div><div class="stat-value" v-text="stats.stamina"></div></div>
-                        <span class="stat-label">精力</span>
-                    </div>
-                    <div class="stat-item physical">
-                        <div class="stat-icon">💪</div>
-                        <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.physical + '%' }"></div><div class="stat-value" v-text="stats.physical"></div></div>
-                        <span class="stat-label">体力</span>
-                    </div>
-                    <div class="stat-item health">
-                        <div class="stat-icon">💚</div>
-                        <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.health + '%' }"></div><div class="stat-value" v-text="stats.health"></div></div>
-                        <span class="stat-label">健康</span>
-                    </div>
-                    <div class="stat-item strength">
-                        <div class="stat-icon">🥊</div>
-                        <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.strength + '%' }"></div><div class="stat-value" v-text="stats.strength"></div></div>
-                        <span class="stat-label">力量</span>
-                    </div>
-                    <div class="stat-item speed">
-                        <div class="stat-icon">💨</div>
-                        <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.speed + '%' }"></div><div class="stat-value" v-text="stats.speed"></div></div>
-                        <span class="stat-label">速度</span>
-                    </div>
-                    <div class="stat-item knowledge">
-                        <div class="stat-icon">📚</div>
-                        <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats.knowledge + '%' }"></div><div class="stat-value" v-text="stats.knowledge"></div></div>
-                        <span class="stat-label">知识</span>
+                    <div class="stat-item" v-for="s in statItems" :key="s.key" :class="s.key">
+                        <div class="stat-icon" v-text="s.icon"></div>
+                        <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats[s.key] + '%' }"></div><div class="stat-value" v-text="stats[s.key]"></div></div>
+                        <span class="stat-label" v-text="s.label"></span>
                     </div>
                 </div>
             </div>
@@ -253,7 +112,15 @@
     <script src="js/data.js"></script>
     <!-- 地图数据 -->
     <script src="js/map.js"></script>
-    <!-- 应用逻辑 -->
+    <!-- 全局常量与逻辑模块（顺序：常量 → mixins → 主实例） -->
+    <script src="js/constants.js"></script>
+    <script src="js/mixins/core.js"></script>
+    <script src="js/mixins/frame.js"></script>
+    <script src="js/mixins/navigation.js"></script>
+    <script src="js/mixins/travel.js"></script>
+    <script src="js/mixins/inventory.js"></script>
+    <script src="js/mixins/save.js"></script>
+    <!-- 应用主实例 -->
     <script src="js/app.js"></script>
 </body>
 </html>

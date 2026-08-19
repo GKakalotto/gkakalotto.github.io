@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>背包</title>
+    <style>[v-cloak] { display: none; }</style>
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/subpages.css">
+</head>
+<body class="scene-page" oncontextmenu="return false">
+    <!-- 背包子页：物品清单 + 容量，数据来自外壳 postMessage，Vue 数据加载完成前隐藏 -->
+    <div id="bag" class="page-root" v-cloak style="display:none" v-show="loaded">
+        <div class="page-header">
+            <span class="page-cap" v-text="bag.length + '/' + bagMax"></span>
+            <button class="page-close" @click="send({ type: 'close-page' })">✕</button>
+        </div>
+        <div class="page-body">
+            <div class="bag-item" v-for="(it, i) in bag" :key="i">
+                <div class="bag-item-head">
+                    <div class="bag-item-icon" v-text="UI.catIcon(it.type)"></div>
+                    <div class="bag-item-name" v-text="it.name"></div>
+                </div>
+                <div class="bag-item-props">
+                    <span class="bag-prop bag-weight" v-text="'重量 ' + it.weight + 'kg'"></span>
+                </div>
+            </div>
+            <p class="bag-empty" v-if="bag.length === 0">背包空空如也。</p>
+        </div>
+    </div>
+
+    <script src="../js/data.js"></script>
+    <script src="../js/ui.js"></script>
+    <script src="../js/vue.min.js"></script>
+    <script>
+    // 背包子页：Vue 渲染物品清单，关闭按钮消息转发给外壳
+    var app = new Vue({
+        el: '#bag',
+        data: {
+            loaded: false,
+            bag: [],
+            bagMax: 30
+        },
+        methods: {
+            send(msg) {
+                window.parent.postMessage(msg, '*');
+            }
+        }
+    });
+
+    window.addEventListener('message', function (e) {
+        var msg = e.data;
+        if (msg && msg.type === 'init') {
+            app.bag = msg.state.bag;
+            app.bagMax = msg.state.bagMax;
+            app.loaded = true;
+        }
+    });
+    </script>
+</body>
+</html>

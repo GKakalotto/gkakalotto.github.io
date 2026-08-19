@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>仓库</title>
+    <style>[v-cloak] { display: none; }</style>
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/subpages.css">
+</head>
+<body class="scene-page" oncontextmenu="return false">
+    <!-- 仓库子页：升级区 + 全部物品小卡片，容量作为上限展示；Vue 数据加载完成前隐藏 -->
+    <div id="storage" class="page-root" v-cloak style="display:none" v-show="loaded">
+        <div class="page-header">
+            <span class="page-cap" v-text="'容量 ' + (storage ? storage.storageLevels[storage.storageLevel].capacity : '')"></span>
+            <button class="page-close" @click="send({ type: 'close-page' })">✕</button>
+        </div>
+        <div class="page-body st-body">
+            <!-- 升级区：只显示下一级与材料，右侧升级按钮 -->
+            <div class="bed-section">
+                <div v-if="storage && storage.storageLevel < storage.storageLevels.length - 1" class="bed-upgrade-row">
+                    <div class="bed-upgrade-info">
+                        <div class="bed-next">下一级：<span v-text="storage.storageLevels[storage.storageLevel + 1].name"></span>（容量 <span v-text="storage.storageLevels[storage.storageLevel + 1].capacity"></span>）</div>
+                        <div class="bed-cost">
+                            <span class="bed-cost-item" v-for="(amt, mat) in storage.storageLevels[storage.storageLevel].upgrade" :key="mat"
+                                  :class="UI.materialCount(bag, mat) >= amt ? 'enough' : 'lacking'" v-text="mat + ' ×' + amt"></span>
+                        </div>
+                    </div>
+                    <button class="bed-upgrade-btn" :disabled="!canUpgrade()" @click="send({ type: 'upgrade-storage' })">升级</button>
+                </div>
+                <div v-else class="bed-max">已达最高级（容量 <span v-text="storage ? storage.storageLevels[storage.storageLevel].capacity : ''"></span>）</div>
+            </div>
+            <!-- 物品区：全部物品小卡片 -->
+            <div class="st-items">
+                <div class="st-item" v-for="(it, i) in bag" :key="i">
+                    <span class="st-item-name" v-text="it.name"></span>
+                    <span class="st-item-meta" v-if="it.count" v-text="'×' + it.count"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/data.js"></script>
+    <script src="../js/ui.js"></script>
+    <script src="../js/vue.min.js"></script>
+    <script>
+    // 仓库子页：Vue 渲染升级与物品卡片，升级操作转发给外壳处理
+    var app = new Vue({
+        el: '#storage',
+        data: {
+            loaded: false,
+            storage: null,
+            bag: []
+        },
+        methods: {
+            send(msg) {
+                window.parent.postMessage(msg, '*');
+            },
+            // 当前是否满足升级所需全部材料
+            canUpgrade() {
+                var st = this.storage;
+                return !!st && st.storageLevel < st.storageLevels.length - 1
+                    && UI.hasMaterials(this.bag, st.storageLevels[st.storageLevel].upgrade);
+            }
+        }
+    });
+
+    window.addEventListener('message', function (e) {
+        var msg = e.data;
+        if (msg && msg.type === 'init') {
+            app.storage = msg.state.currentStorage;
+            app.bag = msg.state.bag;
+            app.loaded = true;
+        }
+    });
+    </script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+/* ============ 基础全局样式（所有页面共用） ============ */
+* { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+
+/* 移除按钮的默认外观与点击样式（手机端系统按钮样式/tap 高亮） */
+button {
+    -webkit-appearance: none;
+    appearance: none;
+    -webkit-touch-callout: none;
+}
+button:focus { outline: none; }
+
+body {
+    background-color: #1a1a1a;
+    color: #e0e0e0;
+    font-family: 'Courier New', Courier, monospace;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* 场景页/子页（iframe 内）：整页铺满并留边距，场景类（safehouse-scene 等）复用 flex:1 占满 */
+body.scene-page {
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
+
+/* 电脑端响应式：整体限制 450px 宽模拟手机屏幕，悬停效果更明显 */
+@media screen and (min-width: 768px) {
+    body {
+        max-width: 450px;
+        margin: 0 auto;
+        border-left: 1px solid #333;
+        border-right: 1px solid #333;
+        box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .furniture-slot:hover,
+    .divider-door:hover,
+    .outdoor-item:hover {
+        border-color: #ffcc00;
+        background: #3a3a3a;
+    }
+}

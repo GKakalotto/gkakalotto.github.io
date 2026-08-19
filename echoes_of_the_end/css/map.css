@@ -1,0 +1,145 @@
+/* ============ 地图场景页（scenes/map.html）：15 列 × 19 行格子地图 ============ */
+.map-scene {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    overflow: hidden;
+}
+.map-grid {
+    position: relative; /* 作为移动红点 .player-dot 的定位参照 */
+    max-width: 100%;
+    max-height: 100%;
+    display: grid;
+    grid-template-columns: repeat(15, 1fr);
+    grid-template-rows: repeat(19, 1fr);
+    background: #2a2f2a;
+    border: 2px solid #3a403a;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.map-cell {
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+    transition: filter .15s;
+}
+/* 道路格不可交互（无悬停反馈）；其余格子悬停提亮 */
+.map-cell:not(.road):not(.road-h):not(.road-x):hover {
+    filter: brightness(1.12);
+    z-index: 5;
+}
+
+/* 道路：灰底；虚线由 JS 按相邻地形生成 */
+.map-cell.road { background: #454c45; }
+.map-cell.road-h { background: #454c45; }
+.map-cell.road-x { background: #454c45; }
+.road-line-v {
+    position: absolute;
+    left: 50%;
+    width: 1px;
+    transform: translateX(-50%);
+    opacity: .7;
+}
+.road-line-h {
+    position: absolute;
+    top: 50%;
+    height: 1px;
+    transform: translateY(-50%);
+    opacity: .7;
+}
+
+/* 公园：单个树图标居中 */
+.map-cell.park { background: #3a5540; }
+.map-cell.park::before {
+    content: "🌳";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(8px, 2vw, 14px);
+}
+
+/* 最外圈树木 */
+.map-cell.tree { background: #2e4a35; }
+.map-cell.tree::before {
+    content: "🌲";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(8px, 2vw, 14px);
+}
+
+/* 建筑（地点 / 安全屋）：只显示图标 */
+.grid-building {
+    position: absolute;
+    inset: 8%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 2;
+    transition: filter .15s, transform .15s;
+}
+.grid-building:hover { filter: brightness(1.15); }
+.grid-building-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    font-size: clamp(12px, 3vw, 20px);
+    line-height: 1;
+}
+
+/* 安全屋所在单元格：金色边框高亮 */
+.map-cell.home-cell {
+    border: 2px solid #f0c860;
+    box-shadow: inset 0 0 8px rgba(240, 180, 60, .3);
+}
+
+/* 公园 / 树：可点击前往 */
+.map-cell.park,
+.map-cell.tree {
+    cursor: pointer;
+}
+
+/* 小红点呼吸灯 */
+@keyframes dot-pulse {
+    0%, 100% {
+        transform: translate(-50%, -50%) scale(1);
+        box-shadow: 0 0 6px rgba(255, 255, 255, .9), 0 0 12px rgba(255, 40, 40, 1);
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(.78);
+        box-shadow: 0 0 4px rgba(255, 255, 255, .5), 0 0 22px rgba(255, 40, 40, 1);
+    }
+}
+.player-dot {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #ff6a6a, #e02424);
+    border: 2px solid #fff;
+    box-shadow: 0 0 6px rgba(255, 255, 255, .9), 0 0 14px rgba(255, 40, 40, 1);
+    transform: translate(-50%, -50%);
+    /* 默认无过渡：初始化/定位直接跳转，避免刷新时出现从默认位置滑到当前格的动画 */
+    transition: none;
+    z-index: 10;
+    pointer-events: none;
+    animation: dot-pulse 1.2s ease-in-out infinite;
+}
+/* 移动中：开启过渡，让逐格移动平滑滑动 */
+.player-dot.moving {
+    transition: left .25s linear, top .25s linear;
+}

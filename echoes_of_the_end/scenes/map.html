@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>地图</title>
+    <style>[v-cloak] { display: none; }</style>
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/map.css">
+</head>
+<body class="scene-page" oncontextmenu="return false">
+    <!-- 地图场景：格子由 Vue 渲染，红点定位与移动动画由外壳指令驱动；Vue 数据加载完成前隐藏 -->
+    <div id="map" class="map-scene" v-cloak style="display:none" v-show="loaded">
+        <div class="map-grid" ref="mapGrid">
+            <div v-for="(cell, i) in cells" :key="i"
+                 class="map-cell" :class="cellClass(cell)" @click="onCell(cell)">
+                <div v-if="cell.loc" class="grid-building">
+                    <span class="grid-building-icon" v-text="cell.loc.isHome ? '🏠' : cell.loc.icon"></span>
+                </div>
+                <div v-if="cell.lineV" class="road-line-v" :style="cell.lineV"></div>
+                <div v-if="cell.lineH" class="road-line-h" :style="cell.lineH"></div>
+            </div>
+            <div class="player-dot" :class="{ moving: moving }" :style="dotStyle"></div>
+        </div>
+    </div>
+
+    <script src="../js/map.js"></script>
+    <script src="../js/vue.min.js"></script>
+    <script>
+    // 地图场景页：Vue 渲染 15×19 格子地图，红点位置来自外壳 state，移动动画由外壳 travel 指令驱动
+    var MAP_COLS = MapData.mapCols, MAP_ROWS = MapData.mapRows;
+    var app = new Vue({
+        el: '#map',
+        data: {
+            loaded: false,
+            playerLocation: 'safehouse',
+            moving: false,   // 移动动画期间启用过渡，其余定位直接跳转
+            dotLeft: '50%',
+            dotTop: '50%'
+        },
+        computed: {
+            // 静态格子（仅依赖地图数据，构建一次）
+            cells() {
+                var home = MapData.safehouseGridPos;
+                var homeKey = home.gx + ',' + home.gy;
+                var locByKey = {};
+                MapData.locations.forEach(loc => {
+                    var p = this.gridPosOf(loc);
+                    locByKey[p.gx + ',' + p.gy] = loc;
+                });
+                var cells = [];
+                for (var y = 0; y < MAP_ROWS; y++) {
+                    for (var x = 0; x < MAP_COLS; x++) {
+                        var key = x + ',' + y;
+                        var base = 'park', loc = null;
+                        if (key === homeKey) {
+                            base = 'building';
+                            loc = { isHome: true };
+                        } else if (locByKey[key]) {
+                            base = 'building';
+                            loc = locByKey[key];
+                        } else if (x === 0 || x === MAP_COLS - 1 || y === 0 || y === MAP_ROWS - 1) {
+                            base = 'tree';
+                        } else if (x % 2 === 1 && y % 2 === 1) {
+                            base = 'road-x';
+                        } else if (x % 2 === 1) {
+                            base = 'road';
+                        } else if (y % 2 === 1) {
+                            base = 'road-h';
+                        }
+                        cells.push({ key: key, x: x, y: y, base: base, loc: loc });
+                    }
+                }
+                // 道路格：虚线只画相邻也有路的方向，路尽头不画
+                var roadKeys = {};
+                cells.forEach(c => { if (c.base.indexOf('road') === 0) roadKeys[c.key] = true; });
+                cells.forEach(c => {
+                    if (c.base.indexOf('road') === 0) {
+                        var up = !!roadKeys[c.x + ',' + (c.y - 1)];
+                        var down = !!roadKeys[c.x + ',' + (c.y + 1)];
+                        var left = !!roadKeys[(c.x - 1) + ',' + c.y];
+                        var right = !!roadKeys[(c.x + 1) + ',' + c.y];
+                        if (up || down) c.lineV = { top: up ? '0' : '50%', height: (up && down) ? '100%' : '50%' };
+                        if (left || right) c.lineH = { left: left ? '0' : '50%', width: (left && right) ? '100%' : '50%' };
+                    }
+                });
+                return cells;
+            },
+            dotStyle() {
+                return { left: this.dotLeft, top: this.dotTop };
+            }
+        },
+        methods: {
+            send(msg) {
+                window.parent.postMessage(msg, '*');
+            },
+            // 格子坐标 ← 画布百分比
+            gridPosOf(node) {
+                return {
+                    gx: Math.round(node.lx / 100 * (MAP_COLS - 1)),
+                    gy: Math.round(node.ly / 100 * (MAP_ROWS - 1))
+                };
+            },
+            // 当前所在格（安全屋 / park: / tree: / 地点名）
+            getPlayerGrid() {
+                if (this.playerLocation === 'safehouse') return MapData.safehouseGridPos;
+                var m = this.playerLocation.match(/^(park|tree):(\d+),(\d+)$/);
+                if (m) return { gx: +m[2], gy: +m[3] };
+                var loc = MapData.locations.filter(l => l.name === this.playerLocation)[0];
+                return loc ? this.gridPosOf(loc) : MapData.safehouseGridPos;
+            },
+            cellClass(cell) {
+                return cell.loc && cell.loc.isHome ? cell.base + ' home-cell' : cell.base;
+            },
+            // 点击格：建筑→地点/安全屋确认，公园/树→前往确认
+            onCell(cell) {
+                if (cell.loc) {
+                    if (cell.loc.isHome) this.send({ type: 'open-home' });
+                    else this.send({ type: 'open-location', name: cell.loc.name });
+                } else if (cell.base === 'park' || cell.base === 'tree') {
+                    this.send({ type: 'open-cell', key: cell.key, base: cell.base });
+                }
+            },
+            // 红点定位到当前所在格
+            updateCurrent() {
+                var pos = this.getPlayerGrid();
+                this.dotLeft = ((pos.gx + 0.5) / MAP_COLS * 100) + '%';
+                this.dotTop = ((pos.gy + 0.5) / MAP_ROWS * 100) + '%';
+            },
+            // 计算地图宽高，保证每格正方形（需地图可见时调用）
+            sizeMap() {
+                var grid = this.$refs.mapGrid;
+                if (!grid) return;
+                var scene = grid.parentElement;
+                var cell = Math.floor(Math.min(scene.clientWidth / MAP_COLS, scene.clientHeight / MAP_ROWS));
+                if (cell <= 0) return;
+                grid.style.width = cell * MAP_COLS + 'px';
+                grid.style.height = cell * MAP_ROWS + 'px';
+            },
+            // 沿外壳给定路径逐格移动红点；时间推进由外壳负责，此处只做视觉动画
+            animateTravel(msg) {
+                var path = msg.path, steps = path.length - 1, i = 0;
+                var vm = this;
+                this.moving = true;
+                (function move() {
+                    var p = path[i];
+                    vm.dotLeft = ((p[0] + 0.5) / MAP_COLS * 100) + '%';
+                    vm.dotTop = ((p[1] + 0.5) / MAP_ROWS * 100) + '%';
+                    i++;
+                    if (i <= steps) {
+                        setTimeout(move, 250);
+                    } else {
+                        setTimeout(function () {
+                            vm.moving = false;
+                            vm.send({ type: 'travel-done' });
+                        }, 250);
+                    }
+                })();
+            }
+        },
+        mounted() {
+            this.updateCurrent();
+            window.addEventListener('resize', this.sizeMap);
+        }
+    });
+
+    window.addEventListener('message', function (e) {
+        var msg = e.data;
+        if (!msg) return;
+        if (msg.type === 'init') {
+            app.playerLocation = msg.state.playerLocation;
+            app.loaded = true;
+            // 等 v-show 生效、页面可见后再计算地图尺寸（否则量不到真实宽高）
+            app.$nextTick(function () {
+                app.updateCurrent();
+                app.sizeMap();
+            });
+        } else if (msg.type === 'travel') {
+            app.animateTravel(msg);
+        }
+    });
+    </script>
+</body>
+</html>

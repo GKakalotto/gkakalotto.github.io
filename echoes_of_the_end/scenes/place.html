@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>地点</title>
+    <style>[v-cloak] { display: none; }</style>
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/scenes.css">
+</head>
+<body class="scene-page" oncontextmenu="return false">
+    <!-- 地点占位场景：显示当前地点名称，返回按钮转发给外壳；Vue 数据加载完成前隐藏 -->
+    <div id="place" class="place-scene" v-cloak style="display:none" v-show="loaded">
+        <div class="place-content">
+            <div class="place-icon" v-text="icon"></div>
+            <div class="place-title" v-text="name"></div>
+            <p class="place-hint">此处暂未开放，敬请期待后续版本。</p>
+            <button class="place-back" @click="send({ type: 'back-to-map' })">🗺️ 返回地图</button>
+        </div>
+    </div>
+
+    <script src="../js/vue.min.js"></script>
+    <script>
+    // 地点占位场景页：Vue 渲染地点图标/名称，返回按钮消息转发给外壳
+    var app = new Vue({
+        el: '#place',
+        data: {
+            loaded: false,
+            icon: '📍',
+            name: ''
+        },
+        methods: {
+            send(msg) {
+                window.parent.postMessage(msg, '*');
+            }
+        }
+    });
+
+    window.addEventListener('message', function (e) {
+        var msg = e.data;
+        if (!msg || msg.type !== 'init') return;
+        var p = msg.state.currentPlace;
+        app.loaded = true;
+        app.icon = p ? p.icon : '📍';
+        app.name = p ? p.name : '';
+    });
+    </script>
+</body>
+</html>

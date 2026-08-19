@@ -1,0 +1,127 @@
+/* ============ 子页（bag / bed / storage / workbench / furniture） ============ */
+
+/* ----- 通用页面布局 ----- */
+.page-root { height: 100%; display: flex; flex-direction: column; }
+.page-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 15px; border-bottom: 1px solid #333;
+    flex-shrink: 0;
+}
+.page-cap { font-size: 12px; color: #ffcc00; }
+.page-close {
+    margin-left: auto;
+    background: transparent; border: none; color: #888; font-size: 14px; cursor: pointer;
+    line-height: 1; padding: 2px 6px;
+}
+.page-close:hover { color: #ffcc00; }
+.page-body { flex: 1; min-height: 0; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; }
+
+/* ----- 背包物品行 ----- */
+.bag-item {
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 7px 9px;
+    background: #353535;
+    border: 1px solid #4a4a4a;
+    border-radius: 4px;
+}
+.bag-item-head { display: flex; align-items: center; gap: 8px; }
+.bag-item-icon { font-size: 18px; flex-shrink: 0; }
+.bag-item-name { font-size: 13px; color: #ddd; font-weight: bold; }
+.bag-item-props { display: flex; flex-wrap: wrap; gap: 3px 12px; padding-left: 26px; }
+.bag-prop { font-size: 10px; color: #999; }
+.bag-weight { color: #ffcc00; }
+.bag-empty { font-size: 12px; color: #888; text-align: center; margin: 8px 0; }
+
+/* ----- 家具详情 ----- */
+.detail-status { font-size: 13px; color: #7fd17f; }
+.detail-status.locked { color: #d1a37f; }
+.detail-desc { font-size: 12px; color: #999; text-align: center; line-height: 1.5; margin: 0; }
+
+/* ----- 床/仓库升级与睡眠 ----- */
+.bed-section { display: flex; flex-direction: column; gap: 8px; }
+.bed-next { font-size: 13px; color: #ddd; }
+.bed-cost { font-size: 12px; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+.bed-cost-label { color: #888; }
+.bed-cost-item { color: #ffcc00; font-size: 10px; }
+.bed-cost-item.enough { color: #6fdc6f; }
+.bed-cost-item.lacking { color: #ff6b6b; }
+.bed-max { font-size: 13px; color: #999; }
+/* 升级区：左侧信息、右侧升级按钮 */
+.bed-upgrade-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.bed-upgrade-info { display: flex; flex-direction: column; gap: 6px; }
+.bed-upgrade-btn {
+    flex-shrink: 0;
+    background: #2f4f6b; border: 1px solid #3f6b8f; border-radius: 4px;
+    color: #cfe3f5; font-size: 13px; padding: 8px 20px; cursor: pointer;
+    transition: all 0.2s;
+}
+.bed-upgrade-btn:hover { background: #3a6085; border-color: #5080a8; color: #fff; }
+.bed-upgrade-btn:disabled { background: #3a3a3a; border-color: #555; color: #777; cursor: not-allowed; }
+.bed-sleep-title { font-size: 13px; color: #ddd; }
+.bed-sleep-btns { display: flex; flex-direction: column; gap: 8px; }
+/* 睡觉按钮：进度条样式，填充时叠加流动条纹表现时间流逝 */
+.bed-sleep-btn {
+    position: relative; overflow: hidden;
+    background: #3a3a3a; border: 1px solid #555; border-radius: 4px;
+    color: #ddd; font-size: 13px; padding: 10px; cursor: pointer;
+    transition: all 0.2s;
+}
+.bed-sleep-btn:hover:not(:disabled) { border-color: #888; background: #444; }
+.bed-sleep-btn:disabled { cursor: default; opacity: 0.9; }
+.bed-sleep-fill {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 0;
+    background: repeating-linear-gradient(45deg, #3a6ea5, #3a6ea5 10px, #4f86c6 10px, #4f86c6 20px);
+    background-size: 28px 28px;
+    z-index: 0;
+}
+.bed-sleep-btn.sleeping .bed-sleep-fill {
+    animation: bedSleepFill 1.5s linear forwards, bedFlow 0.5s linear infinite;
+}
+.bed-sleep-label { position: relative; z-index: 1; }
+@keyframes bedSleepFill { from { width: 0; } to { width: 100%; } }
+@keyframes bedFlow { from { background-position: 0 0; } to { background-position: 28px 0; } }
+
+/* ----- 工作台（一级分类菜单 / 二级蓝图列表） ----- */
+.wb-menu { display: flex; flex-direction: column; gap: 10px; }
+.wb-cat {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px; background: #353535; border: 1px solid #4a4a4a; border-radius: 5px;
+    cursor: pointer; transition: all 0.15s;
+}
+.wb-cat:hover { background: #3f3f3f; border-color: #5a5a5a; }
+.wb-cat-icon { font-size: 18px; flex-shrink: 0; }
+.wb-cat-name { font-size: 13px; color: #ddd; font-weight: bold; }
+.wb-cat-count { margin-left: auto; font-size: 11px; color: #999; }
+.wb-list { display: flex; flex-direction: column; gap: 10px; }
+.wb-back {
+    align-self: flex-start; font-size: 12px; color: #9cc7e8; cursor: pointer;
+    padding: 4px 2px; user-select: none;
+}
+.wb-back:hover { color: #cfe3f5; }
+.wb-bp {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 8px; background: #353535; border: 1px solid #4a4a4a; border-radius: 4px;
+}
+.wb-bp-head { display: flex; align-items: center; gap: 6px; }
+.wb-bp-name { font-size: 12px; color: #ddd; }
+.wb-bp-cost { display: flex; gap: 6px; flex-wrap: wrap; }
+.wb-craft-btn {
+    margin-left: auto;
+    background: #2f4f6b; border: 1px solid #3f6b8f; border-radius: 4px;
+    color: #cfe3f5; font-size: 11px; padding: 6px 14px; cursor: pointer;
+    transition: all 0.2s;
+}
+.wb-craft-btn:hover:not(:disabled) { background: #3a6085; border-color: #5080a8; color: #fff; }
+.wb-craft-btn:disabled { background: #3a3a3a; border-color: #555; color: #777; cursor: not-allowed; }
+
+/* ----- 仓库：物品小卡片（只有名字与数量，一列 4 个） ----- */
+.st-body { gap: 14px; }
+.st-items { display: flex; flex-wrap: wrap; gap: 8px; }
+.st-item {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    width: 70px; padding: 7px 4px;
+    background: #353535; border: 1px solid #4a4a4a; border-radius: 5px;
+    color: #ddd; text-align: center;
+}
+.st-item-name { font-size: 10px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-item-meta { font-size: 9px; color: #ffcc00; }

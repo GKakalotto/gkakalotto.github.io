@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>床</title>
+    <style>[v-cloak] { display: none; }</style>
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/subpages.css">
+</head>
+<body class="scene-page" oncontextmenu="return false">
+    <!-- 床子页：升级区 + 睡觉区，时间加速由外壳负责；Vue 数据加载完成前隐藏 -->
+    <div id="bed" class="page-root" v-cloak style="display:none" v-show="loaded">
+        <div class="page-header">
+            <button class="page-close" @click="send({ type: 'close-page' })">✕</button>
+        </div>
+        <div class="page-body">
+            <!-- 升级区：左侧下一级所需材料，右侧升级按钮 -->
+            <div class="bed-section bed-upgrade">
+                <div v-if="bed && bed.bedLevel < bed.bedLevels.length - 1" class="bed-upgrade-row">
+                    <div class="bed-upgrade-info">
+                        <div class="bed-next">下一级：<span v-text="bed.bedLevels[bed.bedLevel + 1].name"></span></div>
+                        <div class="bed-cost">
+                            <span class="bed-cost-label">升级材料：</span>
+                            <span class="bed-cost-item" v-for="(amt, mat) in bed.bedLevels[bed.bedLevel].upgrade" :key="mat"
+                                  :class="UI.materialCount(bag, mat) >= amt ? 'enough' : 'lacking'" v-text="mat + ' ×' + amt"></span>
+                        </div>
+                    </div>
+                    <button class="bed-upgrade-btn" :disabled="!canUpgrade()" @click="send({ type: 'upgrade-bed' })">升级</button>
+                </div>
+                <div v-else class="bed-max">已达最高等级（席梦思）</div>
+            </div>
+            <!-- 睡觉区：进度条式睡眠按钮，点击后本地填充动画，结束转发给外壳结算 -->
+            <div class="bed-section bed-sleep">
+                <div class="bed-sleep-title">睡觉</div>
+                <div class="bed-sleep-btns">
+                    <button v-for="opt in sleepOpts" :key="opt.mode" class="bed-sleep-btn"
+                            :class="{ sleeping: sleeping === opt.mode }" :disabled="!!sleeping"
+                            @click="onSleep(opt.mode)">
+                        <div class="bed-sleep-fill" @animationend="onAnimEnd"></div>
+                        <span class="bed-sleep-label" v-text="opt.label"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/data.js"></script>
+    <script src="../js/ui.js"></script>
+    <script src="../js/vue.min.js"></script>
+    <script>
+    // 床子页：Vue 渲染升级与睡觉，升级/睡眠操作转发给外壳处理
+    var app = new Vue({
+        el: '#bed',
+        data: {
+            loaded: false,
+            bed: null,
+            bag: [],
+            sleeping: null,
+            sleepOpts: [
+                { mode: '1h', label: '睡 1 小时' },
+                { mode: '4h', label: '睡 4 小时' },
+                { mode: 'dawn', label: '睡到天亮' }
+            ]
+        },
+        methods: {
+            send(msg) {
+                window.parent.postMessage(msg, '*');
+            },
+            // 当前是否满足升级所需全部材料
+            canUpgrade() {
+                var b = this.bed;
+                return !!b && b.bedLevel < b.bedLevels.length - 1
+                    && UI.hasMaterials(this.bag, b.bedLevels[b.bedLevel].upgrade);
+            },
+            // 点击睡眠：本地播放进度条动画，同时通知外壳加速推进时间
+            onSleep(mode) {
+                this.sleeping = mode;
+                this.send({ type: 'sleep-start', mode: mode });
+            },
+            // 填充动画结束：通知外壳结算恢复（流动条纹为无限动画不触发）
+            onAnimEnd(e) {
+                if (e.animationName === 'bedSleepFill') {
+                    this.send({ type: 'sleep-anim-end' });
+                }
+            }
+        }
+    });
+
+    window.addEventListener('message', function (e) {
+        var msg = e.data;
+        if (msg && msg.type === 'init') {
+            app.bed = msg.state.currentBed;
+            app.bag = msg.state.bag;
+            app.sleeping = msg.state.sleeping;
+            app.loaded = true;
+        }
+    });
+    </script>
+</body>
+</html>

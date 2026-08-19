@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>家具</title>
+    <style>[v-cloak] { display: none; }</style>
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/subpages.css">
+</head>
+<body class="scene-page" oncontextmenu="return false">
+    <!-- 家具详情子页：显示家具图标/名称/解锁状态与描述；Vue 数据加载完成前隐藏 -->
+    <div id="furniture" class="page-root" v-cloak style="display:none" v-show="loaded">
+        <div class="page-header">
+            <button class="page-close" @click="send({ type: 'close-page' })">✕</button>
+        </div>
+        <div class="page-body">
+            <div class="detail-status" v-if="f" :class="{ locked: !f.unlocked }"
+                 v-text="f.unlocked ? '✅ 已解锁' : '🔒 尚未解锁'"></div>
+            <p class="detail-desc" v-if="f" v-text="f.desc"></p>
+        </div>
+    </div>
+
+    <script src="../js/data.js"></script>
+    <script src="../js/vue.min.js"></script>
+    <script>
+    // 家具详情子页：Vue 渲染解锁状态与描述，返回按钮消息转发给外壳
+    var app = new Vue({
+        el: '#furniture',
+        data: {
+            loaded: false,
+            f: null
+        },
+        methods: {
+            send(msg) {
+                window.parent.postMessage(msg, '*');
+            }
+        }
+    });
+
+    window.addEventListener('message', function (e) {
+        var msg = e.data;
+        if (msg && msg.type === 'init') {
+            app.f = msg.state.currentFurniture;
+            app.loaded = true;
+        }
+    });
+    </script>
+</body>
+</html>
