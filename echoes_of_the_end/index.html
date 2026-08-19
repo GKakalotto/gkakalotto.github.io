@@ -40,10 +40,12 @@
                 </div>
             </div>
 
-        <!-- ============ 场景区（iframe 显示，切换场景加载对应页面） ============ -->
+        <!-- ============ 场景区（双 iframe 交叉预加载：一帧显示，一帧后台加载下一场景，避免切换闪烁） ============ -->
         <div class="scene-area">
-            <iframe class="scene-frame" ref="sceneFrame" :src="sceneSrc" title="场景"
-                    @load="onSceneFrameLoad"></iframe>
+            <iframe class="scene-frame" :class="{ active: activeFrame === 0 }" ref="frame0"
+                    :src="frameSrc0" title="场景" @load="onFrameLoad(0)"></iframe>
+            <iframe class="scene-frame" :class="{ active: activeFrame === 1 }" ref="frame1"
+                    :src="frameSrc1" title="场景" @load="onFrameLoad(1)"></iframe>
         </div>
 
         <!-- 确认弹窗（初始内联隐藏，防止刷新闪烁） -->

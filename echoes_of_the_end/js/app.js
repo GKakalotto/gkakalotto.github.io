@@ -104,6 +104,10 @@ new Vue({
             // 新档随机当天天气，保留初始日志（时间与开局 6:00 一致）
             this.rollWeather();
         }
+        // 读档后双帧初始 src 直接指向当前场景，避免刷新时闪现错误场景
+        this.frameSrc0 = this.sceneSrc;
+        this.frameSrc1 = this.sceneSrc;
+        this.pendingFrame = -1;
     },
     mounted() {
         // 只有页面打开时才计时：页面隐藏/关闭即停止并保存进度
@@ -115,8 +119,7 @@ new Vue({
         // 等 Vue 完全加载后再显示界面（#app 初始为内联隐藏）
         this.$el.removeAttribute('v-cloak');
         this.$el.style.display = '';
-        // 场景 iframe 加载完成后推送当前状态（场景页据此渲染）
-        this.$nextTick(() => this.postSceneState());
+        // 初始状态推送由场景帧 load 事件（onFrameLoad）负责
     },
     beforeDestroy() {
         this.saveGame(true);
