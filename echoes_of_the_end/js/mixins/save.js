@@ -14,6 +14,7 @@ const SaveMixin = {
                     currentScene: this.currentScene,
                     playerLocation: this.playerLocation,
                     bag: this.bag,
+                    bagLevel: this.bagLevel,
                     storageItems: this.storageItems,
                     fireFuelUntil: this.fireFuelUntil,
                     // 只存可变状态（升级等级 / 解锁状态），静态结构仍以数据文件为准
@@ -21,6 +22,10 @@ const SaveMixin = {
                         bedLevel: f.bedLevel,
                         storageLevel: f.storageLevel,
                         fireLevel: f.fireLevel,
+                        stoveLevel: f.stoveLevel,
+                        rainLevel: f.rainLevel,
+                        chairLevel: f.chairLevel,
+                        rainWater: f.rainWater,
                         unlocked: f.unlocked
                     })),
                     outdoorState: this.outdoors.map(o => ({ unlocked: o.unlocked }))
@@ -44,6 +49,11 @@ const SaveMixin = {
             if (save.playerLocation) this.playerLocation = save.playerLocation;
             // 背包直接替换（旧档无此字段时保留初始物资）
             if (save.bag) this.bag = save.bag;
+            // 背包等级（旧档无此字段时保持 0 级，越界值钳制到合法范围）
+            if (typeof save.bagLevel === 'number') {
+                this.bagLevel = Math.max(0, Math.min(save.bagLevel, GameData.bagLevels.length - 1));
+                this.bagMax = GameData.bagLevels[this.bagLevel].capacity;
+            }
             // 仓库存储物品（旧档无此字段时保持空仓库）
             if (Array.isArray(save.storageItems)) this.storageItems = save.storageItems;
             // 篝火燃料烧尽时刻（旧档无此字段时默认 0，即熄灭）
@@ -56,6 +66,10 @@ const SaveMixin = {
                     if (typeof st.bedLevel === 'number') f.bedLevel = st.bedLevel;
                     if (typeof st.storageLevel === 'number') f.storageLevel = st.storageLevel;
                     if (typeof st.fireLevel === 'number') f.fireLevel = st.fireLevel;
+                    if (typeof st.stoveLevel === 'number') f.stoveLevel = st.stoveLevel;
+                    if (typeof st.rainLevel === 'number') f.rainLevel = st.rainLevel;
+                    if (typeof st.chairLevel === 'number') f.chairLevel = st.chairLevel;
+                    if (typeof st.rainWater === 'number') f.rainWater = st.rainWater;
                     if (typeof st.unlocked === 'boolean') f.unlocked = st.unlocked;
                 });
             }

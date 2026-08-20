@@ -9,26 +9,14 @@
     <link rel="stylesheet" href="../css/subpages.css">
 </head>
 <body class="scene-page" oncontextmenu="return false">
-    <!-- 床子页：升级区 + 睡觉区，时间加速由外壳负责；Vue 数据加载完成前隐藏 -->
+    <!-- 床子页：睡觉区，时间加速由外壳负责；Vue 数据加载完成前隐藏 -->
     <div id="bed" class="page-root" v-cloak style="display:none" v-show="loaded">
         <div class="page-header">
             <button class="page-back" @click="send({ type: 'close-page' })">‹ 返回</button>
+            <button v-if="bed && bed.bedLevel < bed.bedLevels.length - 1" class="upgrade-btn" @click="send({ type: 'upgrade-bed' })">升级</button>
+            <span v-else class="upgrade-max">已达最高等级</span>
         </div>
         <div class="page-body">
-            <!-- 升级区：左侧下一级所需材料，右侧升级按钮 -->
-            <div class="bed-section bed-upgrade upgrade-card">
-                <div v-if="bed && bed.bedLevel < bed.bedLevels.length - 1" class="bed-upgrade-row">
-                    <div class="bed-upgrade-info">
-                        <div class="bed-next">下一级：<span v-text="bed.bedLevels[bed.bedLevel + 1].name"></span></div>
-                        <div class="bed-cost">
-                            <span class="bed-cost-item" v-for="(amt, mat) in bed.bedLevels[bed.bedLevel].upgrade" :key="mat"
-                                  :class="UI.materialCount(bag, mat) >= amt ? 'enough' : 'lacking'" v-text="mat + ' ×' + amt"></span>
-                        </div>
-                    </div>
-                    <button class="bed-upgrade-btn" :disabled="!canUpgrade()" @click="send({ type: 'upgrade-bed' })">升级</button>
-                </div>
-                <div v-else class="bed-max">已达最高等级（席梦思）</div>
-            </div>
             <!-- 睡觉区：进度条式睡眠按钮，点击后本地填充动画，结束转发给外壳结算 -->
             <div class="bed-section bed-sleep">
                 <div class="bed-sleep-title">睡觉</div>
@@ -48,7 +36,7 @@
     <script src="../js/ui.js"></script>
     <script src="../js/vue.min.js"></script>
     <script>
-    // 床子页：Vue 渲染升级与睡觉，升级/睡眠操作转发给外壳处理
+    // 床子页：Vue 渲染睡觉，升级/睡眠操作转发给外壳处理
     var app = new Vue({
         el: '#bed',
         data: {
@@ -65,12 +53,6 @@
         methods: {
             send(msg) {
                 window.parent.postMessage(msg, '*');
-            },
-            // 当前是否满足升级所需全部材料
-            canUpgrade() {
-                var b = this.bed;
-                return !!b && b.bedLevel < b.bedLevels.length - 1
-                    && UI.hasMaterials(this.bag, b.bedLevels[b.bedLevel].upgrade);
             },
             // 点击睡眠：交由外壳确认，确认后通过 postSceneState 通知本页播放动画
             onSleep(mode) {

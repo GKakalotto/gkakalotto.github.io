@@ -47,7 +47,11 @@ const CoreMixin = {
             if (this.currentPage === 'bed') return '🛏️ 床';
             if (this.currentPage === 'storage') return '📦 仓库';
             if (this.currentPage === 'workbench') return '🛠️ 工作台';
-            if (this.currentPage === 'fire') return '🔥 篝火';
+            if (this.currentPage === 'fire') return '🔥 取暖';
+            if (this.currentPage === 'stove') return '🍳 灶台';
+            if (this.currentPage === 'rain') return '🚿 雨水收集器';
+            if (this.currentPage === 'chair') return '🪑 椅子';
+            if (this.currentPage === 'juicer') return '🥤 榨汁机';
             if (this.currentPage === 'furniture' && this.currentFurniture) {
                 return `${this.currentFurniture.icon} ${this.currentFurniture.name}`;
             }
@@ -56,6 +60,21 @@ const CoreMixin = {
                 return `${this.currentPlace.icon} ${this.currentPlace.name}`;
             }
             return '🏠 安全屋';
+        },
+        // 顶栏正中间显示的容量（仅背包/仓库子页；其余场景为空）
+        sceneCapText() {
+            if (this.currentPage === 'bag') return `容量 ${this.bag.length}/${this.bagMax}`;
+            if (this.currentPage === 'storage') {
+                const st = this.currentStorage;
+                const cap = st ? st.storageLevels[st.storageLevel].capacity : 0;
+                return `容量 ${this.storageItems.length}/${cap}`;
+            }
+            return '';
+        },
+        // 升级弹窗（带 costMap）材料是否足够：不足时确认按钮禁用
+        canAffordDialog() {
+            if (!this.dialog || !this.dialog.costMap) return true;
+            return this.hasMaterials(this.dialog.costMap);
         }
     },
     methods: {
@@ -78,6 +97,9 @@ const CoreMixin = {
             this.advanceGameTime(GAME_SECONDS_PER_REAL_SECOND);
             // 篝火页打开时，每秒推送状态刷新燃料倒计时
             if (this.currentPage === 'fire') this.postSceneState();
+            // 雨水收集器雨天自动收集（仅在安全屋时间流动时生效）
+            this.autoCollectRain();
+            if (this.currentPage === 'rain') this.postSceneState();
         },
         // 推进游戏时间（秒），处理跨天/跨季
         advanceGameTime(seconds) {
@@ -96,6 +118,18 @@ const CoreMixin = {
                 this.pushLog(`季节更替，${this.season}来临。`);
             }
             this.saveGame();
+        },
+        // 雨水收集器：雨天按雨量自动收集，封顶当前容量；储量允许小数，显示时取整
+        autoCollectRain() {
+            if (this.currentScene !== 'safehouse') return;
+            const rate = GameData.rainRates[this.weatherName];
+            if (!rate) return;
+            const st = this.furniture.find(f => f.isRainCollector);
+            if (!st || !st.unlocked) return;
+            const cap = st.rainLevels[st.rainLevel].capacity;
+            if (st.rainWater >= cap) return;
+            const perSec = rate * GAME_SECONDS_PER_REAL_SECOND / 3600;
+            st.rainWater = Math.min(cap, st.rainWater + perSec);
         },
         // 按当前季节权重随机天气
         rollWeather() {

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>雨水收集器</title>
+    <style>[v-cloak] { display: none; }</style>
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/subpages.css">
+</head>
+<body class="scene-page" oncontextmenu="return false">
+    <!-- 雨水收集器子页：储水信息 + 装瓶（雨水仅下雨时自动收集）；Vue 数据加载完成前隐藏 -->
+    <div id="rain" class="page-root" v-cloak style="display:none" v-show="loaded">
+        <div class="page-header">
+            <button class="page-back" @click="send({ type: 'close-page' })">‹ 返回</button>
+            <button v-if="rain && rain.rainLevel < rain.rainLevels.length - 1" class="upgrade-btn" @click="send({ type: 'upgrade-rain' })">升级</button>
+            <span v-else class="upgrade-max">已达最高等级</span>
+        </div>
+        <div class="page-body">
+            <!-- 储水信息 -->
+            <div class="bed-section upgrade-card rain-info" v-if="rain">
+                <div class="rain-water">储水量 <span v-text="Math.floor(rain.rainWater)"></span> / <span v-text="rain.rainLevels[rain.rainLevel].capacity"></span></div>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="rain-btns">
+                <button class="bed-upgrade-btn" :disabled="!rain || Math.floor(rain.rainWater) <= 0" @click="send({ type: 'rain-bottle' })">装瓶</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/data.js"></script>
+    <script src="../js/ui.js"></script>
+    <script src="../js/vue.min.js"></script>
+    <script>
+    // 雨水收集器子页：Vue 渲染储水与装瓶，操作转发给外壳处理
+    var app = new Vue({
+        el: '#rain',
+        data: {
+            loaded: false,
+            rain: null,
+            bag: []
+        },
+        methods: {
+            send(msg) {
+                window.parent.postMessage(msg, '*');
+            }
+        }
+    });
+
+    window.addEventListener('message', function (e) {
+        var msg = e.data;
+        if (msg && msg.type === 'init') {
+            app.rain = msg.state.currentRain;
+            app.bag = msg.state.bag;
+            app.loaded = true;
+        }
+    });
+    </script>
+</body>
+</html>

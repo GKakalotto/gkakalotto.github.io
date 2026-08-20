@@ -71,16 +71,27 @@ new Vue({
         sleepDelta: 0,    // 本次要推进的游戏秒数
         sleepTarget: 0,   // 目标 gameSeconds
         sleepRAF: null,   // requestAnimationFrame 句柄
+        // 正在烹饪/榨汁的菜单项（{ kind: 'stove'|'juicer', name, output, inputs }），动画期间禁止重复点击
+        cooking: null,
+        cookTarget: 0,    // 烹饪结束的目标 gameSeconds
+        cookRAF: null,    // requestAnimationFrame 句柄
         // 当前工作台（workbench 页用）
         currentWorkbench: null,
         // 当前仓库（storage 页用）
         currentStorage: null,
         // 当前篝火（fire 页用）
         currentFire: null,
+        // 当前灶台 / 雨水收集器 / 椅子 / 榨汁机（对应子页用）
+        currentStove: null,
+        currentRain: null,
+        currentChair: null,
+        currentJuicer: null,
         // 篝火燃料烧尽时刻（游戏秒）：gameSeconds 小于它即为燃烧中，剩余时长 = (fireFuelUntil - gameSeconds) / HOUR_SECONDS
         fireFuelUntil: 0,
         // 背包物品（初始物资，来自数据文件）
         bag: GameData.bag,
+        // 背包等级（0 起，升级扩充 bagMax）
+        bagLevel: 0,
         // 仓库存储物品（独立于背包，可互相移动）
         storageItems: [],
         // 背包最大容量

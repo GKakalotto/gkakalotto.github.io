@@ -9,11 +9,12 @@
     <link rel="stylesheet" href="../css/subpages.css">
 </head>
 <body class="scene-page" oncontextmenu="return false">
-    <!-- 背包子页：物品清单 + 容量，点击物品弹出操作菜单；数据来自外壳 postMessage，Vue 加载完成前隐藏 -->
+    <!-- 背包子页：物品清单，点击物品弹出操作菜单（容量显示在外壳顶栏正中）；数据来自外壳 postMessage，Vue 加载完成前隐藏 -->
     <div id="bag" class="page-root" v-cloak style="display:none" v-show="loaded">
         <div class="page-header">
             <button class="page-back" @click="send({ type: 'close-page' })">‹ 返回</button>
-            <span class="page-cap" v-text="'容量 ' + bag.length + '/' + bagMax"></span>
+            <button v-if="bagLevel < GameData.bagLevels.length - 1" class="upgrade-btn" @click="send({ type: 'upgrade-bag' })">升级</button>
+            <span v-else class="upgrade-max">已达最高等级</span>
         </div>
         <div class="page-body">
             <div class="bag-item" v-for="(it, i) in bag" :key="i" @click="openMenu(i)">
@@ -59,16 +60,20 @@
             loaded: false,
             currentScene: 'safehouse',
             bag: [],
-            bagMax: 30,
+            bagLevel: 0,
             menu: { show: false, index: -1, confirmDiscard: false }
         },
         computed: {
             menuItem() {
                 return this.menu.show ? this.bag[this.menu.index] : null;
             },
-            // 物品是否可用（吃/喝/使用）
+            // 物品是否可用（吃/喝/使用）：熟食/饮品自带 restore，否则按类型取默认
             useCfg() {
-                return this.menuItem ? (GameData.itemUse[this.menuItem.type] || null) : null;
+                var it = this.menuItem;
+                if (!it) return null;
+                var cfg = it.restore || GameData.itemUse[it.type] || null;
+                if (cfg && !cfg.label) cfg = Object.assign({}, cfg, { label: (it.type === 'water' || it.type === 'drink') ? '喝' : '吃' });
+                return cfg;
             }
         },
         methods: {
@@ -94,7 +99,7 @@
         if (msg && msg.type === 'init') {
             app.currentScene = msg.state.currentScene;
             app.bag = msg.state.bag;
-            app.bagMax = msg.state.bagMax;
+            app.bagLevel = msg.state.bagLevel || 0;
             app.loaded = true;
         }
     });

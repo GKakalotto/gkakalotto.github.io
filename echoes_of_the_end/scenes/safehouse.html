@@ -65,6 +65,9 @@
                 if (f.isBed) return f.bedLevels[f.bedLevel].name;
                 if (f.isStorage) return f.storageLevels[f.storageLevel].name;
                 if (f.isFireplace) return f.fireLevels[f.fireLevel].name;
+                if (f.isStove) return f.stoveLevels[f.stoveLevel].name;
+                if (f.isRainCollector) return f.rainLevels[f.rainLevel].name;
+                if (f.isChair) return f.chairLevels[f.chairLevel].name;
                 return f.name;
             },
             slotIcon(f) {

@@ -19,6 +19,31 @@ const InventoryMixin = {
         openBag() {
             this.currentPage = 'bag';
         },
+        // 背包：点击升级 → 弹窗确认（扩充容量）
+        upgradeBag() {
+            if (this.bagLevel >= GameData.bagLevels.length - 1) return;
+            const level = GameData.bagLevels[this.bagLevel];
+            const next = GameData.bagLevels[this.bagLevel + 1];
+            this.dialog = {
+                show: true, icon: '🎒',
+                title: `升级背包：${next.name}`,
+                desc: `容量 ${level.capacity} → ${next.capacity}，能携带更多物资。`,
+                costMap: level.upgrade,
+                confirmText: '升级',
+                onConfirm: () => this.doUpgradeBag()
+            };
+        },
+        // 执行背包升级（满足材料时扣减并升级，bagMax 随等级更新）
+        doUpgradeBag() {
+            if (this.bagLevel >= GameData.bagLevels.length - 1) return;
+            const cost = GameData.bagLevels[this.bagLevel].upgrade;
+            if (!this.hasMaterials(cost)) return;
+            this.spendMaterials(cost);
+            this.bagLevel++;
+            this.bagMax = GameData.bagLevels[this.bagLevel].capacity;
+            this.pushLog(`背包升级为「${GameData.bagLevels[this.bagLevel].name}」，容量提升到 ${this.bagMax}。`);
+            this.postSceneState();
+        },
         openFurniture(item) {
             this.currentFurniture = item;
             this.currentPage = 'furniture';
@@ -39,7 +64,23 @@ const InventoryMixin = {
             this.currentFire = item;
             this.currentPage = 'fire';
         },
-        // 按索引打开家具：按类型分发到床 / 工作台 / 仓库 / 篝火 / 家具详情
+        openStove(item) {
+            this.currentStove = item;
+            this.currentPage = 'stove';
+        },
+        openRain(item) {
+            this.currentRain = item;
+            this.currentPage = 'rain';
+        },
+        openChair(item) {
+            this.currentChair = item;
+            this.currentPage = 'chair';
+        },
+        openJuicer(item) {
+            this.currentJuicer = item;
+            this.currentPage = 'juicer';
+        },
+        // 按索引打开家具：按类型分发；未解锁的新设施先弹详情页（含解锁按钮），解锁后再进功能页
         openFurnitureByIndex(i) {
             const f = this.furniture[i];
             if (!f) return;
@@ -47,6 +88,10 @@ const InventoryMixin = {
             else if (f.isWorkbench) this.openWorkbench(f);
             else if (f.isStorage) this.openStorage(f);
             else if (f.isFireplace) this.openFire(f);
+            else if (f.isStove) { if (!f.unlocked) this.openFurniture(f); else this.openStove(f); }
+            else if (f.isRainCollector) { if (!f.unlocked) this.openFurniture(f); else this.openRain(f); }
+            else if (f.isChair) { if (!f.unlocked) this.openFurniture(f); else this.openChair(f); }
+            else if (f.isJuicer) { if (!f.unlocked) this.openFurniture(f); else this.openJuicer(f); }
             else this.openFurniture(f);
         },
         // 床/仓库升级与工作台制作共用的材料查询
@@ -77,7 +122,7 @@ const InventoryMixin = {
                 icon: '📦',
                 title: `升级仓库：${next.name}`,
                 desc: `容量 ${level.capacity} → ${next.capacity}，升级后能存放更多物资。`,
-                cost: `消耗：${this.costText(level.upgrade)}`,
+                costMap: level.upgrade,
                 confirmText: '升级',
                 onConfirm: () => this.doUpgradeStorage()
             };
@@ -159,7 +204,8 @@ const InventoryMixin = {
             const list = source === 'storage' ? this.storageItems : this.bag;
             const it = list[index];
             if (!it) return;
-            const cfg = GameData.itemUse[it.type];
+            // 熟食/菜谱等物品自带 restore，否则按类型取默认使用效果
+            const cfg = it.restore || GameData.itemUse[it.type];
             if (!cfg) return;
             if (this.stats[cfg.stat] >= cfg.max) {
                 this.pushLog(`「${it.name}」：${cfg.statName}已满，暂时不需要。`);
@@ -169,7 +215,8 @@ const InventoryMixin = {
             // 单件消耗：count > 1 时扣 1，否则移除条目
             if (it.count && it.count > 1) it.count--;
             else list.splice(index, 1);
-            this.pushLog(`你${cfg.label}了「${it.name}」，${cfg.statName} +${cfg.amount}。`);
+            const label = cfg.label || ((it.type === 'water' || it.type === 'drink') ? '喝' : '吃');
+            this.pushLog(`你${label}了「${it.name}」，${cfg.statName} +${cfg.amount}。`);
             this.postSceneState();
         },
         // 篝火：添加木板燃料（1/2/4/8 块），每块按当前等级燃烧时长累计
@@ -199,7 +246,7 @@ const InventoryMixin = {
                 icon: '🔥',
                 title: `升级篝火：${next.name}`,
                 desc: `每块木板燃烧 ${level.hoursPerWood} 小时 → ${next.hoursPerWood} 小时，更耐烧。`,
-                cost: `消耗：${this.costText(level.upgrade)}`,
+                costMap: level.upgrade,
                 confirmText: '升级',
                 onConfirm: () => this.doUpgradeFire()
             };
@@ -233,7 +280,7 @@ const InventoryMixin = {
                 icon: '🛏️',
                 title: `升级床：${next.name}`,
                 desc: `恢复倍率 ${level.recover}× → ${next.recover}×，睡得更安稳。`,
-                cost: `消耗：${this.costText(level.upgrade)}`,
+                costMap: level.upgrade,
                 confirmText: '升级',
                 onConfirm: () => this.doUpgradeBed()
             };
@@ -324,6 +371,201 @@ const InventoryMixin = {
                 const gain = cfg.base[k] * hours * mult;
                 this.stats[k] = Math.min(cfg.max[k], this.stats[k] + gain);
             });
+        },
+        // ============ 灶台 / 烹饪锅 ============
+        upgradeStove() {
+            const st = this.currentStove;
+            if (!st || st.stoveLevel >= st.stoveLevels.length - 1) return;
+            const level = st.stoveLevels[st.stoveLevel];
+            const next = st.stoveLevels[st.stoveLevel + 1];
+            this.dialog = {
+                show: true, icon: '🍳',
+                title: `升级灶台：${next.name}`,
+                desc: st.stoveLevel === 0
+                    ? `当前可加热食物、净水；升级为「${next.name}」后解锁菜谱做饭。`
+                    : `升级为「${next.name}」。`,
+                costMap: level.upgrade,
+                confirmText: '升级',
+                onConfirm: () => this.doUpgradeStove()
+            };
+        },
+        doUpgradeStove() {
+            const st = this.currentStove;
+            if (!st || st.stoveLevel >= st.stoveLevels.length - 1) return;
+            const cost = st.stoveLevels[st.stoveLevel].upgrade;
+            if (!this.hasMaterials(cost)) return;
+            this.spendMaterials(cost);
+            st.stoveLevel++;
+            this.pushLog(`灶台升级为「${st.stoveLevels[st.stoveLevel].name}」，烹饪能力更强了。`);
+            this.postSceneState();
+        },
+        // 灶台/榨汁共用：背包+仓库某物品总数量
+        combinedCount(name) {
+            const b = this.bag.filter(i => i.name === name).reduce((s, i) => s + (i.count || 1), 0);
+            const s = this.storageItems.filter(i => i.name === name).reduce((s2, i) => s2 + (i.count || 1), 0);
+            return b + s;
+        },
+        // 灶台/榨汁共用：材料是否充足（背包+仓库联合）
+        hasCombined(cost) {
+            for (const mat in cost) {
+                if (this.combinedCount(mat) < cost[mat]) return false;
+            }
+            return true;
+        },
+        // 灶台/榨汁共用：扣料（背包优先，不足从仓库补）
+        spendCombined(cost) {
+            for (const mat in cost) {
+                let need = cost[mat];
+                for (const it of this.bag) {
+                    if (need <= 0) break;
+                    if (it.name === mat) {
+                        const take = Math.min(need, it.count || 1);
+                        it.count = (it.count || 1) - take;
+                        need -= take;
+                    }
+                }
+                this.bag = this.bag.filter(i => i.count === undefined || i.count > 0);
+                for (const it of this.storageItems) {
+                    if (need <= 0) break;
+                    if (it.name === mat) {
+                        const take = Math.min(need, it.count || 1);
+                        it.count = (it.count || 1) - take;
+                        need -= take;
+                    }
+                }
+                this.storageItems = this.storageItems.filter(i => i.count === undefined || i.count > 0);
+            }
+        },
+        // 制作/榨汁：点击后扣料并进入耗时进度（动画期间推进游戏时间，结束后产出）
+        startCooking(kind, name) {
+            if (this.cooking) return;
+            const list = kind === 'stove' ? GameData.stoveMenu : GameData.juiceRecipes;
+            const a = list.find(x => x.name === name);
+            if (!a) return;
+            if (kind === 'stove') {
+                const st = this.currentStove;
+                if (!st) return;
+                if (st.stoveLevel < a.level) { this.pushLog(`「${name}」需先把灶台升级为烹饪锅。`); return; }
+            } else if (!this.currentJuicer) {
+                return;
+            }
+            const o = a.output;
+            const existing = this.bag.find(i => i.name === o.name);
+            if (this.bag.length >= this.bagMax && !existing) {
+                this.pushLog('背包已满，无法放入成品。');
+                return;
+            }
+            if (!this.hasCombined(a.inputs)) { this.pushLog(`材料不足，无法${kind === 'stove' ? '制作' : '榨汁'}「${name}」。`); return; }
+            this.spendCombined(a.inputs);
+            // 进入进度动画：1.5 秒内把 COOK_SECONDS 游戏秒推进完（顶部时间随之快速流动）
+            const COOK_MS = 1500;
+            const COOK_SECONDS = 1800;   // 烹饪耗时 30 游戏分钟
+            this.cooking = { kind, name, output: o };
+            this.cookTarget = this.gameSeconds + COOK_SECONDS;
+            this.postSceneState();
+            const speed = COOK_SECONDS / COOK_MS;
+            let last = performance.now();
+            const step = (now) => {
+                if (!this.cooking) return;
+                const dt = now - last;
+                last = now;
+                this.advanceGameTime(speed * dt);
+                if (this.gameSeconds < this.cookTarget) {
+                    this.cookRAF = requestAnimationFrame(step);
+                }
+            };
+            this.cookRAF = requestAnimationFrame(step);
+        },
+        // 进度条动画结束：补齐剩余游戏时间并产出成品
+        finishCooking() {
+            if (!this.cooking) return;
+            if (this.cookRAF) { cancelAnimationFrame(this.cookRAF); this.cookRAF = null; }
+            const remain = this.cookTarget - this.gameSeconds;
+            if (remain > 0) this.advanceGameTime(remain);
+            const o = this.cooking.output;
+            const kind = this.cooking.kind;
+            const existing = this.bag.find(i => i.name === o.name);
+            if (existing) existing.count = (existing.count || 1) + 1;
+            else this.bag.push({ name: o.name, type: o.type, weight: o.weight, restore: o.restore, count: 1 });
+            this.pushLog(kind === 'stove' ? `制作了「${o.name}」。` : `榨了杯「${o.name}」。`);
+            this.cooking = null;
+            this.postSceneState();
+        },
+        // ============ 雨水收集器 ============
+        upgradeRain() {
+            const st = this.currentRain;
+            if (!st || st.rainLevel >= st.rainLevels.length - 1) return;
+            const level = st.rainLevels[st.rainLevel];
+            const next = st.rainLevels[st.rainLevel + 1];
+            this.dialog = {
+                show: true, icon: '🚿',
+                title: `升级雨水收集器：${next.name}`,
+                desc: `储水容量 ${level.capacity} → ${next.capacity}。`,
+                costMap: level.upgrade,
+                confirmText: '升级',
+                onConfirm: () => this.doUpgradeRain()
+            };
+        },
+        doUpgradeRain() {
+            const st = this.currentRain;
+            if (!st || st.rainLevel >= st.rainLevels.length - 1) return;
+            const cost = st.rainLevels[st.rainLevel].upgrade;
+            if (!this.hasMaterials(cost)) return;
+            this.spendMaterials(cost);
+            st.rainLevel++;
+            this.pushLog(`雨水收集器升级为「${st.rainLevels[st.rainLevel].name}」，储水容量提升到 ${st.rainLevels[st.rainLevel].capacity}。`);
+            this.postSceneState();
+        },
+        // 装瓶：把储量（向下取整）转为背包「雨水瓶」（type:water）
+        bottleRain() {
+            const st = this.currentRain;
+            const amt = st ? Math.floor(st.rainWater) : 0;
+            if (!st || amt <= 0) return;
+            const existing = this.bag.find(i => i.name === '雨水瓶');
+            if (!existing && this.bag.length >= this.bagMax) {
+                this.pushLog('背包已满，无法装瓶。');
+                return;
+            }
+            st.rainWater = Math.max(0, st.rainWater - amt);
+            if (existing) existing.count = (existing.count || 1) + amt;
+            else this.bag.push({ type: 'water', name: '雨水瓶', weight: 0.55, count: amt });
+            this.pushLog(`装瓶 ${amt} 份雨水（雨水瓶）。`);
+            this.postSceneState();
+        },
+        // ============ 椅子 ============
+        upgradeChair() {
+            const st = this.currentChair;
+            if (!st || st.chairLevel >= st.chairLevels.length - 1) return;
+            const level = st.chairLevels[st.chairLevel];
+            const next = st.chairLevels[st.chairLevel + 1];
+            this.dialog = {
+                show: true, icon: '🪑',
+                title: `升级椅子：${next.name}`,
+                desc: `休息恢复体力 ${level.restore} → ${next.restore}。`,
+                costMap: level.upgrade,
+                confirmText: '升级',
+                onConfirm: () => this.doUpgradeChair()
+            };
+        },
+        doUpgradeChair() {
+            const st = this.currentChair;
+            if (!st || st.chairLevel >= st.chairLevels.length - 1) return;
+            const cost = st.chairLevels[st.chairLevel].upgrade;
+            if (!this.hasMaterials(cost)) return;
+            this.spendMaterials(cost);
+            st.chairLevel++;
+            this.pushLog(`椅子升级为「${st.chairLevels[st.chairLevel].name}」，休息恢复体力提升到 ${st.chairLevels[st.chairLevel].restore}。`);
+            this.postSceneState();
+        },
+        // 休息：推进 30 分钟游戏时间，恢复当前等级的体力（上限 100）
+        restChair() {
+            const st = this.currentChair;
+            if (!st) return;
+            const restore = st.chairLevels[st.chairLevel].restore;
+            this.advanceGameTime(30 * 60);
+            this.stats.physical = Math.min(100, this.stats.physical + restore);
+            this.pushLog(`在「${st.chairLevels[st.chairLevel].name}」上休息，体力 +${restore}。`);
+            this.postSceneState();
         }
     }
 };

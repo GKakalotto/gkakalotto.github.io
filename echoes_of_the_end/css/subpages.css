@@ -7,7 +7,16 @@
     padding: 10px 15px; border-bottom: 1px solid #333;
     flex-shrink: 0;
 }
-.page-cap { font-size: 12px; color: #ffcc00; margin-left: auto; }
+/* 子页 header 右侧的升级按钮 / 已达最高等级 */
+.upgrade-btn {
+    margin-left: auto;
+    background: #3a6ea5; border: 1px solid #5080a8; border-radius: 4px;
+    color: #fff; font-size: 12px; padding: 5px 12px; cursor: pointer;
+    transition: all 0.2s;
+}
+.upgrade-btn:hover { background: #4f86c6; border-color: #6aa3d6; }
+.upgrade-btn:disabled { background: #3a3a3a; border-color: #555; color: #777; cursor: not-allowed; }
+.upgrade-max { margin-left: auto; font-size: 11px; color: #888; }
 .page-back {
     background: transparent; border: none;
     font-size: 12px; color: #9cc7e8; cursor: pointer;
@@ -32,11 +41,6 @@
 .bag-weight { color: #ffcc00; }
 .bag-empty { font-size: 12px; color: #888; text-align: center; margin: 8px 0; }
 
-/* ----- 家具详情 ----- */
-.detail-status { font-size: 13px; color: #7fd17f; }
-.detail-status.locked { color: #d1a37f; }
-.detail-desc { font-size: 12px; color: #999; text-align: center; line-height: 1.5; margin: 0; }
-
 /* ----- 床/仓库升级与睡眠 ----- */
 .bed-section { display: flex; flex-direction: column; gap: 8px; }
 /* 升级区卡片化：带底色边框，与下方的操作区（睡觉/物品）视觉分离 */
@@ -47,12 +51,9 @@
     padding: 12px 14px;
 }
 .bed-next { font-size: 13px; color: #ddd; }
-.bed-cost { font-size: 12px; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
-.bed-cost-label { color: #888; }
 .bed-cost-item { color: #ffcc00; font-size: 10px; }
 .bed-cost-item.enough { color: #6fdc6f; }
 .bed-cost-item.lacking { color: #ff6b6b; }
-.bed-max { font-size: 13px; color: #999; }
 /* 升级区：左侧信息、右侧升级按钮 */
 .bed-upgrade-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .bed-upgrade-info { display: flex; flex-direction: column; gap: 6px; }
@@ -64,6 +65,34 @@
 }
 .bed-upgrade-btn:hover { background: #3a6085; border-color: #5080a8; color: #fff; }
 .bed-upgrade-btn:disabled { background: #3a3a3a; border-color: #555; color: #777; cursor: not-allowed; }
+/* ----- 灶台 / 雨水收集器 / 椅子 操作区 ----- */
+.stove-ops { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.stove-ops::-webkit-scrollbar { display: none; }
+.stove-fixed { background: #1a1a1a; display: flex; flex-direction: column; gap: 8px; padding-bottom: 2px; }
+.stove-section-title { padding: 6px 0 4px; font-size: 13px; color: #ddd; border-bottom: 1px solid #3a3a3a; }
+.stove-item-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #2e2e2e; padding: 7px 0; }
+.stove-item-main { display: flex; flex-direction: column; gap: 3px; }
+.stove-item-name { font-size: 12px; color: #ccc; }
+.stove-item-cost { display: flex; gap: 6px; font-size: 10px; }
+.stove-item-cost .enough { color: #6fdc6f; }
+.stove-item-cost .lacking { color: #ff6b6b; }
+/* 烹饪/榨汁按钮：点击后进度条填充（复用睡觉动画），期间按钮文字显示进行中 */
+.stove-cook-btn { position: relative; overflow: hidden; }
+.stove-cook-btn .stove-cook-fill {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 0;
+    background: repeating-linear-gradient(45deg, #3a6ea5, #3a6ea5 10px, #4f86c6 10px, #4f86c6 20px);
+    background-size: 28px 28px;
+    z-index: 0;
+}
+.stove-cook-btn.cooking .stove-cook-fill { animation: bedSleepFill 1.5s linear forwards, bedFlow 0.5s linear infinite; }
+.stove-cook-btn span { position: relative; z-index: 1; }
+.rain-info { margin-top: 4px; }
+.rain-water { font-size: 13px; color: #ddd; }
+.rain-btns { display: flex; gap: 10px; margin-top: 4px; }
+.rain-btns .bed-upgrade-btn { flex: 1; }
+.chair-rest-card { align-items: center; gap: 10px; margin-top: 4px; }
+.chair-rest-info { font-size: 13px; color: #ddd; }
+.chair-rest-btn { width: 100%; }
 .bed-sleep-title { font-size: 13px; color: #ddd; }
 .bed-sleep-btns { display: flex; flex-direction: column; gap: 8px; }
 /* 睡觉按钮：进度条样式，填充时叠加流动条纹表现时间流逝 */

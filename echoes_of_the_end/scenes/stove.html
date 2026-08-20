@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>灶台</title>
+    <style>[v-cloak] { display: none; }</style>
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/subpages.css">
+</head>
+<body class="scene-page" oncontextmenu="return false">
+    <!-- 灶台子页：固定制作菜单（耗时烹饪，按背包+仓库物资直接制作）；Vue 数据加载完成前隐藏 -->
+    <div id="stove" class="page-root" v-cloak style="display:none" v-show="loaded">
+        <div class="page-header">
+            <button class="page-back" :disabled="!!cooking" @click="send({ type: 'close-page' })">‹ 返回</button>
+            <button v-if="stove && stove.stoveLevel < stove.stoveLevels.length - 1" class="upgrade-btn" :disabled="!!cooking" @click="send({ type: 'upgrade-stove' })">升级</button>
+            <span v-else class="upgrade-max">已达最高等级</span>
+        </div>
+        <div class="page-body">
+            <!-- 标题固定吸顶，不随制作列表滚动 -->
+            <div class="stove-fixed">
+                <div class="stove-section-title">烹饪</div>
+            </div>
+
+            <!-- 制作按钮：固定菜单，按背包+仓库物资直接制作 -->
+            <div class="stove-ops">
+                <div v-for="a in GameData.stoveMenu" :key="a.name" class="stove-item-row">
+                    <div class="stove-item-main">
+                        <span class="stove-item-name" v-text="a.name"></span>
+                        <span class="stove-item-cost">
+                            <span v-for="(amt, mat) in a.inputs" :key="mat"
+                                  :class="have(mat) >= amt ? 'enough' : 'lacking'" v-text="mat + '×' + amt"></span>
+                        </span>
+                    </div>
+                    <button class="bed-upgrade-btn stove-cook-btn"
+                            :class="{ cooking: cooking && cooking.name === a.name }"
+                            :disabled="!!cooking || !canCook(a)"
+                            :title="stove && stove.stoveLevel < a.level ? '需升级为烹饪锅' : ''"
+                            @click="send({ type: 'stove-cook', name: a.name })">
+                        <div v-if="cooking && cooking.name === a.name" class="stove-cook-fill" @animationend="onCookAnimEnd"></div>
+                        <span v-text="cooking && cooking.name === a.name ? '烹饪中…' : (stove && stove.stoveLevel < a.level ? '需烹饪锅' : '制作')"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/data.js"></script>
+    <script src="../js/ui.js"></script>
+    <script src="../js/vue.min.js"></script>
+    <script>
+    // 灶台子页：Vue 渲染固定制作菜单，操作转发给外壳处理
+    var app = new Vue({
+        el: '#stove',
+        data: {
+            loaded: false,
+            stove: null,
+            bag: [],
+            storageItems: [],
+            cooking: null
+        },
+        computed: {
+            // 背包 + 仓库全部可制作原料
+            allItems() {
+                return (this.bag || []).concat(this.storageItems || []);
+            }
+        },
+        methods: {
+            send(msg) {
+                window.parent.postMessage(msg, '*');
+            },
+            // 当前背包+仓库中某物品的总数量
+            have(name) {
+                return this.allItems
+                    .filter(it => it.name === name)
+                    .reduce((s, it) => s + (it.count || 1), 0);
+            },
+            // 当前菜单项是否可制作：灶台等级达标且原料充足
+            canCook(a) {
+                if (!this.stove || this.stove.stoveLevel < a.level) return false;
+                for (var mat in a.inputs) {
+                    if (this.have(mat) < a.inputs[mat]) return false;
+                }
+                return true;
+            },
+            // 进度条填充动画结束：通知外壳结算产出（流动条纹为无限动画不触发）
+            onCookAnimEnd(e) {
+                if (e.animationName === 'bedSleepFill') {
+                    this.send({ type: 'cook-anim-end' });
+                }
+            }
+        }
+    });
+
+    window.addEventListener('message', function (e) {
+        var msg = e.data;
+        if (msg && msg.type === 'init') {
+            app.stove = msg.state.currentStove;
+            app.bag = msg.state.bag;
+            app.storageItems = msg.state.storageItems || [];
+            app.cooking = msg.state.cooking || null;
+            app.loaded = true;
+        }
+    });
+    </script>
+</body>
+</html>

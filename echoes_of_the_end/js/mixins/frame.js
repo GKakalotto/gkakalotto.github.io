@@ -65,12 +65,18 @@ const FrameMixin = {
                     outdoors: this.outdoors,
                     bag: this.bag,
                     bagMax: this.bagMax,
+                    bagLevel: this.bagLevel,
                     storageItems: this.storageItems,
                     currentBed: this.currentBed,
                     currentStorage: this.currentStorage,
                     currentFurniture: this.currentFurniture,
                     currentWorkbench: this.currentWorkbench,
                     currentFire: this.currentFire,
+                    currentStove: this.currentStove,
+                    currentRain: this.currentRain,
+                    currentChair: this.currentChair,
+                    currentJuicer: this.currentJuicer,
+                    cooking: this.cooking,
                     fireFuelUntil: this.fireFuelUntil,
                     gameSeconds: this.gameSeconds,
                     sleeping: this.sleeping
@@ -117,6 +123,9 @@ const FrameMixin = {
                 case 'upgrade-bed':
                     this.upgradeBed();
                     break;
+                case 'upgrade-bag':
+                    this.upgradeBag();
+                    break;
                 case 'sleep-start':
                     this.startSleep(msg.mode);
                     break;
@@ -158,6 +167,39 @@ const FrameMixin = {
                     if (bp) this.craft(bp);
                     break;
                 }
+                // 灶台：升级 / 按菜单制作（耗时进度）
+                case 'upgrade-stove':
+                    this.upgradeStove();
+                    break;
+                case 'stove-cook':
+                    this.startCooking('stove', msg.name);
+                    break;
+                // 榨汁机：按菜单制作（耗时进度）
+                case 'juice-make':
+                    this.startCooking('juicer', msg.name);
+                    break;
+                // 烹饪/榨汁进度条动画结束：产出成品
+                case 'cook-anim-end':
+                    this.finishCooking();
+                    break;
+                // 雨水收集器：升级 / 装瓶（雨水仅下雨时自动收集）
+                case 'upgrade-rain':
+                    this.upgradeRain();
+                    break;
+                case 'rain-bottle':
+                    this.bottleRain();
+                    break;
+                // 椅子：升级 / 休息
+                case 'upgrade-chair':
+                    this.upgradeChair();
+                    break;
+                case 'chair-rest':
+                    this.restChair();
+                    break;
+                // 家具详情页发起的解锁
+                case 'unlock-furniture':
+                    this.unlockFurniture();
+                    break;
             }
         },
         // 开始移动：外壳负责推进游戏时间，iframe 负责红点动画；完成后回调
@@ -190,7 +232,23 @@ const FrameMixin = {
         closePage() {
             if (this.sleepRAF) { cancelAnimationFrame(this.sleepRAF); this.sleepRAF = null; }
             this.sleeping = null;
+            if (this.cookRAF) { cancelAnimationFrame(this.cookRAF); this.cookRAF = null; }
+            this.cooking = null;
             this.currentPage = null;
+        },
+        // 解锁当前家具详情页所指的家具（免费解锁，仅切换 unlocked 状态），保存并直接打开对应功能页
+        unlockFurniture() {
+            const f = this.currentFurniture;
+            if (!f || f.unlocked) return;
+            f.unlocked = true;
+            this.pushLog(`🔓 已解锁「${f.name}」。`);
+            this.saveGame();
+            // 有功能页的家具解锁后直接进对应子页
+            if (f.isStove) this.openStove(f);
+            else if (f.isRainCollector) this.openRain(f);
+            else if (f.isChair) this.openChair(f);
+            else if (f.isJuicer) this.openJuicer(f);
+            else this.postSceneState();
         }
     }
 };

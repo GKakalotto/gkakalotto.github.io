@@ -12,6 +12,11 @@
     margin: 0;
     background: rgba(0, 0, 0, 0.5);
     border-bottom: 1px solid #333;
+    position: relative;
+}
+.scene-cap {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    font-size: 12px; color: #ffcc00;
 }
 .scene-title-btns {
     display: flex;
@@ -177,7 +182,9 @@
 .dialog-icon { font-size: 36px; }
 .dialog-title { font-size: 15px; color: #ddd; font-weight: bold; }
 .dialog-desc { font-size: 12px; color: #999; text-align: center; line-height: 1.5; }
-.dialog-cost { font-size: 13px; color: #ffcc00; }
+.dialog-cost { display: flex; flex-wrap: wrap; gap: 10px; font-size: 13px; color: #ffcc00; }
+.dialog-cost .enough { color: #6fdc6f; }
+.dialog-cost .lacking { color: #ff6b6b; }
 .dialog-btns {
     display: flex; gap: 10px; margin-top: 8px;
 }
@@ -193,6 +200,7 @@
     transition: all 0.2s;
 }
 .dialog-confirm:hover { background: #3a6085; border-color: #5080a8; color: #fff; }
+.dialog-confirm:disabled { background: #3a3a3a; border-color: #555; color: #777; cursor: not-allowed; }
 
 /* ---------- 状态面板（❤ 按钮） ---------- */
 .stats-overlay {

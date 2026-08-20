@@ -57,6 +57,12 @@ var GameData = {
             { n: '中雨', w: 10 }, { n: '大雨', w: 15 }, { n: '暴雨', w: 10 }, { n: '大风', w: 5 }
         ]
     ],
+    // 雨水收集器自动收集速率（份/游戏小时）：雨量越大收集越快
+    rainRates: {
+        '中雨': 10,
+        '大雨': 30,
+        '暴雨': 60
+    },
 
     // 玩家初始状态（生命/饱食/水分/理智/精力/体力/健康/力量/速度/知识）
     initialStats: {
@@ -120,8 +126,23 @@ var GameData = {
                   { name: '罐头',     type: 'food', weight: 0.4,  cost: { '废铁': 2 } }
               ]
           } },
-        { icon: '🍳', name: '简易灶台', unlocked: false, desc: '加热食物、净水，改善伙食。' },
-        { icon: '🚿', name: '雨水收集器', unlocked: false, desc: '收集并初步过滤雨水。' },
+        { icon: '🍳', name: '简易灶台', unlocked: false, isStove: true,
+          // 两级灶台、一次升级；0 级可加热食物/净水，1 级（烹饪锅）额外解锁菜谱做饭
+          stoveLevel: 0,
+          stoveLevels: [
+              { name: '简易灶台', upgrade: { '废铁': 5, '布料': 2 } },
+              { name: '烹饪锅',   upgrade: null }
+          ] },
+        { icon: '🚿', name: '雨水收集器', unlocked: false, isRainCollector: true, rainWater: 0,
+          // 五级设施、四次升级；升级只增加容量（每级 capacity）
+          rainLevel: 0,
+          rainLevels: [
+              { name: '简易桶',   capacity: 200,  upgrade: { '废铁': 3,  '布料': 1 } },
+              { name: '塑料罐',   capacity: 400,  upgrade: { '废铁': 6,  '布料': 2 } },
+              { name: '集水桶',   capacity: 800,  upgrade: { '废铁': 10, '布料': 4 } },
+              { name: '蓄水塔',   capacity: 1600, upgrade: { '废铁': 16, '布料': 6 } },
+              { name: '巨型水槽', capacity: 3200, upgrade: null }
+          ] },
         { icon: '📦', name: '仓库', unlocked: true, isStorage: true,
           // 四级存储设施、三次升级；capacity 为该级可单独存放的容量，upgrade 为升到下一级所需材料（最高级为 null）
           storageLevel: 0,
@@ -131,8 +152,16 @@ var GameData = {
               { name: '储藏间',   capacity: 800, upgrade: { '废铁': 15, '布料': 6 } },
               { name: '仓库',     capacity: 1500, upgrade: null }
           ] },
-        { icon: '🧊', name: '冷藏箱', unlocked: false, desc: '延长食物保鲜时间。' },
-        { icon: '🪑', name: '舒适座椅', unlocked: false, desc: '坐着休息，缓解疲惫。' }
+        { icon: '🥤', name: '榨汁机', unlocked: false, isJuicer: true, desc: '把蔬果榨成营养饮品，留住维生素。' },
+        { icon: '🪑', name: '椅子', unlocked: false, isChair: true,
+          // 四级坐具、三次升级；rest 为每次休息恢复的体力值（上限 100）
+          chairLevel: 0,
+          chairLevels: [
+              { name: '小马扎', restore: 10, upgrade: { '废铁': 2, '布料': 1 } },
+              { name: '木椅',   restore: 20, upgrade: { '废铁': 4, '布料': 2 } },
+              { name: '电竞椅', restore: 35, upgrade: { '废铁': 7, '布料': 3 } },
+              { name: '沙发',   restore: 50, upgrade: null }
+          ] }
     ],
 
     // 床：睡觉时每小时基础恢复量（倍率 1.0×）与各属性上限（等级越高倍率越大，恢复越快）
@@ -156,7 +185,10 @@ var GameData = {
         tool:     { name: '工具', icon: '🔧' },
         armor:    { name: '防具', icon: '🛡️' },
         life:     { name: '生活', icon: '🧰' },
-        material: { name: '材料', icon: '🧱' }
+        material: { name: '材料', icon: '🧱' },
+        rawfood:  { name: '生食', icon: '🥩' },
+        dirty:    { name: '脏水', icon: '🌊' },
+        drink:    { name: '饮品', icon: '🥤' }
     },
     // 可消耗物品的使用效果：背包/仓库点击物品时菜单显示"吃/喝/使用"，恢复对应状态（stat 为 stats 字段，max 为上限）
     itemUse: {
@@ -164,16 +196,45 @@ var GameData = {
         water:    { label: '喝',   stat: 'water',  statName: '水分',   amount: 30, max: 150 },
         medicine: { label: '使用', stat: 'hp',     statName: '血量',   amount: 20, max: 200 }
     },
+    // 灶台菜单：固定按钮，点击时按背包+仓库当前物资直接制作。
+    // level 为所需灶台等级（0=简易灶台即可，1=需升级为烹饪锅），inputs 按物品 name 计，output 入背包。
+    // 食材限定：肉、鱼、蛋、土豆、甜菜、草莓、菠萝、西瓜、香蕉、椰子、芒果；仅肉/鱼/土豆/甜菜可烧烤。
+    // 菜谱需加 1 份「纯净水」（水以 1 为单位，来自烧水）。
+    stoveMenu: [
+        { name: '烤肉',     level: 0, inputs: { '肉': 1 },                                  output: { name: '烤肉',     type: 'food',  weight: 0.3, restore: { stat: 'hunger', statName: '饱食度', amount: 45,  max: 150 } } },
+        { name: '烤鱼',     level: 0, inputs: { '鱼': 1 },                                  output: { name: '烤鱼',     type: 'food',  weight: 0.3, restore: { stat: 'hunger', statName: '饱食度', amount: 40,  max: 150 } } },
+        { name: '烤土豆',   level: 0, inputs: { '土豆': 1 },                                output: { name: '烤土豆',   type: 'food',  weight: 0.2, restore: { stat: 'hunger', statName: '饱食度', amount: 30,  max: 150 } } },
+        { name: '烤甜菜',   level: 0, inputs: { '甜菜': 1 },                                output: { name: '烤甜菜',   type: 'food',  weight: 0.2, restore: { stat: 'hunger', statName: '饱食度', amount: 30,  max: 150 } } },
+        { name: '烧水',     level: 0, inputs: { '脏水': 1 },                                output: { name: '纯净水',   type: 'water', weight: 0.55 } },
+        { name: '炖肉煲',   level: 1, inputs: { '肉': 1, '土豆': 1, '纯净水': 1 },          output: { name: '炖肉煲',   type: 'food',  weight: 0.6, restore: { stat: 'hunger', statName: '饱食度', amount: 65,  max: 150 } } },
+        { name: '烤蔬菜盘', level: 1, inputs: { '土豆': 1, '甜菜': 1, '纯净水': 1 },        output: { name: '烤蔬菜盘', type: 'food',  weight: 0.5, restore: { stat: 'hunger', statName: '饱食度', amount: 55,  max: 150 } } },
+        { name: '海陆拼盘', level: 1, inputs: { '肉': 1, '鱼': 1, '纯净水': 1 },            output: { name: '海陆拼盘', type: 'food',  weight: 0.7, restore: { stat: 'hunger', statName: '饱食度', amount: 80,  max: 150 } } },
+        { name: '营养大餐', level: 1, inputs: { '肉': 1, '鱼': 1, '土豆': 1, '甜菜': 1, '纯净水': 1 }, output: { name: '营养大餐', type: 'food', weight: 1.0, restore: { stat: 'hunger', statName: '饱食度', amount: 110, max: 150 } } }
+    ],
+    // 榨汁机菜单：只用蔬果类食材 + 1 份「纯净水」榨成营养饮品
+    juiceRecipes: [
+        { name: '草莓汁',   inputs: { '草莓': 2, '纯净水': 1 },                             output: { name: '草莓汁',   type: 'drink', weight: 0.4, restore: { stat: 'physical', statName: '体力', amount: 15, max: 100 } } },
+        { name: '菠萝汁',   inputs: { '菠萝': 1, '纯净水': 1 },                             output: { name: '菠萝汁',   type: 'drink', weight: 0.5, restore: { stat: 'physical', statName: '体力', amount: 18, max: 100 } } },
+        { name: '西瓜汁',   inputs: { '西瓜': 1, '纯净水': 1 },                             output: { name: '西瓜汁',   type: 'drink', weight: 0.6, restore: { stat: 'water',     statName: '水分', amount: 25, max: 150 } } },
+        { name: '香蕉奶昔', inputs: { '香蕉': 2, '纯净水': 1 },                             output: { name: '香蕉奶昔', type: 'drink', weight: 0.5, restore: { stat: 'physical', statName: '体力', amount: 20, max: 100 } } },
+        { name: '椰子水',   inputs: { '椰子': 1, '纯净水': 1 },                             output: { name: '椰子水',   type: 'drink', weight: 0.5, restore: { stat: 'water',     statName: '水分', amount: 30, max: 150 } } },
+        { name: '芒果汁',   inputs: { '芒果': 2, '纯净水': 1 },                             output: { name: '芒果汁',   type: 'drink', weight: 0.5, restore: { stat: 'physical', statName: '体力', amount: 18, max: 100 } } },
+        { name: '混合果汁', inputs: { '草莓': 1, '菠萝': 1, '西瓜': 1, '纯净水': 1 },        output: { name: '混合果汁', type: 'drink', weight: 0.8, restore: { stat: 'physical', statName: '体力', amount: 35, max: 100 } } }
+    ],
+
+    // 背包等级：升级扩充容量（bagMax 随等级更新；0 级即初始 30 格）
+    bagLevels: [
+        { name: '普通背包', capacity: 30, upgrade: { '废铁': 2, '布料': 1 } },
+        { name: '帆布背包', capacity: 45, upgrade: { '废铁': 4, '布料': 2 } },
+        { name: '战术背包', capacity: 60, upgrade: { '废铁': 8, '布料': 4 } },
+        { name: '登山背包', capacity: 80, upgrade: null }
+    ],
 
     // 初始背包物资（点击 🎒 后模态框显示；type 决定图标，weight 为具体重量 kg）
     bag: [
         { type: 'food',   name: '薯片',   weight: 0.2 },
         { type: 'water',  name: '矿泉水', weight: 0.55 },
-        { type: 'weapon', name: '棒球棒', weight: 0.9 },
-        // 基础材料：工作台制作 / 床·仓库·篝火升级 / 篝火燃料的输入，需随探索补充
-        { type: 'material', name: '废铁', weight: 1.5, count: 20 },
-        { type: 'material', name: '布料', weight: 0.2, count: 10 },
-        { type: 'material', name: '木板', weight: 0.3, count: 8 }
+        { type: 'weapon', name: '棒球棒', weight: 0.9 }
     ],
 
     // 初始日志
