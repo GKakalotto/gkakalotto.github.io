@@ -10,9 +10,16 @@ const NavigationMixin = {
             };
         },
         // 两点 km 坐标之间的步行耗时（确定性，两地之间耗时固定；每格 1.0km 已适当延长）
+        // 体力低于当前上限 50% 时移动变慢：低于 20% 更慢
         travelSeconds(from, to) {
             const dist = Math.hypot(to.x - from.x, to.y - from.y);
-            return Math.max(HOUR_SECONDS / 60, Math.round((dist / MapData.walkSpeed) * HOUR_SECONDS));
+            let seconds = Math.max(HOUR_SECONDS / 60, Math.round((dist / MapData.walkSpeed) * HOUR_SECONDS));
+            const ph = this.stats ? this.stats.physical : 0;
+            const half = this.physicalMax ? this.physicalMax * 0.5 : 50;
+            if (ph < half) {
+                seconds = Math.round(seconds * (ph < half * 0.4 ? 2 : 1.5));
+            }
+            return seconds;
         },
         // 当前所在地 km 坐标（地点/公园/树格均由格子位置换算）
         getLocationCoord() {

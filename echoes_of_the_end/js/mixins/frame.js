@@ -67,6 +67,10 @@ const FrameMixin = {
                     bagMax: this.bagMax,
                     bagLevel: this.bagLevel,
                     storageItems: this.storageItems,
+                    cellResources: this.cellResources,
+                    locationResources: this.locationResources,
+                    placeStash: this.placeStash,
+                    equipment: this.equipment,
                     currentBed: this.currentBed,
                     currentStorage: this.currentStorage,
                     currentFurniture: this.currentFurniture,
@@ -77,6 +81,9 @@ const FrameMixin = {
                     currentChair: this.currentChair,
                     currentJuicer: this.currentJuicer,
                     cooking: this.cooking,
+                    activity: this.activity,
+                    searching: this.searching,
+                    battle: this.battle,
                     fireFuelUntil: this.fireFuelUntil,
                     gameSeconds: this.gameSeconds,
                     sleeping: this.sleeping
@@ -113,6 +120,61 @@ const FrameMixin = {
                 case 'back-to-map':
                     this.backToMap();
                     break;
+                // 资源点（公园/森林）：砍树 / 挖黏土（耗时）/ 开始搜索 / 停止搜索
+                case 'chop-tree':
+                    this.startChop();
+                    break;
+                case 'dig-clay':
+                    this.startDig();
+                    break;
+                case 'search-start':
+                    this.startSearch();
+                    break;
+                case 'search-stop':
+                    this.stopSearch();
+                    break;
+                // 地点搜刮
+                case 'loc-search':
+                    this.startLocationSearch();
+                    break;
+                // 搜刮物资弹窗确认（keep 为带走的索引数组，其余进暂存区）
+                case 'loot-confirm':
+                    this.lootConfirm(msg.keep);
+                    break;
+                // 暂存区取出（单条 / 批量选中）
+                case 'stash-take':
+                    this.stashTake(msg.index);
+                    break;
+                case 'stash-take-many':
+                    this.stashTakeMany(msg.keep);
+                    break;
+                // 地点特殊玩法：打猎 / 取水 / 钓鱼 / 领养狗
+                case 'hunt':
+                    this.startHunt();
+                    break;
+                case 'draw-water':
+                    this.startDrawWater();
+                    break;
+                case 'fish':
+                    this.startFish();
+                    break;
+                case 'adopt-dog':
+                    this.adoptDog();
+                    break;
+                // 资源动作进度条动画结束：结算产出
+                case 'action-anim-end':
+                    this.finishActivity();
+                    break;
+                // 战斗：逃跑 / 胜利继续 / 死亡重开
+                case 'battle-flee':
+                    this.fleeBattle();
+                    break;
+                case 'battle-continue':
+                    this.finishBattle();
+                    break;
+                case 'reset-game':
+                    this.resetGame();
+                    break;
                 case 'travel-done':
                     this.onTravelDone();
                     break;
@@ -145,11 +207,26 @@ const FrameMixin = {
                 case 'bag-move-storage':
                     this.moveToStorage(msg.index);
                     break;
+                case 'bag-stash':
+                    this.moveToStash(msg.index);
+                    break;
                 case 'bag-discard':
                     this.discard('bag', msg.index);
                     break;
                 case 'bag-use':
                     this.useItem('bag', msg.index);
+                    break;
+                case 'bag-equip':
+                    this.equipItem(msg.index);
+                    break;
+                case 'unequip-slot':
+                    this.unequipSlot(msg.slot);
+                    break;
+                case 'sort-bag':
+                    this.sortBag();
+                    break;
+                case 'sort-storage':
+                    this.sortStorage();
                     break;
                 // 仓库物品操作
                 case 'storage-move-bag':
@@ -204,6 +281,7 @@ const FrameMixin = {
         },
         // 开始移动：外壳负责推进游戏时间，iframe 负责红点动画；完成后回调
         startTravel(from, to, seconds, cb) {
+            if (this.resting) this.stopRest();   // 移动前自动结束休息
             this.moving = true;
             this.pendingTravelCb = cb;
             const path = this.buildRoute(from.gx, from.gy, to.gx, to.gy);
@@ -220,13 +298,13 @@ const FrameMixin = {
             this.travelRAF = requestAnimationFrame(step);
             this.postScene({ type: 'travel', path: path, seconds: seconds });
         },
-        // 地图 iframe 移动动画结束
+        // 地图 iframe 移动动画结束：判定遇敌（进入战斗）或继续原流程
         onTravelDone() {
             if (this.travelRAF) { cancelAnimationFrame(this.travelRAF); this.travelRAF = null; }
             const cb = this.pendingTravelCb;
             this.pendingTravelCb = null;
             this.moving = false;
-            if (cb) cb();
+            this.afterTravel(cb);
         },
         // 子页「关闭」：回到场景页（若正在睡觉，先取消动画）
         closePage() {
@@ -234,12 +312,24 @@ const FrameMixin = {
             this.sleeping = null;
             if (this.cookRAF) { cancelAnimationFrame(this.cookRAF); this.cookRAF = null; }
             this.cooking = null;
+            if (this.actionRAF) { cancelAnimationFrame(this.actionRAF); this.actionRAF = null; }
+            this.activity = null;
+            this.searching = false;
+            this.searchAccum = 0;
+            if (this.battleTimer) { clearInterval(this.battleTimer); this.battleTimer = null; }
+            this.battle = null;
+            this.pendingAfterBattle = null;
             this.currentPage = null;
         },
-        // 解锁当前家具详情页所指的家具（免费解锁，仅切换 unlocked 状态），保存并直接打开对应功能页
+        // 解锁当前家具详情页所指的家具（消耗材料后置 unlocked），保存并直接打开对应功能页
         unlockFurniture() {
             const f = this.currentFurniture;
             if (!f || f.unlocked) return;
+            if (!this.hasMaterials(f.unlockCost)) {
+                this.pushLog(`材料不足，无法解锁「${f.name}」。`);
+                return;
+            }
+            this.spendMaterials(f.unlockCost);
             f.unlocked = true;
             this.pushLog(`🔓 已解锁「${f.name}」。`);
             this.saveGame();

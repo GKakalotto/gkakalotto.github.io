@@ -15,8 +15,20 @@ const InventoryMixin = {
         closeStats() {
             this.showStats = false;
         },
+        // 状态条百分比：按各自上限换算（血量受健康、体力受力量影响；力量为等级 1-10）
+        statPct(key) {
+            const limits = { hunger: 150, water: 150, sanity: 200, stamina: 100, physical: this.physicalMax, health: 100, strength: 10 };
+            const max = key === 'hp' ? this.hpMax : (limits[key] || 100);
+            if (!max) return 0;
+            return Math.round(Math.max(0, Math.min(1, this.stats[key] / max)) * 100);
+        },
         // 背包 / 家具 / 床 / 工作台 / 仓库：点击均改为 iframe 加载对应子页
         openBag() {
+            // 战斗中禁止切页，避免中断战斗（定时器仍在后台运行）
+            if (this.battle && !this.battle.over) {
+                this.pushLog('战斗中无法打开背包！');
+                return;
+            }
             this.currentPage = 'bag';
         },
         // 背包：点击升级 → 弹窗确认（扩充容量）
@@ -99,7 +111,7 @@ const InventoryMixin = {
             const it = this.bag.find(i => i.name === name);
             return it ? (it.count || 0) : 0;
         },
-        // 材料消耗文案：{废铁:2, 布料:1} → '废铁 ×2、布料 ×1'
+        // 材料消耗文案：{金属废料:2, 布料:1} → '金属废料 ×2、布料 ×1'
         costText(cost) {
             return Object.keys(cost).map(k => `${k} ×${cost[k]}`).join('、');
         },
@@ -121,7 +133,7 @@ const InventoryMixin = {
                 show: true,
                 icon: '📦',
                 title: `升级仓库：${next.name}`,
-                desc: `容量 ${level.capacity} → ${next.capacity}，升级后能存放更多物资。`,
+                desc: `容量保持 ${level.capacity} 格，每槽堆叠上限 ${level.stack} → ${next.stack}，能叠放更多同类物品。`,
                 costMap: level.upgrade,
                 confirmText: '升级',
                 onConfirm: () => this.doUpgradeStorage()
@@ -135,7 +147,7 @@ const InventoryMixin = {
             if (!this.hasMaterials(cost)) return;
             this.spendMaterials(cost);
             st.storageLevel++;
-            this.pushLog(`仓库升级为「${st.storageLevels[st.storageLevel].name}」，容量提升到 ${st.storageLevels[st.storageLevel].capacity}。`);
+            this.pushLog(`仓库升级为「${st.storageLevels[st.storageLevel].name}」，每槽堆叠上限提升到 ${st.storageLevels[st.storageLevel].stack}。`);
             this.postSceneState();
         },
         // 工作台：点击制作 → 弹窗确认
@@ -151,43 +163,139 @@ const InventoryMixin = {
                 onConfirm: () => this.doCraft(bp)
             };
         },
-        // 执行制作（消耗材料并把产物加入背包）
+        // 执行制作（消耗精力 5 与材料，产物按蓝图 count 批量加入背包，堆叠上限 20）
         doCraft(bp) {
+            if (this.stats.stamina < 5) { this.pushLog('精力不足（需 5），无法制作，请先休息。'); return; }
             if (!this.hasMaterials(bp.cost)) return;
             this.spendMaterials(bp.cost);
-            this.bag.push({ type: bp.type, name: bp.name, weight: bp.weight, count: 1 });
-            this.pushLog(`你制作了「${bp.name}」。`);
+            this.stats.stamina -= 5;
+            const count = bp.count || 1;
+            this.addBag({ type: bp.type, name: bp.name, damage: bp.damage, defense: bp.defense, durability: bp.durability, restore: bp.restore, count: count });
+            this.pushLog(`你制作了「${bp.name}」${count > 1 ? '×' + count : ''}。`);
             // 刷新工作台材料颜色 / 背包子页
             this.postSceneState();
         },
-        // 仓库当前容量上限（按仓库等级）
+        // 仓库当前容量上限（固定 200 格，升级只提升堆叠上限）
         storageCapacity() {
             const st = this.furniture.find(f => f.isStorage);
             return st ? st.storageLevels[st.storageLevel].capacity : 0;
         },
-        // 背包 → 仓库（仅安全屋可存取；仓库容量未满时移动）
+        // 仓库当前每槽堆叠上限（随仓库等级提升）
+        storageStack() {
+            const st = this.furniture.find(f => f.isStorage);
+            return st ? st.storageLevels[st.storageLevel].stack : 20;
+        },
+        // 背包 → 仓库（仅安全屋可存取；普通物品按仓库堆叠上限合并，耐久物品不堆叠，放不下的剩余留在背包）
         moveToStorage(index) {
             const it = this.bag[index];
             if (!it) return;
             if (this.currentScene !== 'safehouse') return;
-            if (this.storageItems.length >= this.storageCapacity()) {
-                this.pushLog('仓库已满，无法放入。');
-                return;
+            const stack = this.storageStack();
+            const durable = !!it.durability;
+            let remaining = it.count || 1;
+            if (!durable) {
+                for (const si of this.storageItems) {
+                    if (remaining <= 0) break;
+                    if (si.name === it.name) {
+                        const space = stack - (si.count || 1);
+                        if (space > 0) {
+                            const take = Math.min(remaining, space);
+                            si.count = (si.count || 1) + take;
+                            remaining -= take;
+                        }
+                    }
+                }
             }
-            this.bag.splice(index, 1);
-            this.storageItems.push(it);
+            while (remaining > 0) {
+                if (this.storageItems.length >= this.storageCapacity()) { this.pushLog('仓库已满，无法全部放入。'); break; }
+                const take = durable ? 1 : Math.min(remaining, stack);
+                this.storageItems.push({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, restore: it.restore, durability: it.durability, count: take });
+                remaining -= take;
+            }
+            const moved = (it.count || 1) - remaining;
+            if (moved <= 0) return;
+            if (it.count) it.count -= moved;
+            if (!it.count || it.count <= 0) this.bag.splice(index, 1);
+            this.pushLog(`放入仓库「${it.name}」×${moved}。`);
             this.postSceneState();
         },
-        // 仓库 → 背包（背包容量未满时移动）
+        // 仓库 → 背包（背包堆叠上限 20，放不下时整条拒绝移动）
         moveToBag(index) {
             const it = this.storageItems[index];
             if (!it) return;
-            if (this.bag.length >= this.bagMax) {
+            if (!this.canFitBag(it)) {
                 this.pushLog('背包已满，无法取出。');
                 return;
             }
             this.storageItems.splice(index, 1);
-            this.bag.push(it);
+            this.addBag({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, durability: it.durability, restore: it.restore, count: it.count || 1 });
+            this.postSceneState();
+        },
+        // 背包能否容纳某物品（耐久物品每件占一槽不堆叠；普通物品按同类未满槽 + 空槽×20）
+        canFitBag(item) {
+            if (item.durability) {
+                return Math.max(0, this.bagMax - this.bag.length) >= (item.count || 1);
+            }
+            const MAX = 20;
+            let space = 0;
+            for (const it of this.bag) {
+                if (it.name === item.name) space += MAX - (it.count || 1);
+            }
+            space += Math.max(0, this.bagMax - this.bag.length) * MAX;
+            return space >= (item.count || 1);
+        },
+        // 自动整理：普通同类尽可能叠放（背包上限 20）；耐久物品不合并、按名排序
+        sortBag() {
+            const MAX = 20;
+            const durable = [];
+            const groups = {};
+            for (const it of this.bag) {
+                if (it.durability) { durable.push(it); continue; }
+                const key = it.name;
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(it);
+            }
+            const sorted = [];
+            for (const key of Object.keys(groups).sort()) {
+                const items = groups[key];
+                const base = items[0];
+                let total = items.reduce((s, it) => s + (it.count || 1), 0);
+                while (total > 0) {
+                    const take = Math.min(total, MAX);
+                    sorted.push({ name: base.name, type: base.type, restore: base.restore, count: take });
+                    total -= take;
+                }
+            }
+            durable.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+            this.bag = sorted.concat(durable);
+            this.pushLog('背包已自动整理。');
+            this.postSceneState();
+        },
+        // 自动整理：普通同类尽可能叠放（按仓库当前堆叠上限）；耐久物品不合并、按名排序
+        sortStorage() {
+            const stack = this.storageStack();
+            const durable = [];
+            const groups = {};
+            for (const it of this.storageItems) {
+                if (it.durability) { durable.push(it); continue; }
+                const key = it.name;
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(it);
+            }
+            const sorted = [];
+            for (const key of Object.keys(groups).sort()) {
+                const items = groups[key];
+                const base = items[0];
+                let total = items.reduce((s, it) => s + (it.count || 1), 0);
+                while (total > 0) {
+                    const take = Math.min(total, stack);
+                    sorted.push({ name: base.name, type: base.type, restore: base.restore, count: take });
+                    total -= take;
+                }
+            }
+            durable.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+            this.storageItems = sorted.concat(durable);
+            this.pushLog('仓库已自动整理。');
             this.postSceneState();
         },
         // 丢弃物品（source: 'bag' / 'storage'）
@@ -199,6 +307,41 @@ const InventoryMixin = {
             this.pushLog(`你丢弃了「${it.name}」。`);
             this.postSceneState();
         },
+        // 装备物品：从背包取出放入对应槽（武器/帽子/防具）；同槽已有装备先卸下回背包
+        equipItem(index) {
+            const it = this.bag[index];
+            if (!it) return;
+            const slot = this.slotOf(it.type, it.name);
+            if (!slot) return;
+            if (this.equipment[slot]) {
+                if (this.bag.length >= this.bagMax) { this.pushLog('背包已满，无法替换装备。'); return; }
+                this.bag.push(this.equipment[slot]);
+            }
+            this.equipment[slot] = it;
+            this.bag.splice(index, 1);
+            this.pushLog(`装备了「${it.name}」（${this.slotLabel(slot)}槽）。`);
+            this.postSceneState();
+        },
+        // 卸下装备：放回背包
+        unequipSlot(slot) {
+            const it = this.equipment[slot];
+            if (!it) return;
+            if (this.bag.length >= this.bagMax) { this.pushLog('背包已满，无法卸下装备。'); return; }
+            this.equipment[slot] = null;
+            this.bag.push(it);
+            this.pushLog(`卸下了「${it.name}」（${this.slotLabel(slot)}槽）。`);
+            this.postSceneState();
+        },
+        // 物品对应装备槽：武器→武器；头盔→帽子；其余防具→防具
+        slotOf(type, name) {
+            if (type === 'weapon') return 'weapon';
+            if (type === 'armor') return name === '头盔' ? 'hat' : 'armor';
+            return null;
+        },
+        // 装备槽显示名
+        slotLabel(slot) {
+            return { weapon: '武器', hat: '帽子', armor: '防具' }[slot] || '';
+        },
         // 使用物品（吃/喝/使用药品）：恢复对应状态，状态已满时提示
         useItem(source, index) {
             const list = source === 'storage' ? this.storageItems : this.bag;
@@ -207,11 +350,13 @@ const InventoryMixin = {
             // 熟食/菜谱等物品自带 restore，否则按类型取默认使用效果
             const cfg = it.restore || GameData.itemUse[it.type];
             if (!cfg) return;
-            if (this.stats[cfg.stat] >= cfg.max) {
+            // 血量上限受健康度、体力上限受力量影响，其余用默认上限
+            const max = cfg.stat === 'hp' ? this.hpMax : (cfg.stat === 'physical' ? this.physicalMax : cfg.max);
+            if (this.stats[cfg.stat] >= max) {
                 this.pushLog(`「${it.name}」：${cfg.statName}已满，暂时不需要。`);
                 return;
             }
-            this.stats[cfg.stat] = Math.min(cfg.max, this.stats[cfg.stat] + cfg.amount);
+            this.stats[cfg.stat] = Math.min(max, this.stats[cfg.stat] + cfg.amount);
             // 单件消耗：count > 1 时扣 1，否则移除条目
             if (it.count && it.count > 1) it.count--;
             else list.splice(index, 1);
@@ -299,6 +444,7 @@ const InventoryMixin = {
         // 床：点击睡眠 → 弹窗确认（确认后触发进度条动画，并在动画期间加速推进游戏时间）
         startSleep(mode) {
             if (this.sleeping) return;   // 动画进行中，禁止重复点击
+            if (this.resting) this.stopRest();   // 睡觉前自动结束休息
             const label = mode === '1h' ? '睡 1 小时' : mode === '4h' ? '睡 4 小时' : '睡到天亮';
             this.dialog = {
                 show: true,
@@ -363,13 +509,14 @@ const InventoryMixin = {
             // 通知床子页清除动画状态
             this.postSceneState();
         },
-        // 按当前床倍率结算 精力 / 血量 / 体力 恢复（不超过上限）
+        // 按当前床倍率结算 精力 / 血量 / 体力 恢复（血量上限受健康度、体力上限受力量影响，其余用固定上限）
         applySleep(bed, hours) {
             const cfg = GameData.bedSleep;
             const mult = bed.bedLevels[bed.bedLevel].recover;
             ['stamina', 'hp', 'physical'].forEach(k => {
                 const gain = cfg.base[k] * hours * mult;
-                this.stats[k] = Math.min(cfg.max[k], this.stats[k] + gain);
+                const max = k === 'hp' ? this.hpMax : (k === 'physical' ? this.physicalMax : cfg.max[k]);
+                this.stats[k] = Math.min(max, this.stats[k] + gain);
             });
         },
         // ============ 灶台 / 烹饪锅 ============
@@ -439,6 +586,7 @@ const InventoryMixin = {
         // 制作/榨汁：点击后扣料并进入耗时进度（动画期间推进游戏时间，结束后产出）
         startCooking(kind, name) {
             if (this.cooking) return;
+            if (this.resting) this.stopRest();   // 烹饪/榨汁前自动结束休息
             const list = kind === 'stove' ? GameData.stoveMenu : GameData.juiceRecipes;
             const a = list.find(x => x.name === name);
             if (!a) return;
@@ -484,9 +632,7 @@ const InventoryMixin = {
             if (remain > 0) this.advanceGameTime(remain);
             const o = this.cooking.output;
             const kind = this.cooking.kind;
-            const existing = this.bag.find(i => i.name === o.name);
-            if (existing) existing.count = (existing.count || 1) + 1;
-            else this.bag.push({ name: o.name, type: o.type, weight: o.weight, restore: o.restore, count: 1 });
+            this.addBag({ name: o.name, type: o.type, restore: o.restore, count: 1 });
             this.pushLog(kind === 'stove' ? `制作了「${o.name}」。` : `榨了杯「${o.name}」。`);
             this.cooking = null;
             this.postSceneState();
@@ -516,19 +662,13 @@ const InventoryMixin = {
             this.pushLog(`雨水收集器升级为「${st.rainLevels[st.rainLevel].name}」，储水容量提升到 ${st.rainLevels[st.rainLevel].capacity}。`);
             this.postSceneState();
         },
-        // 装瓶：把储量（向下取整）转为背包「雨水瓶」（type:water）
+        // 装瓶：把储量（向下取整）转为背包「雨水瓶」（type:water，堆叠上限 20）
         bottleRain() {
             const st = this.currentRain;
             const amt = st ? Math.floor(st.rainWater) : 0;
             if (!st || amt <= 0) return;
-            const existing = this.bag.find(i => i.name === '雨水瓶');
-            if (!existing && this.bag.length >= this.bagMax) {
-                this.pushLog('背包已满，无法装瓶。');
-                return;
-            }
             st.rainWater = Math.max(0, st.rainWater - amt);
-            if (existing) existing.count = (existing.count || 1) + amt;
-            else this.bag.push({ type: 'water', name: '雨水瓶', weight: 0.55, count: amt });
+            this.addBag({ type: 'water', name: '雨水瓶', count: amt });
             this.pushLog(`装瓶 ${amt} 份雨水（雨水瓶）。`);
             this.postSceneState();
         },
@@ -557,13 +697,13 @@ const InventoryMixin = {
             this.pushLog(`椅子升级为「${st.chairLevels[st.chairLevel].name}」，休息恢复体力提升到 ${st.chairLevels[st.chairLevel].restore}。`);
             this.postSceneState();
         },
-        // 休息：推进 30 分钟游戏时间，恢复当前等级的体力（上限 100）
+        // 休息：推进 30 分钟游戏时间，恢复当前等级的体力（上限随力量提升）
         restChair() {
             const st = this.currentChair;
             if (!st) return;
             const restore = st.chairLevels[st.chairLevel].restore;
             this.advanceGameTime(30 * 60);
-            this.stats.physical = Math.min(100, this.stats.physical + restore);
+            this.stats.physical = Math.min(this.physicalMax, this.stats.physical + restore);
             this.pushLog(`在「${st.chairLevels[st.chairLevel].name}」上休息，体力 +${restore}。`);
             this.postSceneState();
         }

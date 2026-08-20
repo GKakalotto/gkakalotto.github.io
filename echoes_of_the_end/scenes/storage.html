@@ -15,15 +15,18 @@
             <button class="page-back" @click="send({ type: 'close-page' })">‹ 返回</button>
             <button v-if="storage && storage.storageLevel < storage.storageLevels.length - 1" class="upgrade-btn" @click="send({ type: 'upgrade-storage' })">升级</button>
             <span v-else class="upgrade-max">已达最高等级</span>
+            <button class="sort-btn" @click="send({ type: 'sort-storage' })">整理</button>
         </div>
         <div class="page-body st-body">
-            <!-- 物品区：仓库存储物品卡片 -->
-            <div class="st-items" :class="{ empty: storageItems.length === 0 }">
-                <div class="st-item" v-for="(it, i) in storageItems" :key="i" @click="openMenu(i)">
-                    <span class="st-item-name" v-text="it.name"></span>
-                    <span class="st-item-meta" v-if="it.count" v-text="'×' + it.count"></span>
+            <!-- 物品区：按仓库容量渲染全部槽位格子，空槽也显示 -->
+            <div class="st-items">
+                <div class="st-item" v-for="i in cap" :key="i" :class="{ empty: !storageItems[i - 1] }"
+                     @click="storageItems[i - 1] && openMenu(i - 1)">
+                    <template v-if="storageItems[i - 1]">
+                        <span class="st-item-name" v-text="storageItems[i - 1].name"></span>
+                        <span class="st-item-meta" v-if="storageItems[i - 1].count" v-text="'×' + storageItems[i - 1].count"></span>
+                    </template>
                 </div>
-                <p v-if="storageItems.length === 0" class="bag-empty">仓库空空如也。</p>
             </div>
         </div>
 
@@ -37,6 +40,12 @@
                 </template>
                 <template v-else>
                     <div class="item-menu-title" v-text="menuItem ? menuItem.name : ''"></div>
+                    <div class="item-menu-meta" v-if="menuItem">
+                        <div v-if="menuItem.damage" v-text="'攻击 ' + menuItem.damage"></div>
+                        <div v-else-if="menuItem.defense" v-text="'减伤 ' + menuItem.defense"></div>
+                        <div v-if="menuItem.durability" v-text="'耐久 ' + menuItem.durability"></div>
+                        <div v-if="menuItem.restore" v-text="'恢复' + menuItem.restore.statName + ' +' + menuItem.restore.amount"></div>
+                    </div>
                     <button class="item-menu-btn" @click="act('storage-move-bag')">🎒 放入背包</button>
                     <button v-if="useCfg" class="item-menu-btn" @click="act('storage-use')" v-text="useCfg.label"></button>
                     <button class="item-menu-btn danger" @click="menu.confirmDiscard = true">🗑️ 丢弃</button>
@@ -63,6 +72,10 @@
         computed: {
             menuItem() {
                 return this.menu.show ? this.storageItems[this.menu.index] : null;
+            },
+            // 仓库当前容量（槽位数）
+            cap() {
+                return this.storage ? this.storage.storageLevels[this.storage.storageLevel].capacity : 0;
             },
             useCfg() {
                 var it = this.menuItem;

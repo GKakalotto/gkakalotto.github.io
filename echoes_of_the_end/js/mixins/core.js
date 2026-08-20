@@ -1,6 +1,18 @@
 // ============ Mixin：时间与环境（时钟/天气/温度/日志） ============
 const CoreMixin = {
     computed: {
+        // 总生存天数（跨季累计，用于丧尸强度/遇敌概率等长期难度）
+        totalDay() {
+            return Math.floor(this.gameSeconds / DAY_SECONDS);
+        },
+        // 血量上限：由健康度决定（健康 100 → 上限 200，健康减半 → 上限减半）
+        hpMax() {
+            return Math.round(200 * Math.max(0, this.stats.health) / 100);
+        },
+        // 体力上限：随力量提升（力量 1 → 100，力量 10 → 300）
+        physicalMax() {
+            return Math.round(100 + (this.stats.strength - 1) * 200 / 9);
+        },
         // 季节内天数 1-30
         day() {
             return Math.floor(this.gameSeconds / DAY_SECONDS) % DAYS_PER_SEASON + 1;
@@ -52,6 +64,7 @@ const CoreMixin = {
             if (this.currentPage === 'rain') return '🚿 雨水收集器';
             if (this.currentPage === 'chair') return '🪑 椅子';
             if (this.currentPage === 'juicer') return '🥤 榨汁机';
+            if (this.currentPage === 'battle') return '⚔️ 战斗';
             if (this.currentPage === 'furniture' && this.currentFurniture) {
                 return `${this.currentFurniture.icon} ${this.currentFurniture.name}`;
             }
@@ -91,19 +104,53 @@ const CoreMixin = {
                 this.clockTimer = setInterval(() => this.tick(), 1000);
             }
         },
-        // 每秒推进游戏时间（地图场景下时间暂停，不流动）
+        // 每秒推进游戏时间（地图场景下时间暂停；战斗时也不流动，避免战斗期间天气/时间变化）
         tick() {
             if (this.currentScene === 'map') return;
+            if (this.currentPage === 'battle') return;
             this.advanceGameTime(GAME_SECONDS_PER_REAL_SECOND);
             // 篝火页打开时，每秒推送状态刷新燃料倒计时
             if (this.currentPage === 'fire') this.postSceneState();
             // 雨水收集器雨天自动收集（仅在安全屋时间流动时生效）
             this.autoCollectRain();
             if (this.currentPage === 'rain') this.postSceneState();
+            // 持续搜索：每累计 30 游戏分钟随机产出一次
+            if (this.searching) {
+                this.searchAccum += GAME_SECONDS_PER_REAL_SECOND;
+                if (this.searchAccum >= SEARCH_INTERVAL) {
+                    this.searchAccum -= SEARCH_INTERVAL;
+                    this.searchDrop();
+                    this.postSceneState();
+                }
+            }
+            // 休息：每累计 1 游戏分钟恢复 2 体力，体力满自动停止
+            if (this.resting) {
+                this.restAccum += GAME_SECONDS_PER_REAL_SECOND;
+                if (this.restAccum >= MINUTE_SECONDS) {
+                    this.restAccum -= MINUTE_SECONDS;
+                    this.stats.physical = Math.min(this.physicalMax, this.stats.physical + 2);
+                    if (this.stats.physical >= this.physicalMax) this.stopRest();
+                }
+            }
         },
-        // 推进游戏时间（秒），处理跨天/跨季
+        // 推进游戏时间（秒），处理状态消耗/恢复、跨天/跨季
         advanceGameTime(seconds) {
             this.gameSeconds += seconds;
+            // 状态随时间变化：饱食/水分/理智持续消耗，精力/体力自然缓慢恢复
+            const s = this.stats;
+            const hours = seconds / HOUR_SECONDS;
+            const wasHungry = s.hunger > 0, wasThirsty = s.water > 0;
+            s.hunger = Math.max(0, s.hunger - 2 * hours);
+            s.water = Math.max(0, s.water - 2.5 * hours);
+            s.sanity = Math.max(0, s.sanity - 0.5 * hours);
+            s.stamina = Math.min(100, s.stamina + 2 * hours);
+            s.physical = Math.min(this.physicalMax, s.physical + hours);
+            if (wasHungry && s.hunger <= 0) this.pushLog('你饿得头晕眼花，身体开始透支……');
+            if (wasThirsty && s.water <= 0) this.pushLog('你口渴难耐，急需饮水……');
+            // 饥饿或缺水归零后持续掉血
+            if (s.hunger <= 0 || s.water <= 0) {
+                s.hp = Math.max(0, s.hp - 3 * hours);
+            }
             const totalDay = Math.floor(this.gameSeconds / DAY_SECONDS);
             // 逐日推进：跨天重新随机天气
             while (this.lastDay < totalDay) {
@@ -117,7 +164,32 @@ const CoreMixin = {
                 this.lastSeason = si;
                 this.pushLog(`季节更替，${this.season}来临。`);
             }
+            // 状态阈值检查：任一状态低于上限 30% 时日志提示一次
+            this.checkLowStats();
             this.saveGame();
+        },
+        // 低状态阈值提示：各状态首次跌破 30% 时提示，回升后复位以便下次再提醒
+        checkLowStats() {
+            const warnMap = {
+                hunger: '饱食', water: '水分', sanity: '理智', stamina: '精力',
+                physical: '体力', hp: '血量', health: '健康'
+            };
+            const maxMap = {
+                hunger: 150, water: 150, sanity: 200, stamina: 100,
+                physical: this.physicalMax, hp: this.hpMax, health: 100
+            };
+            for (const key in warnMap) {
+                const max = maxMap[key];
+                const pct = max ? this.stats[key] / max : 1;
+                if (pct < 0.3) {
+                    if (!this.lowWarned[key]) {
+                        this.lowWarned[key] = true;
+                        this.pushLog(`⚠️ ${warnMap[key]}低于 30%，请注意补充或休息！`);
+                    }
+                } else {
+                    this.lowWarned[key] = false;
+                }
+            }
         },
         // 雨水收集器：雨天按雨量自动收集，封顶当前容量；储量允许小数，显示时取整
         autoCollectRain() {
@@ -148,6 +220,38 @@ const CoreMixin = {
         pushLog(text) {
             this.logs.push({ time: this.time, text });
             if (this.logs.length > 20) this.logs.shift();
+        },
+        // 弹窗取消按钮：优先执行 dialog.onCancel（如遇敌弹窗的「逃跑」），否则仅关闭
+        onDialogCancel() {
+            const fn = this.dialog.onCancel;
+            if (fn) {
+                this.dialog.onCancel = null;
+                fn.call(this);
+            } else {
+                this.closeDialog();
+            }
+        },
+        // 休息开关：点击顶栏休息按钮切换；休息中时间流逝并缓慢恢复体力
+        toggleRest() {
+            if (this.resting) this.stopRest();
+            else this.startRest();
+        },
+        startRest() {
+            if (this.currentScene === 'map') { this.pushLog('赶路途中无法安心休息。'); return; }
+            if (this.currentPage === 'battle' || this.activity || this.searching || this.sleeping || this.cooking) {
+                this.pushLog('当前无法休息。');
+                return;
+            }
+            if (this.stats.physical >= this.physicalMax) { this.pushLog('体力充沛，无需休息。'); return; }
+            this.resting = true;
+            this.restAccum = 0;
+            this.pushLog('你坐下来休息，体力缓缓恢复……');
+        },
+        stopRest() {
+            if (!this.resting) return;
+            this.resting = false;
+            this.restAccum = 0;
+            this.pushLog('休息结束。');
         }
     }
 };

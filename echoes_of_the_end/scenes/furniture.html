@@ -15,19 +15,25 @@
             <button class="page-back" @click="send({ type: 'close-page' })">‹ 返回</button>
         </div>
         <div class="page-body">
-            <!-- 未解锁家具：复用床升级卡片结构，仅将「升级」替换为「解锁」 -->
+            <!-- 未解锁家具：显示解锁材料成本，材料不足时解锁按钮禁用 -->
             <div v-if="f && !f.unlocked" class="bed-section bed-upgrade upgrade-card">
                 <div class="bed-upgrade-row">
                     <div class="bed-upgrade-info">
-                        <div class="bed-next">解锁后可正常使用</div>
+                        <div class="bed-next">解锁需要</div>
+                        <div class="bed-cost">
+                            <span class="bed-cost-item" v-for="(amt, mat) in f.unlockCost" :key="mat"
+                                  :class="UI.materialCount(bag, mat) >= amt ? 'enough' : 'lacking'"
+                                  v-text="mat + ' ×' + amt"></span>
+                        </div>
                     </div>
-                    <button class="bed-upgrade-btn" @click="onUnlock">解锁</button>
+                    <button class="bed-upgrade-btn" :disabled="!canUnlock" @click="onUnlock">解锁</button>
                 </div>
             </div>
         </div>
     </div>
 
     <script src="../js/data.js"></script>
+    <script src="../js/ui.js"></script>
     <script src="../js/vue.min.js"></script>
     <script>
     // 家具详情子页：Vue 渲染解锁按钮，解锁消息转发给外壳
@@ -35,13 +41,20 @@
         el: '#furniture',
         data: {
             loaded: false,
-            f: null
+            f: null,
+            bag: []
+        },
+        computed: {
+            // 材料是否足够解锁当前家具
+            canUnlock() {
+                return this.f && UI.hasMaterials(this.bag, this.f.unlockCost || {});
+            }
         },
         methods: {
             send(msg) {
                 window.parent.postMessage(msg, '*');
             },
-            // 解锁当前家具：消息转发给外壳，由外壳置 unlocked 并保存刷新
+            // 解锁当前家具：消息转发给外壳，由外壳扣材料并置 unlocked 后保存刷新
             onUnlock() {
                 this.send({ type: 'unlock-furniture' });
             }
@@ -52,6 +65,7 @@
         var msg = e.data;
         if (msg && msg.type === 'init') {
             app.f = msg.state.currentFurniture;
+            app.bag = msg.state.bag || [];
             app.loaded = true;
         }
     });

@@ -17,11 +17,6 @@
             <span v-else class="upgrade-max">已达最高等级</span>
         </div>
         <div class="page-body">
-            <!-- 标题固定吸顶，不随制作列表滚动 -->
-            <div class="stove-fixed">
-                <div class="stove-section-title">烹饪</div>
-            </div>
-
             <!-- 制作按钮：固定菜单，按背包+仓库物资直接制作 -->
             <div class="stove-ops">
                 <div v-for="a in GameData.stoveMenu" :key="a.name" class="stove-item-row">

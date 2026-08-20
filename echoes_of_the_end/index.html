@@ -35,6 +35,7 @@
                 <span v-text="sceneTitle"></span>
                 <span class="scene-cap" v-if="sceneCapText" v-text="sceneCapText"></span>
                 <div class="scene-title-btns">
+                    <button class="rest-btn" :class="{ resting: resting }" @click="toggleRest" title="休息">💤</button>
                     <button class="stats-btn" @click="toggleStats" title="状态">❤</button>
                     <button class="bag-btn" @click="openBag" title="背包">🎒</button>
                     <button class="settings-btn" @click="openSettings" title="设置">⚙️</button>
@@ -49,8 +50,8 @@
                     :src="frameSrc1" title="场景" @load="onFrameLoad(1)"></iframe>
         </div>
 
-        <!-- 确认弹窗（初始内联隐藏，防止刷新闪烁） -->
-        <div v-show="dialog.show" style="display:none" class="dialog-overlay" @click.self="closeDialog">
+        <!-- 确认弹窗（初始内联隐藏，防止刷新闪烁）；点遮罩等同取消按钮（遇敌弹窗即触发逃跑） -->
+        <div v-show="dialog.show" style="display:none" class="dialog-overlay" @click.self="onDialogCancel">
             <div class="dialog-panel">
                 <div class="dialog-icon" v-text="dialog.icon"></div>
                 <div class="dialog-title" v-text="dialog.title"></div>
@@ -62,7 +63,7 @@
                 </div>
                 <div v-else-if="dialog.cost" class="dialog-cost" v-text="dialog.cost"></div>
                 <div class="dialog-btns">
-                    <button class="dialog-cancel" @click="closeDialog">取消</button>
+                    <button class="dialog-cancel" @click="onDialogCancel" v-text="dialog.cancelText || '取消'"></button>
                     <button class="dialog-confirm" @click="confirmAction"
                             :disabled="!canAffordDialog"
                             v-text="dialog.confirmText || (dialog.action === 'home' || dialog.action === 'enter-loc' || dialog.action === 'enter-cell' ? '进入' : '出发')"></button>
@@ -80,7 +81,7 @@
                 <div class="stats-body">
                     <div class="stat-item" v-for="s in statItems" :key="s.key" :class="s.key">
                         <div class="stat-icon" v-text="s.icon"></div>
-                        <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: stats[s.key] + '%' }"></div><div class="stat-value" v-text="stats[s.key]"></div></div>
+                        <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: statPct(s.key) + '%' }"></div><div class="stat-value" v-text="Math.round(stats[s.key])"></div></div>
                         <span class="stat-label" v-text="s.label"></span>
                     </div>
                 </div>

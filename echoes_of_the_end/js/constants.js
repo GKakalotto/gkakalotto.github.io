@@ -14,6 +14,9 @@ const DAY_SECONDS = HOURS_PER_DAY * HOUR_SECONDS;
 const DAYS_PER_SEASON = GameData.daysPerSeason;
 const GAME_SECONDS_PER_REAL_SECOND = GameData.realSecondToGameSecond;
 
+// 持续搜索：每累计该游戏秒数随机产出一次（1 游戏分钟）
+const SEARCH_INTERVAL = MINUTE_SECONDS;
+
 // 地图常量（15 列 × 19 行格子地图，数据来自 MapData）
 const MAP_COLS = MapData.mapCols;
 const MAP_ROWS = MapData.mapRows;

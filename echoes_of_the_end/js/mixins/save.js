@@ -16,6 +16,10 @@ const SaveMixin = {
                     bag: this.bag,
                     bagLevel: this.bagLevel,
                     storageItems: this.storageItems,
+                    cellResources: this.cellResources,
+                    locationResources: this.locationResources,
+                    placeStash: this.placeStash,
+                    equipment: this.equipment,
                     fireFuelUntil: this.fireFuelUntil,
                     // 只存可变状态（升级等级 / 解锁状态），静态结构仍以数据文件为准
                     furnitureState: this.furniture.map(f => ({
@@ -56,6 +60,29 @@ const SaveMixin = {
             }
             // 仓库存储物品（旧档无此字段时保持空仓库）
             if (Array.isArray(save.storageItems)) this.storageItems = save.storageItems;
+            // 地图资源格状态（旧档无此字段时保持空，进入时重新生成）
+            if (save.cellResources) this.cellResources = save.cellResources;
+            // 地点搜刮次数（旧档无此字段时保持空，进入时重新生成；旧格式 searches 迁移为 roomsLeft）
+            if (save.locationResources) {
+                this.locationResources = save.locationResources;
+                for (const key in this.locationResources) {
+                    const r = this.locationResources[key];
+                    if (r && typeof r.searches === 'number' && r.roomsLeft === undefined) {
+                        r.roomsLeft = r.searches;
+                        delete r.searches;
+                    }
+                }
+            }
+            // 地点暂存区（旧档无此字段时保持空）
+            if (save.placeStash) this.placeStash = save.placeStash;
+            // 装备槽（旧档无此字段时保持空）
+            if (save.equipment) {
+                this.equipment = {
+                    weapon: save.equipment.weapon || null,
+                    hat: save.equipment.hat || null,
+                    armor: save.equipment.armor || null
+                };
+            }
             // 篝火燃料烧尽时刻（旧档无此字段时默认 0，即熄灭）
             if (typeof save.fireFuelUntil === 'number') this.fireFuelUntil = save.fireFuelUntil;
             // 家具可变状态按下标回填到数据文件的静态结构上

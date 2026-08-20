@@ -39,8 +39,9 @@
 }
 .day-count { color: #ffcc00; font-weight: bold; font-size: 16px; }
 
-/* 状态/背包/设置按钮 */
+/* 状态/休息/背包/设置按钮 */
 .stats-btn,
+.rest-btn,
 .settings-btn,
 .bag-btn {
     flex: none;
@@ -59,8 +60,10 @@
     transition: all 0.2s;
 }
 .stats-btn:hover,
+.rest-btn:hover,
 .settings-btn:hover,
 .bag-btn:hover { color: #ffcc00; }
+.rest-btn.resting { color: #ffcc00; background: rgba(60, 90, 40, 0.5); border-radius: 6px; }
 
 /* ---------- 上部：日志（固定高度，仅显示最新 5 条） ---------- */
 .log-panel {

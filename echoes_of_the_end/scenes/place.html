@@ -6,43 +6,251 @@
     <title>地点</title>
     <style>[v-cloak] { display: none; }</style>
     <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/subpages.css">
     <link rel="stylesheet" href="../css/scenes.css">
 </head>
 <body class="scene-page" oncontextmenu="return false">
-    <!-- 地点占位场景：显示当前地点名称，返回按钮转发给外壳；Vue 数据加载完成前隐藏 -->
-    <div id="place" class="place-scene" v-cloak style="display:none" v-show="loaded">
-        <div class="place-content">
-            <div class="place-icon" v-text="icon"></div>
-            <div class="place-title" v-text="name"></div>
-            <p class="place-hint">此处暂未开放，敬请期待后续版本。</p>
-            <button class="place-back" @click="send({ type: 'back-to-map' })">🗺️ 返回地图</button>
+    <!-- 地点/资源点场景：page-header 返回键 + 下方操作按钮（砍树/挖/搜索）；普通地点为占位 -->
+    <div id="place" class="page-root" v-cloak style="display:none" v-show="loaded">
+        <div class="page-header">
+            <button class="page-back" :disabled="!!activity || searching" @click="send({ type: 'back-to-map' })">‹ 返回</button>
+            <button class="sort-btn stash-btn" @click="openStash">暂存区</button>
+        </div>
+        <div class="page-body">
+            <!-- 地点（城市地点）：按类型模式渲染 -->
+            <template v-if="base === 'loc'">
+                <!-- 普通地点：搜刮房间，房间数有限 -->
+                <template v-if="!locMode">
+                    <div class="res-card">
+                        <div class="res-info" v-text="locType + '：共 ' + roomsTotal + ' 个房间，剩余 ' + (locRes ? locRes.roomsLeft : 0) + ' 间'"></div>
+                        <button class="place-back place-act-btn" :class="{ active: actType === 'loc-search' }"
+                                :disabled="!!activity || searching || !locRes || locRes.roomsLeft <= 0"
+                                @click="send({ type: 'loc-search' })">
+                            <div v-if="actType === 'loc-search'" class="place-act-fill" @animationend="onActAnimEnd"></div>
+                            <span v-text="actType === 'loc-search' ? '搜刮中…' : '🔍 搜刮房间'"></span>
+                        </button>
+                    </div>
+                    <p v-if="locRes && locRes.roomsLeft <= 0" class="place-hint">这里已被搜刮一空。</p>
+                </template>
+
+                <!-- 动物园：打猎（无限）+ 领养狗 -->
+                <template v-if="locMode === 'zoo'">
+                    <div class="res-card">
+                        <div class="res-info">🐅 打猎：动物会繁殖，无限次猎取（耗时 15 分钟，获得生肉×1~2）</div>
+                        <button class="place-back place-act-btn" :class="{ active: actType === 'hunt' }"
+                                :disabled="!!activity || searching" @click="send({ type: 'hunt' })">
+                            <div v-if="actType === 'hunt'" class="place-act-fill" @animationend="onActAnimEnd"></div>
+                            <span v-text="actType === 'hunt' ? '打猎中…' : '🏹 打猎'"></span>
+                        </button>
+                    </div>
+                    <div class="res-card">
+                        <div class="res-info" v-text="dogAdopted ? '🐕 大黄已经在狗舍里了' : '🐕 领养狗：消耗 1 份肉（生肉/烤肉/肉干），狗加入狗舍'"></div>
+                        <button class="place-back" :disabled="!!activity || searching || dogAdopted"
+                                @click="send({ type: 'adopt-dog' })">
+                            <span v-text="dogAdopted ? '已领养' : '🐕 领养狗'"></span>
+                        </button>
+                    </div>
+                </template>
+
+                <!-- 河边：取水 + 钓鱼 -->
+                <template v-if="locMode === 'river'">
+                    <div class="res-card">
+                        <div class="res-info">💧 取水：耗时 5 分钟，获得脏水×3</div>
+                        <button class="place-back place-act-btn" :class="{ active: actType === 'drawwater' }"
+                                :disabled="!!activity || searching" @click="send({ type: 'draw-water' })">
+                            <div v-if="actType === 'drawwater'" class="place-act-fill" @animationend="onActAnimEnd"></div>
+                            <span v-text="actType === 'drawwater' ? '取水中…' : '💧 取水'"></span>
+                        </button>
+                    </div>
+                    <div class="res-card">
+                        <div class="res-info">🎣 钓鱼：耗时 15 分钟，概率钓到鱼（需背包携带鱼竿）</div>
+                        <button class="place-back place-act-btn" :class="{ active: actType === 'fish' }"
+                                :disabled="!!activity || searching" @click="send({ type: 'fish' })">
+                            <div v-if="actType === 'fish'" class="place-act-fill" @animationend="onActAnimEnd"></div>
+                            <span v-text="actType === 'fish' ? '钓鱼中…' : '🎣 钓鱼'"></span>
+                        </button>
+                    </div>
+                </template>
+            </template>
+
+            <!-- 资源点（公园绿地 / 森林）：操作按钮带耗时进度；树木有限，黏土/搜索不限次数 -->
+            <template v-else-if="base === 'park' || base === 'tree'">
+                <div class="res-card" v-if="res && res.trees > 0">
+                    <div class="res-info">🌲 树木 ×{{ res.trees }}：砍一棵得原木×4（耗时 10 分钟，需斧头），概率掉落种子</div>
+                    <button class="place-back place-act-btn" :class="{ active: actType === 'chop' }"
+                            :disabled="!!activity || searching"
+                            @click="send({ type: 'chop-tree' })">
+                        <div v-if="actType === 'chop'" class="place-act-fill" @animationend="onActAnimEnd"></div>
+                        <span v-text="actType === 'chop' ? '砍树中…' : '🪓 砍树'"></span>
+                    </button>
+                </div>
+                <div class="res-card" v-if="base">
+                    <div class="res-info">🟠 黏土：无限，挖一次得黏土×2（耗时 5 分钟，需背包携带铁锹）</div>
+                    <button class="place-back place-act-btn" :class="{ active: actType === 'dig' }"
+                            :disabled="!!activity || searching"
+                            @click="send({ type: 'dig-clay' })">
+                        <div v-if="actType === 'dig'" class="place-act-fill" @animationend="onActAnimEnd"></div>
+                        <span v-text="actType === 'dig' ? '挖土中…' : '⛏️ 挖'"></span>
+                    </button>
+                </div>
+                <div class="res-card">
+                    <div class="res-info" v-text="searching ? '🔍 搜索中……每约 1 分钟获得一次物品，时间持续流逝' : '🔍 搜索：不限次数，概率获得草药/石头/垃圾'"></div>
+                    <button class="place-back" :disabled="!!activity"
+                            @click="send({ type: searching ? 'search-stop' : 'search-start' })">
+                        <span v-text="searching ? '⏹️ 停止搜索' : '🔍 开始搜索'"></span>
+                    </button>
+                </div>
+                <p v-if="base === 'tree' && res && res.trees <= 0" class="place-hint">这片森林的树已被砍光了。</p>
+            </template>
+
+            <!-- 其他：占位 -->
+            <p v-else class="place-hint">此处暂未开放，敬请期待后续版本。</p>
+        </div>
+
+        <!-- 搜刮物资弹窗：与背包一致的卡片网格展示，点击卡片变色选中，勾选后带走，未选自动进暂存区 -->
+        <div v-if="loot.show" class="item-menu-overlay" @click.self="closeLoot">
+            <div class="item-menu loot-menu">
+                <div class="item-menu-title">📦 搜刮到 {{ loot.items.length }} 件物资（点选带走）</div>
+                <div class="st-items loot-grid">
+                    <div class="st-item" v-for="(it, i) in loot.items" :key="i" :class="{ selected: loot.keep[i] }"
+                         @click="toggleLoot(i)">
+                        <span class="st-item-name" v-text="it.name"></span>
+                        <span class="st-item-meta" v-text="'×' + (it.count || 1)"></span>
+                    </div>
+                </div>
+                <div class="dialog-btns">
+                    <button class="dialog-cancel" @click="closeLoot">全部暂存</button>
+                    <button class="dialog-confirm" @click="confirmLoot">带走选中</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 暂存区弹窗：与背包一致的卡片网格展示，点击卡片变色选中，点「取出选中」批量取出 -->
+        <div v-if="stashOpen" class="item-menu-overlay" @click.self="closeStash">
+            <div class="item-menu stash-menu">
+                <div class="item-menu-title">🗃️ 暂存区（点选后取出）</div>
+                <div class="st-items stash-grid">
+                    <div class="st-item" v-for="(it, i) in stash" :key="i" :class="{ selected: stashKeep[i] }"
+                         @click="toggleStash(i)">
+                        <span class="st-item-name" v-text="it.name"></span>
+                        <span class="st-item-meta" v-text="'×' + (it.count || 1)"></span>
+                    </div>
+                </div>
+                <p v-if="stash.length === 0" class="bag-empty">暂存区是空的。</p>
+                <div class="dialog-btns">
+                    <button class="dialog-cancel" @click="closeStash">关闭</button>
+                    <button class="dialog-confirm" @click="takeStashSel">取出选中</button>
+                </div>
+            </div>
         </div>
     </div>
 
+    <script src="../js/data.js"></script>
     <script src="../js/vue.min.js"></script>
     <script>
-    // 地点占位场景页：Vue 渲染地点图标/名称，返回按钮消息转发给外壳
+    // 地点/资源点场景页：Vue 渲染地点搜刮/资源操作按钮（耗时进度/持续搜索），操作消息转发给外壳
     var app = new Vue({
         el: '#place',
         data: {
             loaded: false,
-            icon: '📍',
-            name: ''
+            base: null,       // 'loc' / 'park' / 'tree'；其他为 null
+            res: null,        // 资源格状态 { trees }
+            locType: '',      // 地点类型（便利店/医院/…）
+            locRes: null,     // 地点搜刮房间状态 { roomsLeft }
+            roomsTotal: 0,    // 当前地点房间总数（用于进度显示）
+            stash: [],        // 当前地点暂存区物品
+            stashKeep: {},    // 暂存区弹窗选中态
+            stashOpen: false, // 暂存区弹窗
+            loot: { show: false, items: [], keep: {} }, // 搜刮物资弹窗
+            dogAdopted: false,// 是否已领养狗
+            activity: null,   // 外壳正在进行的单次动作 { type }
+            searching: false  // 持续搜索进行中
+        },
+        computed: {
+            // 当前动作类型
+            actType() {
+                return this.activity ? this.activity.type : null;
+            },
+            // 当前地点玩法模式（zoo / river / 无 = 普通搜刮）
+            locMode() {
+                return this.locType ? ((GameData.locationLoot[this.locType] || {}).mode || null) : null;
+            }
         },
         methods: {
             send(msg) {
                 window.parent.postMessage(msg, '*');
+            },
+            // 进度条填充动画结束：通知外壳结算产出（流动条纹为无限动画不触发）
+            onActAnimEnd(e) {
+                if (e.animationName === 'bedSleepFill') {
+                    this.send({ type: 'action-anim-end' });
+                }
+            },
+            // 点击物资卡片：切换带走/暂存
+            toggleLoot(i) {
+                this.$set(this.loot.keep, i, !this.loot.keep[i]);
+            },
+            // 确认带走：把勾选的物资交给外壳入包
+            confirmLoot() {
+                const keep = [];
+                for (let i = 0; i < this.loot.items.length; i++) {
+                    if (this.loot.keep[i]) keep.push(i);
+                }
+                this.send({ type: 'loot-confirm', keep: keep });
+                this.loot.show = false;
+            },
+            // 全部暂存：不带走任何物资
+            closeLoot() {
+                this.send({ type: 'loot-confirm', keep: [] });
+                this.loot.show = false;
+            },
+            // 打开/关闭暂存区弹窗
+            openStash() {
+                this.stashKeep = {};
+                this.stashOpen = true;
+            },
+            closeStash() {
+                this.stashKeep = {};
+                this.stashOpen = false;
+            },
+            // 点击暂存区卡片：切换选中
+            toggleStash(i) {
+                this.$set(this.stashKeep, i, !this.stashKeep[i]);
+            },
+            // 取出选中：把勾选的物资交给外壳批量入包
+            takeStashSel() {
+                const keep = [];
+                for (let i = 0; i < this.stash.length; i++) {
+                    if (this.stashKeep[i]) keep.push(i);
+                }
+                if (keep.length === 0) return;
+                this.send({ type: 'stash-take-many', keep: keep });
+                this.stashKeep = {};
             }
         }
     });
 
     window.addEventListener('message', function (e) {
         var msg = e.data;
-        if (!msg || msg.type !== 'init') return;
+        if (!msg || !msg.type) return;
+        if (msg.type === 'loot') {
+            // 搜刮房间结算：展示物资弹窗，默认不选中，玩家点击卡片选中
+            app.loot = { show: true, items: msg.items || [], keep: {} };
+            return;
+        }
+        if (msg.type !== 'init') return;
         var p = msg.state.currentPlace;
         app.loaded = true;
-        app.icon = p ? p.icon : '📍';
-        app.name = p ? p.name : '';
+        app.base = p ? (p.base || null) : null;
+        app.res = (p && (p.base === 'park' || p.base === 'tree') && p.key) ? (msg.state.cellResources || {})[p.key] : null;
+        app.locType = p && p.base === 'loc' ? (p.type || '') : '';
+        app.locRes = (p && p.base === 'loc' && p.key) ? (msg.state.locationResources || {})[p.key] : null;
+        app.roomsTotal = (GameData.locationLoot[app.locType] || {}).rooms || 0;
+        app.stash = (p && p.key && msg.state.placeStash) ? (msg.state.placeStash[p.key] || []) : [];
+        app.stashKeep = {};
+        app.dogAdopted = !!(msg.state.outdoors && msg.state.outdoors[0] && msg.state.outdoors[0].unlocked);
+        app.activity = msg.state.activity || null;
+        app.searching = !!msg.state.searching;
     });
     </script>
 </body>

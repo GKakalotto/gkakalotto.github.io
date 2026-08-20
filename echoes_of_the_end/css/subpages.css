@@ -17,6 +17,13 @@
 .upgrade-btn:hover { background: #4f86c6; border-color: #6aa3d6; }
 .upgrade-btn:disabled { background: #3a3a3a; border-color: #555; color: #777; cursor: not-allowed; }
 .upgrade-max { margin-left: auto; font-size: 11px; color: #888; }
+/* 自动整理按钮 */
+.sort-btn {
+    background: #2f4f6b; border: 1px solid #3f6b8f; border-radius: 4px;
+    color: #cfe3f5; font-size: 12px; padding: 5px 12px; cursor: pointer;
+    transition: all 0.2s;
+}
+.sort-btn:hover { background: #3a6085; border-color: #5080a8; color: #fff; }
 .page-back {
     background: transparent; border: none;
     font-size: 12px; color: #9cc7e8; cursor: pointer;
@@ -25,21 +32,27 @@
 .page-back:hover { color: #cfe3f5; }
 .page-body { flex: 1; min-height: 0; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; }
 
-/* ----- 背包物品行 ----- */
-.bag-item {
-    display: flex; flex-direction: column; gap: 4px;
-    padding: 7px 9px;
-    background: #353535;
-    border: 1px solid #4a4a4a;
-    border-radius: 4px;
-}
-.bag-item-head { display: flex; align-items: center; gap: 8px; }
-.bag-item-icon { font-size: 18px; flex-shrink: 0; }
-.bag-item-name { font-size: 13px; color: #ddd; font-weight: bold; }
-.bag-item-props { display: flex; flex-wrap: wrap; gap: 3px 12px; padding-left: 26px; }
-.bag-prop { font-size: 10px; color: #999; }
-.bag-weight { color: #ffcc00; }
+/* ----- 背包空提示（物品卡片复用仓库 .st-items/.st-item） ----- */
 .bag-empty { font-size: 12px; color: #888; text-align: center; margin: 8px 0; }
+
+/* ----- 背包底部装备栏（武器 / 帽子 / 防具） ----- */
+.bag-footer {
+    flex-shrink: 0;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+    padding: 10px 15px; border-top: 1px solid #333;
+    background: rgba(0, 0, 0, 0.3);
+}
+.equip-slot {
+    display: flex; flex-direction: column; gap: 4px; align-items: center;
+    padding: 6px; background: #2c2c2c; border: 1px solid #4a4a4a; border-radius: 5px;
+    cursor: pointer; transition: all 0.15s;
+}
+.equip-slot:hover { border-color: #6aa3d6; }
+.equip-slot-label { font-size: 10px; color: #999; }
+.equip-slot-item { font-size: 11px; color: #ddd; text-align: center; line-height: 1.3; }
+.equip-slot-item.empty { color: #666; }
+/* 物品详情菜单：属性说明 */
+.item-menu-meta { font-size: 11px; color: #999; text-align: center; padding: 0 0 6px; display: flex; flex-direction: column; gap: 2px; }
 
 /* ----- 床/仓库升级与睡眠 ----- */
 .bed-section { display: flex; flex-direction: column; gap: 8px; }
@@ -51,6 +64,7 @@
     padding: 12px 14px;
 }
 .bed-next { font-size: 13px; color: #ddd; }
+.bed-cost { font-size: 12px; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
 .bed-cost-item { color: #ffcc00; font-size: 10px; }
 .bed-cost-item.enough { color: #6fdc6f; }
 .bed-cost-item.lacking { color: #ff6b6b; }
@@ -147,17 +161,13 @@
 
 /* ----- 仓库：物品小卡片（等大等距，名字居中、数量在右下角） ----- */
 .st-body { gap: 14px; }
+/* 背包/仓库物品区：隐藏滚动条（仍可滚动） */
+.bag-body, .st-body { scrollbar-width: none; }
+.bag-body::-webkit-scrollbar, .st-body::-webkit-scrollbar { display: none; }
 .st-items {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
     gap: 10px;
-}
-/* 仓库为空时：提示文字在物品区居中 */
-.st-items.empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100px;
 }
 .st-item {
     position: relative;
@@ -172,6 +182,7 @@
     color: #ddd;
     overflow: hidden;
 }
+.st-item.empty { border-style: dashed; background: #262626; cursor: default; }
 .st-item-name { font-size: 11px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .st-item-meta {
     position: absolute;
@@ -203,9 +214,6 @@
 .fire-add-btn:hover:not(:disabled) { background: #3a6085; border-color: #5080a8; color: #fff; }
 .fire-add-btn:disabled { background: #3a3a3a; border-color: #555; color: #777; cursor: not-allowed; }
 
-/* ----- 背包：物品数量（材料等） ----- */
-.bag-count { color: #ffcc00; }
-
 /* ----- 物品操作菜单（背包/仓库点击物品弹出） ----- */
 .item-menu-overlay {
     position: fixed; inset: 0;
@@ -233,3 +241,26 @@
 .item-menu-btn:hover { background: #444; border-color: #666; }
 .item-menu-btn.danger { color: #f0b0b0; }
 .item-menu-btn.danger:hover { background: #5c2b2b; border-color: #7a3a3a; }
+
+/* ----- 搜刮物资弹窗（地点页）：复用背包网格卡片 .st-items/.st-item，选中高亮 ----- */
+.loot-menu { width: 260px; }
+.loot-grid { max-height: 40vh; overflow-y: auto; }
+.loot-grid .st-item { cursor: pointer; }
+.st-item.selected { background: #4f86c6; border-color: #9cc7e8; color: #fff; border-radius: 6px; }
+.st-item.selected .st-item-meta { color: #fff; }
+.loot-menu .dialog-btns, .stash-menu .dialog-btns { display: flex; gap: 8px; margin-top: 2px; }
+.loot-menu .dialog-cancel, .loot-menu .dialog-confirm,
+.stash-menu .dialog-cancel, .stash-menu .dialog-confirm {
+    flex: 1; border-radius: 4px; padding: 8px; font-size: 12px; cursor: pointer;
+    transition: all .15s;
+}
+.loot-menu .dialog-cancel, .stash-menu .dialog-cancel { background: #353535; border: 1px solid #555; color: #aaa; }
+.loot-menu .dialog-cancel:hover, .stash-menu .dialog-cancel:hover { border-color: #888; color: #ddd; }
+.loot-menu .dialog-confirm, .stash-menu .dialog-confirm { background: #2f4f6b; border: 1px solid #3f6b8f; color: #cfe3f5; }
+.loot-menu .dialog-confirm:hover, .stash-menu .dialog-confirm:hover { background: #3a6085; border-color: #5080a8; color: #fff; }
+
+/* ----- 地点暂存区（复用背包网格卡片，点卡片取出） ----- */
+.stash-menu { width: 260px; }
+.stash-grid { max-height: 40vh; overflow-y: auto; }
+.stash-grid .st-item { cursor: pointer; }
+.stash-btn { margin-left: auto; }

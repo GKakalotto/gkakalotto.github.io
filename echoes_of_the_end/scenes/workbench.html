@@ -27,7 +27,7 @@
             <div v-else class="wb-list">
                 <div class="wb-bp" v-for="(bp, i) in blueprints[cat]" :key="i">
                     <div class="wb-bp-head">
-                        <span class="wb-bp-name" v-text="bp.name"></span>
+                        <span class="wb-bp-name" v-text="bp.name + (bp.count > 1 ? ' ×' + bp.count : '')"></span>
                     </div>
                     <div class="wb-bp-cost">
                         <span class="bed-cost-item" v-for="(amt, mat) in bp.cost" :key="mat"

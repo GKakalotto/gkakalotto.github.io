@@ -35,9 +35,7 @@ new Vue({
             { key: 'stamina',    icon: '⚡',  label: '精力' },
             { key: 'physical',   icon: '💪',  label: '体力' },
             { key: 'health',     icon: '💚',  label: '健康' },
-            { key: 'strength',   icon: '🥊',  label: '力量' },
-            { key: 'speed',      icon: '💨',  label: '速度' },
-            { key: 'knowledge',  icon: '📚',  label: '知识' }
+            { key: 'strength',   icon: '🥊',  label: '力量' }
         ],
         // 当前场景：'safehouse' 安全屋 / 'map' 地图 / 'place' 地点占位
         currentScene: GameData.startScene,
@@ -75,6 +73,22 @@ new Vue({
         cooking: null,
         cookTarget: 0,    // 烹饪结束的目标 gameSeconds
         cookRAF: null,    // requestAnimationFrame 句柄
+        // 地图资源单次动作（'chop' 砍树 / 'dig' 挖黏土），进度条动画期间推进游戏时间
+        activity: null,
+        actionTarget: 0,  // 动作结束的目标 gameSeconds
+        actionRAF: null,  // requestAnimationFrame 句柄
+        // 持续搜索状态：开启后时间正常流动，每累计 SEARCH_INTERVAL 游戏秒随机产出一次
+        searching: false,
+        searchAccum: 0,   // 已累计的搜索游戏秒
+        // 休息状态：缓慢恢复体力，期间不可进行其他活动
+        resting: false,
+        restAccum: 0,     // 已累计的休息游戏秒
+        // 低状态阈值提示标记：各状态首次跌破 30% 时日志提示一次，回升后复位
+        lowWarned: { hunger: false, water: false, sanity: false, stamina: false, physical: false, hp: false, health: false },
+        // 战斗状态：{ zombie, zombieHp, playerHp, logs, won, over, atk, def }；遇敌后进入战斗页，胜利才继续原流程
+        battle: null,
+        pendingAfterBattle: null,   // 战斗胜利后继续执行的移动完成回调
+        battleTimer: null,          // 逐回合定时器句柄
         // 当前工作台（workbench 页用）
         currentWorkbench: null,
         // 当前仓库（storage 页用）
@@ -94,6 +108,16 @@ new Vue({
         bagLevel: 0,
         // 仓库存储物品（独立于背包，可互相移动）
         storageItems: [],
+        // 地图资源格状态：'park:gx,gy' / 'tree:gx,gy' → { trees, clay, herbs }（首次进入时生成，资源有限）
+        cellResources: {},
+        // 地点搜刮次数状态：地点名 → { roomsLeft: N }（首次进入时生成，搜刮完为止）
+        locationResources: {},
+        // 地点暂存区：地点名 → 物品数组（搜刮时未带走的物资，无限容量，可回来取）
+        placeStash: {},
+        // 当前房间搜刮出的待选取物资（搜刮结算后弹窗展示，玩家确认后清空）
+        pendingLoot: null,
+        // 装备槽：武器 / 帽子 / 防具（装备后从背包取出，不占背包格）
+        equipment: { weapon: null, hat: null, armor: null },
         // 背包最大容量
         bagMax: 30,
         // 清除进度确认弹窗
@@ -146,6 +170,10 @@ new Vue({
         if (this.travelRAF) {
             cancelAnimationFrame(this.travelRAF);
             this.travelRAF = null;
+        }
+        if (this.battleTimer) {
+            clearInterval(this.battleTimer);
+            this.battleTimer = null;
         }
         clearInterval(this.clockTimer);
         this.clockTimer = null;

@@ -92,28 +92,8 @@
 .outdoor-name { font-size: 13px; color: #ddd; }
 .outdoor-desc { font-size: 11px; color: #888; }
 
-/* ----- 地点占位（进入地点/公园/森林后显示） ----- */
-.place-scene {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.place-content {
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    background: rgba(0, 0, 0, 0.4);
-    border: 1px solid #333;
-    border-radius: 8px;
-    padding: 30px 24px;
-}
-.place-icon { font-size: 40px; }
-.place-title { font-size: 18px; color: #ddd; font-weight: bold; }
-.place-hint { font-size: 12px; color: #888; }
+/* ----- 地点（进入地点/公园/森林后显示） ----- */
+.place-hint { font-size: 12px; color: #888; text-align: center; }
 .place-back {
     background: #3f6f57;
     border: 1px solid #2f5a46;
@@ -125,3 +105,48 @@
     transition: background .2s;
 }
 .place-back:hover { background: #4d8465; }
+.place-back:disabled { opacity: 0.6; cursor: default; }
+/* 资源动作按钮：进度条填充（复用睡觉动画 bedSleepFill/bedFlow，定义于 subpages.css） */
+.place-act-btn { position: relative; overflow: hidden; }
+.place-act-btn .place-act-fill {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 0;
+    background: repeating-linear-gradient(45deg, #3a6ea5, #3a6ea5 10px, #4f86c6 10px, #4f86c6 20px);
+    background-size: 28px 28px; z-index: 0;
+}
+.place-act-btn.active .place-act-fill { animation: bedSleepFill 1.5s linear forwards, bedFlow 0.5s linear infinite; }
+.place-act-btn span { position: relative; z-index: 1; }
+/* 资源点（公园/森林）：资源卡片 */
+.res-card {
+    align-self: center;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    background: #2c2c2c; border: 1px solid #4a4a4a; border-radius: 6px;
+    padding: 12px 16px; width: 100%; max-width: 260px;
+}
+.res-info { font-size: 12px; color: #ccc; }
+
+/* ----- 战斗页 ----- */
+.battle-cards { display: flex; justify-content: space-around; gap: 12px; }
+.battle-card {
+    flex: 1; max-width: 150px;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    background: #2c2c2c; border: 1px solid #4a4a4a; border-radius: 6px;
+    padding: 12px 10px;
+}
+.battle-card.player { border-color: #3a6ea5; }
+.battle-icon { font-size: 34px; }
+.battle-name { font-size: 13px; color: #ddd; font-weight: bold; }
+.battle-hp { font-size: 11px; color: #ff6b6b; }
+.battle-strength { font-size: 11px; color: #ffcc00; }
+.battle-logs {
+    flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none;
+    display: flex; flex-direction: column; gap: 4px;
+    background: #1f1f1f; border: 1px solid #333; border-radius: 6px;
+    padding: 10px;
+}
+.battle-logs::-webkit-scrollbar { display: none; }
+.battle-log { font-size: 11px; color: #bbb; }
+.battle-result { font-size: 16px; color: #7fd17f; text-align: center; }
+.battle-result.dead { color: #ff6b6b; }
+.battle-result.fighting { color: #ffcc00; }
+/* 战斗操作按钮（逃跑 / 继续） */
+.battle-ops { display: flex; justify-content: center; gap: 10px; margin-top: 4px; }

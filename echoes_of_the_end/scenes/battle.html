@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>战斗</title>
+    <style>[v-cloak] { display: none; }</style>
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/subpages.css">
+    <link rel="stylesheet" href="../css/scenes.css">
+</head>
+<body class="scene-page" oncontextmenu="return false">
+    <!-- 战斗页：显示丧尸/玩家状态、自动回合日志与结果；胜利继续，死亡重开 -->
+    <div id="battle" class="page-root" v-cloak style="display:none" v-show="loaded">
+        <div class="page-body" v-if="battle">
+            <!-- 双方状态 -->
+            <div class="battle-cards">
+                <div class="battle-card">
+                    <div class="battle-icon" v-text="battle.zombie.icon"></div>
+                    <div class="battle-name" v-text="battle.zombie.name"></div>
+                    <div class="battle-hp">血量 {{ battle.zombieHp }} / {{ battle.zombie.hp }}</div>
+                </div>
+                <div class="battle-card player">
+                    <div class="battle-icon">😮</div>
+                    <div class="battle-name">你</div>
+                    <div class="battle-hp">血量 {{ battle.playerHp }} / {{ battle.hpMax }}</div>
+                    <div class="battle-strength">健康 {{ battle.playerHealth }}</div>
+                    <div class="battle-strength">力量 {{ battle.strength }} 级</div>
+                </div>
+            </div>
+
+            <!-- 回合日志 -->
+            <div class="battle-logs">
+                <div class="battle-log" v-for="(l, i) in battle.logs" :key="i" v-text="l"></div>
+            </div>
+
+            <!-- 结果与操作：战斗进行中显示逃跑按钮，结束后再给结果按钮 -->
+            <div class="battle-result" v-if="battle.over" :class="{ dead: !battle.won }"
+                 v-text="battle.won ? '🎉 战斗胜利！' : '💀 你死了……'"></div>
+            <div class="battle-result fighting" v-else>⚔️ 战斗进行中……</div>
+            <div class="battle-ops">
+                <button class="place-back" v-if="!battle.over" @click="send({ type: 'battle-flee' })">🏃 逃跑</button>
+                <button class="place-back" v-if="battle.over" @click="send({ type: battle.won ? 'battle-continue' : 'reset-game' })"
+                        v-text="battle.won ? '继续' : '重新开始'"></button>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/vue.min.js"></script>
+    <script>
+    // 战斗页：Vue 渲染双方状态与自动回合日志，结果操作转发给外壳
+    var app = new Vue({
+        el: '#battle',
+        data: {
+            loaded: false,
+            battle: null
+        },
+        methods: {
+            send(msg) {
+                window.parent.postMessage(msg, '*');
+            }
+        },
+        // 日志更新后自动滚动到底部，保证最新记录显示在最后一行
+        updated() {
+            var el = this.$el.querySelector('.battle-logs');
+            if (el) el.scrollTop = el.scrollHeight;
+        }
+    });
+
+    window.addEventListener('message', function (e) {
+        var msg = e.data;
+        if (msg && msg.type === 'init') {
+            app.battle = msg.state.battle;
+            app.loaded = true;
+        }
+    });
+    </script>
+</body>
+</html>
