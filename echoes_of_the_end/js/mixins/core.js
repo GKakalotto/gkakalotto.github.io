@@ -25,12 +25,17 @@ const CoreMixin = {
         weather() {
             return `${WEATHER_ICON[this.weatherName]} ${this.weatherName}`;
         },
-        // 温度 = 季节基准 + 昼夜波动（14 点最暖，2 点最冷，±4°C）+ 天气修正
+        // 温度 = 季节基准 + 昼夜波动（14 点最暖，2 点最冷，±4°C）+ 天气修正；
+        // 在安全屋且篝火燃烧时，环境温度最低 23°C
         temperature() {
             const base = SEASON_BASE_TEMP[this.seasonIndex];
             const cycle = Math.round(4 * Math.cos(((this.hour - 14) / HOURS_PER_DAY) * 2 * Math.PI));
             const adj = WEATHER_TEMP_ADJ[this.weatherName] || 0;
-            return Math.round(base + cycle + adj);
+            let temp = base + cycle + adj;
+            if (this.currentScene === 'safehouse' && this.gameSeconds < this.fireFuelUntil) {
+                temp = Math.max(23, temp);
+            }
+            return Math.round(temp);
         },
         // 日志：只显示最新 5 条
         visibleLogs() {
@@ -42,6 +47,7 @@ const CoreMixin = {
             if (this.currentPage === 'bed') return '🛏️ 床';
             if (this.currentPage === 'storage') return '📦 仓库';
             if (this.currentPage === 'workbench') return '🛠️ 工作台';
+            if (this.currentPage === 'fire') return '🔥 篝火';
             if (this.currentPage === 'furniture' && this.currentFurniture) {
                 return `${this.currentFurniture.icon} ${this.currentFurniture.name}`;
             }
@@ -70,6 +76,8 @@ const CoreMixin = {
         tick() {
             if (this.currentScene === 'map') return;
             this.advanceGameTime(GAME_SECONDS_PER_REAL_SECOND);
+            // 篝火页打开时，每秒推送状态刷新燃料倒计时
+            if (this.currentPage === 'fire') this.postSceneState();
         },
         // 推进游戏时间（秒），处理跨天/跨季
         advanceGameTime(seconds) {

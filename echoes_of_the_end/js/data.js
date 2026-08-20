@@ -77,7 +77,13 @@ var GameData = {
                 { name: '席梦思',   recover: 2.0, upgrade: null }
             ]
         },
-        { icon: '🔥', name: '篝火', unlocked: true, desc: '取暖、照明，驱散黑夜的寒意。' },
+        { icon: '🔥', name: '篝火', unlocked: true, isFireplace: true, desc: '取暖、照明，驱散黑夜的寒意。',
+          // 两级设施、一次升级；hoursPerWood 为每块木板燃烧小时数，upgrade 为升到下一级所需材料（最高级为 null）
+          fireLevel: 0,
+          fireLevels: [
+              { name: '石头篝火', hoursPerWood: 1, upgrade: { '废铁': 3, '布料': 2 } },
+              { name: '火炉',     hoursPerWood: 2, upgrade: null }
+          ] },
         { icon: '🛠️', name: '工作台', unlocked: true, isWorkbench: true,
           // 折叠分区：武器 / 工具 / 防具 / 生活 / 药品 / 食物，每个蓝图含产物类型、重量与所需材料
           blueprints: {
@@ -152,21 +158,22 @@ var GameData = {
         life:     { name: '生活', icon: '🧰' },
         material: { name: '材料', icon: '🧱' }
     },
+    // 可消耗物品的使用效果：背包/仓库点击物品时菜单显示"吃/喝/使用"，恢复对应状态（stat 为 stats 字段，max 为上限）
+    itemUse: {
+        food:     { label: '吃',   stat: 'hunger', statName: '饱食度', amount: 30, max: 150 },
+        water:    { label: '喝',   stat: 'water',  statName: '水分',   amount: 30, max: 150 },
+        medicine: { label: '使用', stat: 'hp',     statName: '血量',   amount: 20, max: 200 }
+    },
 
     // 初始背包物资（点击 🎒 后模态框显示；type 决定图标，weight 为具体重量 kg）
     bag: [
-        { type: 'food',     name: '一包薯片',   weight: 0.2 },
-        { type: 'food',     name: '压缩饼干',   weight: 0.35 },
-        { type: 'water',    name: '一瓶矿泉水', weight: 0.55 },
-        { type: 'water',    name: '净水壶',     weight: 1.2 },
-        { type: 'medicine', name: '绷带',       weight: 0.1 },
-        { type: 'medicine', name: '消炎药',     weight: 0.05 },
-        { type: 'weapon',   name: '棒球棒',     weight: 0.9 },
-        { type: 'weapon',   name: '小刀',       weight: 0.25 },
-        { type: 'tool',     name: '多功能工具', weight: 0.4 },
-        { type: 'tool',     name: '手电筒',     weight: 0.3 },
-        { type: 'material', name: '废铁',       weight: 1.5,  count: 20 },
-        { type: 'material', name: '布料',       weight: 0.2,  count: 10 }
+        { type: 'food',   name: '薯片',   weight: 0.2 },
+        { type: 'water',  name: '矿泉水', weight: 0.55 },
+        { type: 'weapon', name: '棒球棒', weight: 0.9 },
+        // 基础材料：工作台制作 / 床·仓库·篝火升级 / 篝火燃料的输入，需随探索补充
+        { type: 'material', name: '废铁', weight: 1.5, count: 20 },
+        { type: 'material', name: '布料', weight: 0.2, count: 10 },
+        { type: 'material', name: '木板', weight: 0.3, count: 8 }
     ],
 
     // 初始日志

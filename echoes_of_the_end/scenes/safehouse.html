@@ -60,10 +60,11 @@
             send(msg) {
                 window.parent.postMessage(msg, '*');
             },
-            // 床/仓库显示当前等级名，其余显示名字
+            // 床/仓库/篝火显示当前等级名，其余显示名字
             slotName(f) {
                 if (f.isBed) return f.bedLevels[f.bedLevel].name;
                 if (f.isStorage) return f.storageLevels[f.storageLevel].name;
+                if (f.isFireplace) return f.fireLevels[f.fireLevel].name;
                 return f.name;
             },
             slotIcon(f) {

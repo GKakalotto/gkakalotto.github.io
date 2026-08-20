@@ -75,8 +75,14 @@ new Vue({
         currentWorkbench: null,
         // 当前仓库（storage 页用）
         currentStorage: null,
+        // 当前篝火（fire 页用）
+        currentFire: null,
+        // 篝火燃料烧尽时刻（游戏秒）：gameSeconds 小于它即为燃烧中，剩余时长 = (fireFuelUntil - gameSeconds) / HOUR_SECONDS
+        fireFuelUntil: 0,
         // 背包物品（初始物资，来自数据文件）
         bag: GameData.bag,
+        // 仓库存储物品（独立于背包，可互相移动）
+        storageItems: [],
         // 背包最大容量
         bagMax: 30,
         // 清除进度确认弹窗

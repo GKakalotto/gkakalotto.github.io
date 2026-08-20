@@ -9,18 +9,18 @@
     <link rel="stylesheet" href="../css/subpages.css">
 </head>
 <body class="scene-page" oncontextmenu="return false">
-    <!-- 仓库子页：升级区 + 全部物品小卡片，容量作为上限展示；Vue 数据加载完成前隐藏 -->
+    <!-- 仓库子页：升级区 + 仓库物品卡片，点击物品弹出操作菜单；Vue 数据加载完成前隐藏 -->
     <div id="storage" class="page-root" v-cloak style="display:none" v-show="loaded">
         <div class="page-header">
-            <span class="page-cap" v-text="'容量 ' + (storage ? storage.storageLevels[storage.storageLevel].capacity : '')"></span>
-            <button class="page-close" @click="send({ type: 'close-page' })">✕</button>
+            <button class="page-back" @click="send({ type: 'close-page' })">‹ 返回</button>
+            <span class="page-cap" v-text="'容量 ' + storageItems.length + '/' + (storage ? storage.storageLevels[storage.storageLevel].capacity : 0)"></span>
         </div>
         <div class="page-body st-body">
             <!-- 升级区：只显示下一级与材料，右侧升级按钮 -->
-            <div class="bed-section">
+            <div class="bed-section upgrade-card">
                 <div v-if="storage && storage.storageLevel < storage.storageLevels.length - 1" class="bed-upgrade-row">
                     <div class="bed-upgrade-info">
-                        <div class="bed-next">下一级：<span v-text="storage.storageLevels[storage.storageLevel + 1].name"></span>（容量 <span v-text="storage.storageLevels[storage.storageLevel + 1].capacity"></span>）</div>
+                        <div class="bed-next">下一级：<span v-text="storage.storageLevels[storage.storageLevel + 1].name"></span></div>
                         <div class="bed-cost">
                             <span class="bed-cost-item" v-for="(amt, mat) in storage.storageLevels[storage.storageLevel].upgrade" :key="mat"
                                   :class="UI.materialCount(bag, mat) >= amt ? 'enough' : 'lacking'" v-text="mat + ' ×' + amt"></span>
@@ -28,14 +28,33 @@
                     </div>
                     <button class="bed-upgrade-btn" :disabled="!canUpgrade()" @click="send({ type: 'upgrade-storage' })">升级</button>
                 </div>
-                <div v-else class="bed-max">已达最高级（容量 <span v-text="storage ? storage.storageLevels[storage.storageLevel].capacity : ''"></span>）</div>
+                <div v-else class="bed-max">已达最高级</div>
             </div>
-            <!-- 物品区：全部物品小卡片 -->
-            <div class="st-items">
-                <div class="st-item" v-for="(it, i) in bag" :key="i">
+            <!-- 物品区：仓库存储物品卡片 -->
+            <div class="st-items" :class="{ empty: storageItems.length === 0 }">
+                <div class="st-item" v-for="(it, i) in storageItems" :key="i" @click="openMenu(i)">
                     <span class="st-item-name" v-text="it.name"></span>
                     <span class="st-item-meta" v-if="it.count" v-text="'×' + it.count"></span>
                 </div>
+                <p v-if="storageItems.length === 0" class="bag-empty">仓库空空如也。</p>
+            </div>
+        </div>
+
+        <!-- 物品操作菜单 -->
+        <div v-if="menu.show" class="item-menu-overlay" @click.self="closeMenu">
+            <div class="item-menu">
+                <template v-if="menu.confirmDiscard">
+                    <div class="item-menu-title">确定丢弃「{{ menuItem ? menuItem.name : '' }}」？</div>
+                    <button class="item-menu-btn danger" @click="act('storage-discard')">确定丢弃</button>
+                    <button class="item-menu-btn" @click="menu.confirmDiscard = false">返回</button>
+                </template>
+                <template v-else>
+                    <div class="item-menu-title" v-text="menuItem ? menuItem.name : ''"></div>
+                    <button class="item-menu-btn" @click="act('storage-move-bag')">🎒 放入背包</button>
+                    <button v-if="useCfg" class="item-menu-btn" @click="act('storage-use')" v-text="useCfg.label"></button>
+                    <button class="item-menu-btn danger" @click="menu.confirmDiscard = true">🗑️ 丢弃</button>
+                    <button class="item-menu-btn" @click="closeMenu">取消</button>
+                </template>
             </div>
         </div>
     </div>
@@ -44,13 +63,23 @@
     <script src="../js/ui.js"></script>
     <script src="../js/vue.min.js"></script>
     <script>
-    // 仓库子页：Vue 渲染升级与物品卡片，升级操作转发给外壳处理
+    // 仓库子页：Vue 渲染升级与仓库物品卡片，物品操作/升级转发给外壳处理
     var app = new Vue({
         el: '#storage',
         data: {
             loaded: false,
             storage: null,
-            bag: []
+            bag: [],
+            storageItems: [],
+            menu: { show: false, index: -1, confirmDiscard: false }
+        },
+        computed: {
+            menuItem() {
+                return this.menu.show ? this.storageItems[this.menu.index] : null;
+            },
+            useCfg() {
+                return this.menuItem ? (GameData.itemUse[this.menuItem.type] || null) : null;
+            }
         },
         methods: {
             send(msg) {
@@ -61,6 +90,16 @@
                 var st = this.storage;
                 return !!st && st.storageLevel < st.storageLevels.length - 1
                     && UI.hasMaterials(this.bag, st.storageLevels[st.storageLevel].upgrade);
+            },
+            openMenu(i) {
+                this.menu = { show: true, index: i, confirmDiscard: false };
+            },
+            closeMenu() {
+                this.menu.show = false;
+            },
+            act(type) {
+                this.send({ type: type, index: this.menu.index });
+                this.menu.show = false;
             }
         }
     });
@@ -70,6 +109,7 @@
         if (msg && msg.type === 'init') {
             app.storage = msg.state.currentStorage;
             app.bag = msg.state.bag;
+            app.storageItems = msg.state.storageItems;
             app.loaded = true;
         }
     });

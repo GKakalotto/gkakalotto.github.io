@@ -99,9 +99,18 @@ const TravelMixin = {
         },
         // 确认弹窗按钮
         closeDialog() {
+            this.dialog.onConfirm = null;
             this.dialog.show = false;
         },
         confirmAction() {
+            // 通用确认（升级/睡觉/制作等携带回调）：关闭弹窗后执行
+            if (this.dialog.onConfirm) {
+                const fn = this.dialog.onConfirm;
+                this.dialog.onConfirm = null;
+                this.dialog.show = false;
+                fn.call(this);
+                return;
+            }
             if (this.dialog.action === 'go' && this.pendingLoc) {
                 this.travelTo(this.pendingLoc);
             } else if (this.dialog.action === 'home') {

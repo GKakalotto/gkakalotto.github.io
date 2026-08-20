@@ -12,16 +12,15 @@
     <!-- 床子页：升级区 + 睡觉区，时间加速由外壳负责；Vue 数据加载完成前隐藏 -->
     <div id="bed" class="page-root" v-cloak style="display:none" v-show="loaded">
         <div class="page-header">
-            <button class="page-close" @click="send({ type: 'close-page' })">✕</button>
+            <button class="page-back" @click="send({ type: 'close-page' })">‹ 返回</button>
         </div>
         <div class="page-body">
             <!-- 升级区：左侧下一级所需材料，右侧升级按钮 -->
-            <div class="bed-section bed-upgrade">
+            <div class="bed-section bed-upgrade upgrade-card">
                 <div v-if="bed && bed.bedLevel < bed.bedLevels.length - 1" class="bed-upgrade-row">
                     <div class="bed-upgrade-info">
                         <div class="bed-next">下一级：<span v-text="bed.bedLevels[bed.bedLevel + 1].name"></span></div>
                         <div class="bed-cost">
-                            <span class="bed-cost-label">升级材料：</span>
                             <span class="bed-cost-item" v-for="(amt, mat) in bed.bedLevels[bed.bedLevel].upgrade" :key="mat"
                                   :class="UI.materialCount(bag, mat) >= amt ? 'enough' : 'lacking'" v-text="mat + ' ×' + amt"></span>
                         </div>
@@ -73,9 +72,8 @@
                 return !!b && b.bedLevel < b.bedLevels.length - 1
                     && UI.hasMaterials(this.bag, b.bedLevels[b.bedLevel].upgrade);
             },
-            // 点击睡眠：本地播放进度条动画，同时通知外壳加速推进时间
+            // 点击睡眠：交由外壳确认，确认后通过 postSceneState 通知本页播放动画
             onSleep(mode) {
-                this.sleeping = mode;
                 this.send({ type: 'sleep-start', mode: mode });
             },
             // 填充动画结束：通知外壳结算恢复（流动条纹为无限动画不触发）

@@ -58,16 +58,21 @@ const FrameMixin = {
             this.postScene({
                 type: 'init',
                 state: {
+                    currentScene: this.currentScene,
                     currentPlace: this.currentPlace,
                     playerLocation: this.playerLocation,
                     furniture: this.furniture,
                     outdoors: this.outdoors,
                     bag: this.bag,
                     bagMax: this.bagMax,
+                    storageItems: this.storageItems,
                     currentBed: this.currentBed,
                     currentStorage: this.currentStorage,
                     currentFurniture: this.currentFurniture,
                     currentWorkbench: this.currentWorkbench,
+                    currentFire: this.currentFire,
+                    fireFuelUntil: this.fireFuelUntil,
+                    gameSeconds: this.gameSeconds,
                     sleeping: this.sleeping
                 }
             });
@@ -120,6 +125,32 @@ const FrameMixin = {
                     break;
                 case 'upgrade-storage':
                     this.upgradeStorage();
+                    break;
+                case 'add-fuel':
+                    this.addFuel(msg.count);
+                    break;
+                case 'upgrade-fire':
+                    this.upgradeFire();
+                    break;
+                // 背包物品操作
+                case 'bag-move-storage':
+                    this.moveToStorage(msg.index);
+                    break;
+                case 'bag-discard':
+                    this.discard('bag', msg.index);
+                    break;
+                case 'bag-use':
+                    this.useItem('bag', msg.index);
+                    break;
+                // 仓库物品操作
+                case 'storage-move-bag':
+                    this.moveToBag(msg.index);
+                    break;
+                case 'storage-discard':
+                    this.discard('storage', msg.index);
+                    break;
+                case 'storage-use':
+                    this.useItem('storage', msg.index);
                     break;
                 case 'craft': {
                     const bp = this.currentWorkbench && this.currentWorkbench.blueprints

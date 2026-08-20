@@ -58,7 +58,7 @@
                 <div class="dialog-btns">
                     <button class="dialog-cancel" @click="closeDialog">取消</button>
                     <button class="dialog-confirm" @click="confirmAction"
-                            v-text="dialog.action === 'home' || dialog.action === 'enter-loc' || dialog.action === 'enter-cell' ? '进入' : '出发'"></button>
+                            v-text="dialog.confirmText || (dialog.action === 'home' || dialog.action === 'enter-loc' || dialog.action === 'enter-cell' ? '进入' : '出发')"></button>
                 </div>
             </div>
         </div>

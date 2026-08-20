@@ -9,23 +9,42 @@
     <link rel="stylesheet" href="../css/subpages.css">
 </head>
 <body class="scene-page" oncontextmenu="return false">
-    <!-- 背包子页：物品清单 + 容量，数据来自外壳 postMessage，Vue 数据加载完成前隐藏 -->
+    <!-- 背包子页：物品清单 + 容量，点击物品弹出操作菜单；数据来自外壳 postMessage，Vue 加载完成前隐藏 -->
     <div id="bag" class="page-root" v-cloak style="display:none" v-show="loaded">
         <div class="page-header">
-            <span class="page-cap" v-text="bag.length + '/' + bagMax"></span>
-            <button class="page-close" @click="send({ type: 'close-page' })">✕</button>
+            <button class="page-back" @click="send({ type: 'close-page' })">‹ 返回</button>
+            <span class="page-cap" v-text="'容量 ' + bag.length + '/' + bagMax"></span>
         </div>
         <div class="page-body">
-            <div class="bag-item" v-for="(it, i) in bag" :key="i">
+            <div class="bag-item" v-for="(it, i) in bag" :key="i" @click="openMenu(i)">
                 <div class="bag-item-head">
                     <div class="bag-item-icon" v-text="UI.catIcon(it.type)"></div>
                     <div class="bag-item-name" v-text="it.name"></div>
                 </div>
                 <div class="bag-item-props">
                     <span class="bag-prop bag-weight" v-text="'重量 ' + it.weight + 'kg'"></span>
+                    <span class="bag-prop bag-count" v-if="it.count" v-text="'×' + it.count"></span>
                 </div>
             </div>
             <p class="bag-empty" v-if="bag.length === 0">背包空空如也。</p>
+        </div>
+
+        <!-- 物品操作菜单 -->
+        <div v-if="menu.show" class="item-menu-overlay" @click.self="closeMenu">
+            <div class="item-menu">
+                <template v-if="menu.confirmDiscard">
+                    <div class="item-menu-title">确定丢弃「{{ menuItem ? menuItem.name : '' }}」？</div>
+                    <button class="item-menu-btn danger" @click="act('bag-discard')">确定丢弃</button>
+                    <button class="item-menu-btn" @click="menu.confirmDiscard = false">返回</button>
+                </template>
+                <template v-else>
+                    <div class="item-menu-title" v-text="menuItem ? menuItem.name : ''"></div>
+                    <button v-if="currentScene === 'safehouse'" class="item-menu-btn" @click="act('bag-move-storage')">📦 放入仓库</button>
+                    <button v-if="useCfg" class="item-menu-btn" @click="act('bag-use')" v-text="useCfg.label"></button>
+                    <button class="item-menu-btn danger" @click="menu.confirmDiscard = true">🗑️ 丢弃</button>
+                    <button class="item-menu-btn" @click="closeMenu">取消</button>
+                </template>
+            </div>
         </div>
     </div>
 
@@ -33,17 +52,39 @@
     <script src="../js/ui.js"></script>
     <script src="../js/vue.min.js"></script>
     <script>
-    // 背包子页：Vue 渲染物品清单，关闭按钮消息转发给外壳
+    // 背包子页：Vue 渲染物品清单，点击弹操作菜单，操作消息转发给外壳执行
     var app = new Vue({
         el: '#bag',
         data: {
             loaded: false,
+            currentScene: 'safehouse',
             bag: [],
-            bagMax: 30
+            bagMax: 30,
+            menu: { show: false, index: -1, confirmDiscard: false }
+        },
+        computed: {
+            menuItem() {
+                return this.menu.show ? this.bag[this.menu.index] : null;
+            },
+            // 物品是否可用（吃/喝/使用）
+            useCfg() {
+                return this.menuItem ? (GameData.itemUse[this.menuItem.type] || null) : null;
+            }
         },
         methods: {
             send(msg) {
                 window.parent.postMessage(msg, '*');
+            },
+            openMenu(i) {
+                this.menu = { show: true, index: i, confirmDiscard: false };
+            },
+            closeMenu() {
+                this.menu.show = false;
+            },
+            // 执行菜单操作并关闭
+            act(type) {
+                this.send({ type: type, index: this.menu.index });
+                this.menu.show = false;
             }
         }
     });
@@ -51,6 +92,7 @@
     window.addEventListener('message', function (e) {
         var msg = e.data;
         if (msg && msg.type === 'init') {
+            app.currentScene = msg.state.currentScene;
             app.bag = msg.state.bag;
             app.bagMax = msg.state.bagMax;
             app.loaded = true;

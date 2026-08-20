@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>篝火</title>
+    <style>[v-cloak] { display: none; }</style>
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/subpages.css">
+</head>
+<body class="scene-page" oncontextmenu="return false">
+    <!-- 篝火子页：燃烧状态 + 燃料倒计时 + 添加木板 + 升级；倒计时由外壳每秒推送状态刷新 -->
+    <div id="fire" class="page-root" v-cloak style="display:none" v-show="loaded">
+        <div class="page-header">
+            <button class="page-back" @click="send({ type: 'close-page' })">‹ 返回</button>
+        </div>
+        <div class="page-body">
+            <!-- 升级：石头篝火 → 火炉 -->
+            <div class="bed-section upgrade-card">
+                <div v-if="fire && fire.fireLevel < fire.fireLevels.length - 1" class="bed-upgrade-row">
+                    <div class="bed-upgrade-info">
+                        <div class="bed-next">下一级：<span v-text="fire.fireLevels[fire.fireLevel + 1].name"></span></div>
+                        <div class="bed-cost">
+                            <span class="bed-cost-item" v-for="(amt, mat) in fire.fireLevels[fire.fireLevel].upgrade" :key="mat"
+                                  :class="UI.materialCount(bag, mat) >= amt ? 'enough' : 'lacking'" v-text="mat + ' ×' + amt"></span>
+                        </div>
+                    </div>
+                    <button class="bed-upgrade-btn" :disabled="!canUpgrade()" @click="send({ type: 'upgrade-fire' })">升级</button>
+                </div>
+                <div v-else class="bed-max">已达最高级（火炉）</div>
+            </div>
+
+            <!-- 燃烧状态与剩余燃料倒计时 -->
+            <div class="upgrade-card fire-info">
+                <div class="fire-status" :class="{ lit: burning }" v-text="burning ? '🔥 燃烧中' : '⛔ 已熄灭'"></div>
+                <div class="fire-timer" v-text="timerText"></div>
+                <div class="fire-desc" v-text="burning ? '篝火燃烧中，房间温暖。' : '添加木板点燃篝火。'"></div>
+            </div>
+
+            <!-- 添加燃料 -->
+            <div class="fire-add">
+                <div class="fire-add-title">添加木板（库存：{{ woodCount }} 块）</div>
+                <div class="fire-add-btns">
+                    <button v-for="n in addAmounts" :key="n" class="fire-add-btn"
+                            :disabled="woodCount < n"
+                            @click="send({ type: 'add-fuel', count: n })">
+                        {{ '添加 ' + n + ' 块' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/data.js"></script>
+    <script src="../js/ui.js"></script>
+    <script src="../js/vue.min.js"></script>
+    <script>
+    // 篝火子页：Vue 渲染燃烧状态与倒计时，添加燃料/升级操作转发给外壳处理
+    var app = new Vue({
+        el: '#fire',
+        data: {
+            loaded: false,
+            fire: null,
+            bag: [],
+            fuelUntil: 0,
+            gameSeconds: 0,
+            addAmounts: [1, 2, 4, 8]
+        },
+        computed: {
+            burning() {
+                return !!this.fire && this.gameSeconds < this.fuelUntil;
+            },
+            hoursPerWood() {
+                return this.fire ? this.fire.fireLevels[this.fire.fireLevel].hoursPerWood : 1;
+            },
+            woodCount() {
+                return UI.materialCount(this.bag, '木板');
+            },
+            // 剩余燃料倒计时（X 小时 Y 分）
+            timerText() {
+                if (!this.burning) return '剩余燃料 0 分钟';
+                var sec = this.fuelUntil - this.gameSeconds;
+                var h = Math.floor(sec / 3600);
+                var m = Math.floor((sec % 3600) / 60);
+                return '剩余燃料 ' + (h > 0 ? h + ' 小时 ' : '') + m + ' 分钟';
+            }
+        },
+        methods: {
+            send(msg) {
+                window.parent.postMessage(msg, '*');
+            },
+            // 当前是否满足升级所需全部材料
+            canUpgrade() {
+                var f = this.fire;
+                return !!f && f.fireLevel < f.fireLevels.length - 1
+                    && UI.hasMaterials(this.bag, f.fireLevels[f.fireLevel].upgrade);
+            }
+        }
+    });
+
+    window.addEventListener('message', function (e) {
+        var msg = e.data;
+        if (msg && msg.type === 'init') {
+            app.fire = msg.state.currentFire;
+            app.bag = msg.state.bag;
+            app.fuelUntil = msg.state.fireFuelUntil;
+            app.gameSeconds = msg.state.gameSeconds;
+            app.loaded = true;
+        }
+    });
+    </script>
+</body>
+</html>

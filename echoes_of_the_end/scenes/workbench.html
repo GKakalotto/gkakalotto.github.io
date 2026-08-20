@@ -12,7 +12,7 @@
     <!-- 工作台子页：一级分类菜单 → 二级蓝图列表，制作操作转发给外壳；Vue 数据加载完成前隐藏 -->
     <div id="wb" class="page-root" v-cloak style="display:none" v-show="loaded">
         <div class="page-header">
-            <button class="page-close" @click="send({ type: 'close-page' })">✕</button>
+            <button class="page-back" @click="view === 'list' ? (view = 'menu') : send({ type: 'close-page' })">‹ 返回</button>
         </div>
         <div class="page-body">
             <!-- 一级：分类菜单 -->
@@ -25,7 +25,6 @@
             </div>
             <!-- 二级：所选分类的蓝图列表 -->
             <div v-else class="wb-list">
-                <div class="wb-back" @click="view = 'menu'">‹ 返回</div>
                 <div class="wb-bp" v-for="(bp, i) in blueprints[cat]" :key="i">
                     <div class="wb-bp-head">
                         <span class="wb-bp-name" v-text="bp.name"></span>
