@@ -113,24 +113,49 @@ const InventoryMixin = {
             else if (f.isChair) { if (!f.unlocked) this.openFurniture(f); else this.openChair(f); }
             else if (f.isJuicer) { if (!f.unlocked) this.openFurniture(f); else this.openJuicer(f); }
             else if (f.isFurnace) { if (!f.unlocked) this.openFurniture(f); else this.openFurnace(f); }
+            else if (f.isPlantation) { if (!f.unlocked) this.openFurniture(f); else this.openPlantation(f); }
             else this.openFurniture(f);
         },
-        // 床/仓库升级与工作台制作共用的材料查询
+        // 床/仓库升级与工作台制作共用的材料查询：安全屋时可读取背包 + 仓库，外出时仅背包
+        // 无 count 字段的物品（工具/武器等单件）视为 1，与 spendMaterials 的扣减口径一致
         materialCount(name) {
             const it = this.bag.find(i => i.name === name);
-            return it ? (it.count || 0) : 0;
+            let n = it ? (it.count === undefined ? 1 : it.count) : 0;
+            if (this.currentScene === 'safehouse') {
+                const si = this.storageItems.find(i => i.name === name);
+                if (si) n += si.count === undefined ? 1 : si.count;
+            }
+            return n;
         },
         // 材料消耗文案：{金属废料:2, 布料:1} → '金属废料 ×2、布料 ×1'
         costText(cost) {
             return Object.keys(cost).map(k => `${k} ×${cost[k]}`).join('、');
         },
-        // 消耗材料：cost {材料:数量} 从背包扣减；扣减后数量为 0 的材料条目移除，避免背包残留空卡
+        // 消耗材料：cost {材料:数量} 从背包扣减（安全屋不足时从仓库补）；扣减后数量为 0 的条目移除
         spendMaterials(cost) {
             for (const mat in cost) {
-                const it = this.bag.find(i => i.name === mat);
-                if (it) it.count -= cost[mat];
+                let need = cost[mat];
+                for (const it of this.bag) {
+                    if (need <= 0) break;
+                    if (it.name === mat) {
+                        const take = Math.min(need, it.count || 1);
+                        it.count = (it.count || 1) - take;
+                        need -= take;
+                    }
+                }
+                this.bag = this.bag.filter(i => i.count === undefined || i.count > 0);
+                if (this.currentScene === 'safehouse') {
+                    for (const it of this.storageItems) {
+                        if (need <= 0) break;
+                        if (it.name === mat) {
+                            const take = Math.min(need, it.count || 1);
+                            it.count = (it.count || 1) - take;
+                            need -= take;
+                        }
+                    }
+                    this.storageItems = this.storageItems.filter(i => i.count === undefined || i.count > 0);
+                }
             }
-            this.bag = this.bag.filter(i => i.count === undefined || i.count > 0);
         },
         // 仓库：点击升级 → 弹窗确认
         upgradeStorage() {
@@ -564,42 +589,17 @@ const InventoryMixin = {
             this.pushLog(`灶台升级为「${st.stoveLevels[st.stoveLevel].name}」，烹饪能力更强了。`);
             this.postSceneState();
         },
-        // 灶台/榨汁共用：背包+仓库某物品总数量
+        // 熔炉加燃料等：背包+仓库某物品总数量（熔炉仅在安全屋使用，等价于 materialCount）
         combinedCount(name) {
-            const b = this.bag.filter(i => i.name === name).reduce((s, i) => s + (i.count || 1), 0);
-            const s = this.storageItems.filter(i => i.name === name).reduce((s2, i) => s2 + (i.count || 1), 0);
-            return b + s;
+            return this.materialCount(name);
         },
-        // 灶台/榨汁共用：材料是否充足（背包+仓库联合）
+        // 灶台/榨汁/熔炉/种植共用材料是否充足：这些操作均在安全屋进行，等价于 hasMaterials（背包+仓库）
         hasCombined(cost) {
-            for (const mat in cost) {
-                if (this.combinedCount(mat) < cost[mat]) return false;
-            }
-            return true;
+            return this.hasMaterials(cost);
         },
-        // 灶台/榨汁共用：扣料（背包优先，不足从仓库补）
+        // 灶台/榨汁/熔炉/种植共用扣料：均在安全屋进行，等价于 spendMaterials（背包优先，仓库补足）
         spendCombined(cost) {
-            for (const mat in cost) {
-                let need = cost[mat];
-                for (const it of this.bag) {
-                    if (need <= 0) break;
-                    if (it.name === mat) {
-                        const take = Math.min(need, it.count || 1);
-                        it.count = (it.count || 1) - take;
-                        need -= take;
-                    }
-                }
-                this.bag = this.bag.filter(i => i.count === undefined || i.count > 0);
-                for (const it of this.storageItems) {
-                    if (need <= 0) break;
-                    if (it.name === mat) {
-                        const take = Math.min(need, it.count || 1);
-                        it.count = (it.count || 1) - take;
-                        need -= take;
-                    }
-                }
-                this.storageItems = this.storageItems.filter(i => i.count === undefined || i.count > 0);
-            }
+            this.spendMaterials(cost);
         },
         // 制作/榨汁：点击后扣料并进入耗时进度（动画期间推进游戏时间，结束后产出）
         startCooking(kind, name) {
@@ -776,6 +776,73 @@ const InventoryMixin = {
                 this.addBag({ name: out.name, type: out.type, count: 1 });
                 this.pushLog(`熔炉加工完成，得到「${out.name}」×1。`);
             }
+        },
+        // ============ 种植园 ============
+        openPlantation(item) {
+            this.currentPlantation = item;
+            this.currentPage = 'plantation';
+        },
+        // 当前种植园槽位数（随等级提升）
+        currentPlantSlots() {
+            const p = this.furniture.find(f => f.isPlantation);
+            return p ? p.plantationLevels[p.plantationLevel].slots : 0;
+        },
+        // 种植：消耗 1 个种子/作物（背包+仓库），加入后台生长队列（不超过槽位数）
+        plantCrop(name) {
+            if (this.plantationJobs.length >= this.currentPlantSlots()) {
+                this.pushLog('种植园的槽位已满，请先收获或等待。');
+                return;
+            }
+            const c = GameData.plantationCrops.find(x => x.name === name);
+            if (!c) return;
+            if (!this.hasCombined({ [c.seed]: 1 })) { this.pushLog(`没有「${c.seed}」，无法种植。`); return; }
+            this.spendCombined({ [c.seed]: 1 });
+            const total = (c.growHours || 2) * HOUR_SECONDS;
+            this.plantationJobs.push({ name: c.name, seed: c.seed, type: c.type, total, remaining: total });
+            this.pushLog(`你在种植园种下了「${c.seed}」。`);
+            this.postSceneState();
+        },
+        // 收获：作物成熟（remaining<=0）后手动收获，得 1~3 果实，种子类作物概率返还种子
+        harvestCrop(index) {
+            const c = this.plantationJobs[index];
+            if (!c) return;
+            if (c.remaining > 0) return;
+            this.plantationJobs.splice(index, 1);
+            const n = this.randInt(1, 3);
+            this.addBag({ name: c.name, type: c.type, count: n });
+            this.pushLog(`你收获了「${c.name}」×${n}。`);
+            // 种子类作物（seed !== name）30% 概率返还种子，保证可持续种植
+            if (c.seed !== c.name && Math.random() < 0.3) {
+                this.addBag({ name: c.seed, type: 'material', count: 1 });
+                this.pushLog(`你捡回了一颗「${c.seed}」。`);
+            }
+            this.postSceneState();
+        },
+        // 种植园升级：弹窗确认
+        upgradePlantation() {
+            const p = this.currentPlantation;
+            if (!p || p.plantationLevel >= p.plantationLevels.length - 1) return;
+            const level = p.plantationLevels[p.plantationLevel];
+            const next = p.plantationLevels[p.plantationLevel + 1];
+            this.dialog = {
+                show: true, icon: '🌱',
+                title: `升级种植园：${next.name}`,
+                desc: `种植槽位 ${level.slots} → ${next.slots}，可同时种更多作物。`,
+                costMap: level.upgrade,
+                confirmText: '升级',
+                onConfirm: () => this.doUpgradePlantation()
+            };
+        },
+        // 执行种植园升级（满足材料时扣减并升级）
+        doUpgradePlantation() {
+            const p = this.currentPlantation;
+            if (!p || p.plantationLevel >= p.plantationLevels.length - 1) return;
+            const cost = p.plantationLevels[p.plantationLevel].upgrade;
+            if (!this.hasMaterials(cost)) return;
+            this.spendMaterials(cost);
+            p.plantationLevel++;
+            this.pushLog(`种植园升级为「${p.plantationLevels[p.plantationLevel].name}」，槽位增加到 ${p.plantationLevels[p.plantationLevel].slots}。`);
+            this.postSceneState();
         }
     }
 };

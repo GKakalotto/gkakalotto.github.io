@@ -49,6 +49,7 @@
             loaded: false,
             fire: null,
             bag: [],
+            storageItems: [],
             fuelUntil: 0,
             gameSeconds: 0,
             addAmounts: [1, 2, 4, 8]
@@ -60,8 +61,11 @@
             hoursPerWood() {
                 return this.fire ? this.fire.fireLevels[this.fire.fireLevel].hoursPerWood : 1;
             },
+            // 木板数量（背包 + 仓库）
             woodCount() {
-                return UI.materialCount(this.bag, '木板');
+                return (this.bag || []).concat(this.storageItems || [])
+                    .filter(it => it.name === '木板')
+                    .reduce((s, it) => s + (it.count || 1), 0);
             },
             // 剩余燃料倒计时（X 小时 Y 分）
             timerText() {
@@ -84,6 +88,7 @@
         if (msg && msg.type === 'init') {
             app.fire = msg.state.currentFire;
             app.bag = msg.state.bag;
+            app.storageItems = msg.state.storageItems || [];
             app.fuelUntil = msg.state.fireFuelUntil;
             app.gameSeconds = msg.state.gameSeconds;
             app.loaded = true;

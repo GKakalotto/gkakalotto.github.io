@@ -113,6 +113,10 @@ new Vue({
         furnaceFuel: 0,
         // 熔炉后台加工任务队列：最多 6 个槽同时加工；每项 { kind: 'plastic'|'iron', remaining: 剩余游戏秒 }
         furnaceJobs: [],
+        // 当前种植园（plantation 页用）
+        currentPlantation: null,
+        // 种植园作物队列：最多当前等级槽位数；每项 { name, seed, type, total, remaining }（remaining<=0 即可收获）
+        plantationJobs: [],
         // 篝火燃料烧尽时刻（游戏秒）：gameSeconds 小于它即为燃烧中，剩余时长 = (fireFuelUntil - gameSeconds) / HOUR_SECONDS
         fireFuelUntil: 0,
         // 背包物品（初始物资，来自数据文件）

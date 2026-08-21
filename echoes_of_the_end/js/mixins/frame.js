@@ -83,6 +83,8 @@ const FrameMixin = {
                     currentFurnace: this.currentFurnace,
                     furnaceFuel: this.furnaceFuel,
                     furnaceJobs: this.furnaceJobs,
+                    currentPlantation: this.currentPlantation,
+                    plantationJobs: this.plantationJobs,
                     cooking: this.cooking,
                     activity: this.activity,
                     searching: this.searching,
@@ -154,6 +156,9 @@ const FrameMixin = {
                 // 地点特殊玩法：打猎 / 取水 / 钓鱼 / 领养狗
                 case 'hunt':
                     this.startHunt();
+                    break;
+                case 'forage':
+                    this.startForage();
                     break;
                 case 'draw-water':
                     this.startDrawWater();
@@ -290,6 +295,16 @@ const FrameMixin = {
                 case 'furnace-craft':
                     this.startFurnaceJob(msg.name);
                     break;
+                // 种植园：种植 / 收获 / 升级
+                case 'plant-crop':
+                    this.plantCrop(msg.name);
+                    break;
+                case 'harvest-crop':
+                    this.harvestCrop(msg.index);
+                    break;
+                case 'upgrade-plantation':
+                    this.upgradePlantation();
+                    break;
                 // 家具详情页发起的解锁
                 case 'unlock-furniture':
                     this.unlockFurniture();
@@ -356,6 +371,7 @@ const FrameMixin = {
             else if (f.isChair) this.openChair(f);
             else if (f.isJuicer) this.openJuicer(f);
             else if (f.isFurnace) this.openFurnace(f);
+            else if (f.isPlantation) this.openPlantation(f);
             else this.postSceneState();
         }
     }

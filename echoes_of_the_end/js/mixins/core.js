@@ -65,6 +65,7 @@ const CoreMixin = {
             if (this.currentPage === 'chair') return '🪑 椅子';
             if (this.currentPage === 'juicer') return '🥤 榨汁机';
             if (this.currentPage === 'furnace') return '🏭 熔炉';
+            if (this.currentPage === 'plantation') return '🌱 种植园';
             if (this.currentPage === 'battle') return '⚔️ 战斗';
             if (this.currentPage === 'furniture' && this.currentFurniture) {
                 return `${this.currentFurniture.icon} ${this.currentFurniture.name}`;
@@ -146,6 +147,14 @@ const CoreMixin = {
                 }
                 if (this.currentPage === 'furnace') this.postSceneState();
             }
+            // 种植园后台生长：作物随时间自然生长（无燃料消耗），成熟后等待手动收获
+            if (this.plantationJobs.length > 0) {
+                const dt = GAME_SECONDS_PER_REAL_SECOND;
+                for (const c of this.plantationJobs) {
+                    if (c.remaining > 0) c.remaining = Math.max(0, c.remaining - dt);
+                }
+                if (this.currentPage === 'plantation') this.postSceneState();
+            }
         },
         // 推进游戏时间（秒），处理状态消耗/恢复、跨天/跨季
         advanceGameTime(seconds) {
@@ -155,8 +164,8 @@ const CoreMixin = {
             const s = this.stats;
             const hours = seconds / HOUR_SECONDS;
             const wasHungry = s.hunger > 0, wasThirsty = s.water > 0;
-            s.hunger = Math.max(0, s.hunger - 2 * hours);
-            s.water = Math.max(0, s.water - 2.5 * hours);
+            s.hunger = Math.max(0, s.hunger - 3 * hours);
+            s.water = Math.max(0, s.water - 3 * hours);
             // 理智（精神值）：基础缓慢流失；超过 24 游戏小时未睡觉则额外加速流失
             s.sanity = Math.max(0, s.sanity - 0.5 * hours);
             if (this.gameSeconds - this.lastSleepAt > 24 * HOUR_SECONDS) {

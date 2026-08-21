@@ -22,7 +22,7 @@
                         <div class="bed-next">解锁需要</div>
                         <div class="bed-cost">
                             <span class="bed-cost-item" v-for="(amt, mat) in f.unlockCost" :key="mat"
-                                  :class="UI.materialCount(bag, mat) >= amt ? 'enough' : 'lacking'"
+                                  :class="have(mat) >= amt ? 'enough' : 'lacking'"
                                   v-text="mat + ' ×' + amt"></span>
                         </div>
                     </div>
@@ -42,17 +42,28 @@
         data: {
             loaded: false,
             f: null,
-            bag: []
+            bag: [],
+            storageItems: []
         },
         computed: {
-            // 材料是否足够解锁当前家具
+            // 材料是否足够解锁当前家具（背包 + 仓库）
             canUnlock() {
-                return this.f && UI.hasMaterials(this.bag, this.f.unlockCost || {});
+                if (!this.f) return false;
+                for (const mat in this.f.unlockCost || {}) {
+                    if (this.have(mat) < this.f.unlockCost[mat]) return false;
+                }
+                return true;
             }
         },
         methods: {
             send(msg) {
                 window.parent.postMessage(msg, '*');
+            },
+            // 背包 + 仓库中某材料总数量
+            have(name) {
+                return (this.bag || []).concat(this.storageItems || [])
+                    .filter(it => it.name === name)
+                    .reduce((s, it) => s + (it.count || 1), 0);
             },
             // 解锁当前家具：消息转发给外壳，由外壳扣材料并置 unlocked 后保存刷新
             onUnlock() {
@@ -66,6 +77,7 @@
         if (msg && msg.type === 'init') {
             app.f = msg.state.currentFurniture;
             app.bag = msg.state.bag || [];
+            app.storageItems = msg.state.storageItems || [];
             app.loaded = true;
         }
     });

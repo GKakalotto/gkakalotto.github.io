@@ -375,6 +375,13 @@ const TravelMixin = {
             else this.bag = this.bag.filter(i => i !== arrows);
             this.beginActivity('hunt', 30 * 60);
         },
+        // 采摘野菜（植物园）：耗时 10 分钟，得草药×2
+        startForage() {
+            if (this.activity || this.searching) return;
+            const place = this.currentPlace;
+            if (!place || place.base !== 'loc') return;
+            this.beginActivity('forage', 10 * 60);
+        },
         // 取水（河边）：耗时 5 分钟，得脏水×3
         startDrawWater() {
             if (this.activity || this.searching) return;
@@ -656,6 +663,21 @@ const TravelMixin = {
                 const n = this.randInt(1, 3);
                 this.addBag({ type: 'rawfood', name: '生肉', count: n });
                 this.pushLog(`你猎到了一只动物，获得生肉×${n}。`);
+            } else if (this.activity.type === 'forage') {
+                // 采摘野菜（植物园）：得草药×2，并有概率额外发现一颗作物种子或野禽蛋
+                this.addBag({ type: 'medicine', name: '草药', count: 2 });
+                let extra = '';
+                const roll = Math.random();
+                if (roll < 0.25) {
+                    const seeds = ['草莓种子', '菠萝种子', '西瓜种子', '香蕉种子', '椰子种子', '芒果种子'];
+                    const s = seeds[Math.floor(Math.random() * seeds.length)];
+                    this.addBag({ type: 'material', name: s, count: 1 });
+                    extra = `，意外发现了一颗${s}`;
+                } else if (roll < 0.4) {
+                    this.addBag({ type: 'food', name: '蛋', count: 1 });
+                    extra = '，还捡到了一枚野禽蛋';
+                }
+                this.pushLog(`你采了些野菜（草药×2）${extra}。`);
             } else if (this.activity.type === 'drawwater') {
                 this.addBag({ type: 'dirty', name: '脏水', count: 3 });
                 this.pushLog('你装了 3 份河水（脏水）。');
@@ -717,9 +739,28 @@ const TravelMixin = {
             this.stats.stamina -= 2;
             let item, log;
             const isZoo = this.currentPlace && this.currentPlace.type === '动物园';
+            const isBotanic = this.currentPlace && this.currentPlace.type === '植物园';
             if (isZoo && Math.random() < 0.15) {
                 item = { type: 'food', name: '蛋' };
                 log = '你在笼舍角落找到了一枚蛋。';
+            } else if (isBotanic) {
+                // 植物园搜寻：概率找到作物种子（各品种均分）或草药/野菜/野禽蛋
+                const roll = Math.random();
+                if (roll < 0.35) {
+                    const seeds = ['草莓种子', '菠萝种子', '西瓜种子', '香蕉种子', '椰子种子', '芒果种子'];
+                    const s = seeds[Math.floor(Math.random() * seeds.length)];
+                    item = { type: 'material', name: s };
+                    log = `你在草丛里找到了一颗${s}。`;
+                } else if (roll < 0.55) {
+                    item = { type: 'medicine', name: '草药' };
+                    log = '你采到了一些草药。';
+                } else if (roll < 0.7) {
+                    item = { type: 'food', name: '蛋' };
+                    log = '你在灌丛里发现了一枚野禽蛋。';
+                } else {
+                    item = { type: 'material', name: '垃圾' };
+                    log = '你只翻到了一些垃圾。';
+                }
             } else {
                 const roll = Math.random();
                 if (roll < 0.01) { item = { type: 'medicine', name: '草药' }; log = '你找到了一些草药。'; }
@@ -729,9 +770,22 @@ const TravelMixin = {
             this.addBag({ ...item, count: 1 });
             this.pushLog(log);
         },
-        // 点击室外设施（狗窝/防御栅栏）：锁定则提示未解锁
+        // 点击室外设施（狗窝/防御栅栏）：锁定则提示未解锁；防御栅栏带成本解锁，解锁后降低遇敌率
         outdoorClick(item) {
             if (!item.unlocked) {
+                if (item.name === '防御栅栏') {
+                    // 防御栅栏：确认弹窗解锁（消耗材料）
+                    if (!item.unlockCost) return;
+                    this.dialog = {
+                        show: true, icon: '🛡️',
+                        title: '修建防御栅栏',
+                        desc: '加固安全屋外围，降低外出遇敌概率。',
+                        costMap: item.unlockCost,
+                        confirmText: '修建',
+                        onConfirm: () => this.buildFence(item)
+                    };
+                    return;
+                }
                 this.pushLog(`🔒「${item.name}」尚未解锁。`);
                 return;
             }
@@ -739,34 +793,61 @@ const TravelMixin = {
                 this.pushLog('🐕 大黄摇着尾巴欢迎你回来。');
                 return;
             }
+            if (item.name === '防御栅栏') {
+                this.pushLog('🛡️ 防御栅栏已加固，外出时遇敌概率降低了。');
+                return;
+            }
             this.pushLog(`你查看了「${item.name}」。`);
+        },
+        // 修建防御栅栏：满足材料则扣减并解锁
+        buildFence(item) {
+            if (item.unlocked) return;
+            if (!this.hasMaterials(item.unlockCost)) return;
+            this.spendMaterials(item.unlockCost);
+            item.unlocked = true;
+            this.pushLog('🛡️ 你加固了防御栅栏，外出时更安全了。');
+            this.saveGame();
+            this.postSceneState();
         },
         // ============ 战斗系统 ============
         // 移动完成：按生存天数概率遇敌（基础 25%，每 3 天 +1%，封顶 80%）；遇敌进入回合制战斗，胜利后继续原流程
+        // 狗窝已解锁（大黄放哨）与防御栅栏已加固时降低遇敌率
         afterTravel(cb) {
             if (!cb) return;
-            const pct = Math.min(80, 25 + Math.floor(this.day / 3));
+            let pct = Math.min(80, 25 + Math.floor(this.day / 3));
+            pct -= this.travelEnemyReduction();
             if (Math.random() * 100 < pct) {
                 this.spawnBattle(cb);
             } else {
                 cb.call(this);
             }
         },
+        // 安全屋减伤：狗窝解锁 -10%，防御栅栏解锁 -10%
+        travelEnemyReduction() {
+            let red = 0;
+            if (this.outdoors && this.outdoors[0] && this.outdoors[0].unlocked) red += 10;   // 狗放哨
+            if (this.outdoors && this.outdoors[1] && this.outdoors[1].unlocked) red += 10;   // 防御栅栏
+            return red;
+        },
         // 遭遇丧尸：生成战斗数据但不立即开战，弹窗询问「战斗 / 逃跑」
         spawnBattle(cb) {
             const pool = ['weak', 'weak', 'normal', 'normal', 'fat'];
             const z = GameData.zombies[pool[Math.floor(Math.random() * pool.length)]];
-            // 丧尸强度随总天数增强：每天 +1%，封顶 2 倍
+            // 越到后面遇到的数量越多：每 8 天 +1 只，封顶 3 只
+            const n = Math.min(3, 1 + Math.floor(this.totalDay / 8));
+            // 丧尸强度随总天数增强：每天 +1%，封顶 2 倍；单只攻击/血量 ±3 浮动，再按数量叠加
             const scale = Math.min(2, 1 + this.totalDay * 0.01);
-            const zHp = Math.round(z.hp * scale);
-            const zAtk = Math.round(z.atk * scale);
+            const zHp = Math.max(1, Math.round(z.hp * scale) + this.randInt(-3, 3)) * n;
+            const zAtk = Math.max(1, Math.round(z.atk * scale) + this.randInt(-3, 3)) * n;
+            const zExp = z.exp * n;
+            const name = (n > 1 ? n + ' 只' : '') + z.name;
             const zw = this.equipment.weapon;
             const armor = this.equipment.armor;
             const hat = this.equipment.hat;
             const atk = Math.round((zw && zw.damage ? zw.damage : 5) * (1 + (this.stats.strength - 1) * 0.1));
             const def = (armor && armor.defense ? armor.defense : 0) + (hat && hat.defense ? hat.defense : 0);
             this.battle = {
-                zombie: Object.assign({}, z, { hp: zHp, atk: zAtk }),
+                zombie: Object.assign({}, z, { name: name, hp: zHp, atk: zAtk, exp: zExp }),
                 zombieHp: zHp,
                 playerHp: Math.min(this.stats.hp, this.hpMax),
                 hpMax: this.hpMax,
@@ -776,11 +857,11 @@ const TravelMixin = {
                 strength: this.stats.strength, atkCount: 0, hitCount: 0
             };
             this.pendingAfterBattle = cb || null;
-            this.pushLog(`🧟 遇到了${z.name}！`);
+            this.pushLog(`🧟 遇到了${name}！`);
             this.dialog = {
                 show: true, icon: '🧟',
-                title: `遇到${z.name}！`,
-                desc: `${z.name} 向你扑来，是迎战还是逃跑？`,
+                title: `遇到${name}！`,
+                desc: `${name} 向你扑来，是迎战还是逃跑？`,
                 cost: '',
                 confirmText: '⚔️ 战斗',
                 cancelText: '🏃 逃跑',

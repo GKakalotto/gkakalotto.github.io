@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>种植园</title>
+    <style>[v-cloak] { display: none; }</style>
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/subpages.css">
+</head>
+<body class="scene-page" oncontextmenu="return false">
+    <!-- 种植园子页：消耗种子/作物后台生长，成熟后手动收获；Vue 数据加载完成前隐藏 -->
+    <div id="plantation" class="page-root" v-cloak style="display:none" v-show="loaded">
+        <div class="page-header">
+            <button class="page-back" @click="send({ type: 'close-page' })">‹ 返回</button>
+            <button v-if="p && p.plantationLevel < p.plantationLevels.length - 1" class="upgrade-btn" @click="send({ type: 'upgrade-plantation' })">升级</button>
+            <span v-else class="upgrade-max">已达最高等级</span>
+        </div>
+        <div class="page-body">
+            <!-- 当前等级与槽位说明 -->
+            <div class="furnace-fuel-card" v-if="p">
+                <div class="furnace-fuel-info">🌱 {{ p.plantationLevels[p.plantationLevel].name }} · 种植槽位 {{ jobs.length }}/{{ slots }}</div>
+                <div class="furnace-fuel-info" style="color:#999">作物随时间自然生长，成熟后可收获 1~3 个果实。</div>
+            </div>
+
+            <!-- 可种植作物列表：消耗 1 个种子/作物，种子类作物收获时有概率返还种子 -->
+            <div class="furnace-ops">
+                <div v-for="c in crops" :key="c.name" class="furnace-item-row">
+                    <div class="furnace-item-main">
+                        <span class="furnace-item-name">{{ c.name }}</span>
+                        <span class="furnace-item-cost">
+                            <span :class="have(c.seed) >= 1 ? 'enough' : 'lacking'">需 {{ c.seed }} ×1</span>
+                            <span class="furnace-item-cost" style="color:#999">生长 {{ c.growHours }} 小时</span>
+                        </span>
+                    </div>
+                    <button class="bed-upgrade-btn"
+                            :disabled="jobs.length >= slots || !canPlant(c)"
+                            @click="send({ type: 'plant-crop', name: c.name })">种植</button>
+                </div>
+            </div>
+
+            <!-- 种植槽位：空槽显示占位，占用槽实时随游戏时间推进生长 -->
+            <div class="furnace-slots">
+                <div v-for="n in slots" :key="n" class="furnace-slot"
+                     :class="{ active: jobs[n - 1] }">
+                    <template v-if="jobs[n - 1]">
+                        <div class="furnace-slot-label">🌱 {{ jobs[n - 1].name }} · 剩 {{ timeText(jobs[n - 1]) }}</div>
+                        <div class="furnace-progress-bar">
+                            <div class="furnace-progress-fill" :style="{ width: slotPct(jobs[n - 1]) + '%' }"></div>
+                        </div>
+                        <button v-if="jobs[n - 1].remaining <= 0" class="bed-upgrade-btn"
+                                style="width:100%; margin-top:6px"
+                                @click="send({ type: 'harvest-crop', index: n - 1 })">收获</button>
+                    </template>
+                    <template v-else>
+                        <div class="furnace-slot-empty">空槽 {{ n }}</div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/data.js"></script>
+    <script src="../js/ui.js"></script>
+    <script src="../js/vue.min.js"></script>
+    <script>
+    // 种植园子页：Vue 渲染作物列表与槽位进度，种植/收获/升级操作转发给外壳在后台计时处理
+    var app = new Vue({
+        el: '#plantation',
+        data: {
+            loaded: false,
+            p: null,          // 当前种植园设施对象（含等级与槽位配置）
+            bag: [],
+            storageItems: [],
+            jobs: [],         // 后台生长队列 [{ name, seed, type, total, remaining }]
+            crops: GameData.plantationCrops || []   // 可种植作物配置
+        },
+        computed: {
+            // 当前种植园槽位数
+            slots() {
+                return this.p ? this.p.plantationLevels[this.p.plantationLevel].slots : 0;
+            }
+        },
+        methods: {
+            send(msg) {
+                window.parent.postMessage(msg, '*');
+            },
+            // 背包 + 仓库中某物品总数量
+            have(name) {
+                return (this.bag || []).concat(this.storageItems || [])
+                    .filter(it => it.name === name)
+                    .reduce((s, it) => s + (it.count || 1), 0);
+            },
+            // 是否可种植：种子/作物充足且槽位未满
+            canPlant(c) {
+                return this.have(c.seed) >= 1;
+            },
+            // 单槽生长进度百分比
+            slotPct(job) {
+                if (!job.total) return 0;
+                return Math.max(0, Math.min(100, (1 - job.remaining / job.total) * 100));
+            },
+            // 剩余时长文案：游戏秒 → “X 小时 Y 分”
+            timeText(job) {
+                const s = Math.max(0, job.remaining);
+                const h = Math.floor(s / 3600);
+                const m = Math.floor((s % 3600) / 60);
+                if (h > 0) return `${h} 小时 ${m} 分`;
+                return m > 0 ? `${m} 分` : '已成熟';
+            }
+        }
+    });
+
+    window.addEventListener('message', function (e) {
+        var msg = e.data;
+        if (msg && msg.type === 'init') {
+            app.p = msg.state.currentPlantation;
+            app.bag = msg.state.bag || [];
+            app.storageItems = msg.state.storageItems || [];
+            app.jobs = msg.state.plantationJobs || [];
+            app.loaded = true;
+        }
+    });
+    </script>
+</body>
+</html>

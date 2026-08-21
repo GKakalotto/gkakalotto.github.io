@@ -9,14 +9,16 @@ const NavigationMixin = {
                 y: (gy - 9) * 1.0 + 3
             };
         },
-        // 移动耗时：按路径格子数 × 每格 20 分钟，整段 ±3 分钟随机波动
+        // 移动耗时：按路径格子数累加，每个单元格 15±3 分钟（12~18 随机），体力不足时变慢
         // 体力低于当前上限 50% 时移动变慢：低于 20% 更慢
         travelSeconds(from, to) {
             // km 坐标反推格子坐标（gridToKm 逆运算：gx = x + 8，gy = y + 6）
             const gx1 = Math.round(from.x + 8), gy1 = Math.round(from.y + 6);
             const gx2 = Math.round(to.x + 8), gy2 = Math.round(to.y + 6);
             const steps = Math.abs(gx1 - gx2) + Math.abs(gy1 - gy2);
-            const minutes = Math.max(1, steps * 20 + this.randInt(-3, 3));
+            let minutes = 0;
+            for (let i = 0; i < steps; i++) minutes += this.randInt(12, 18);
+            minutes = Math.max(1, minutes);
             let seconds = minutes * MINUTE_SECONDS;
             const ph = this.stats ? this.stats.physical : 0;
             const half = this.physicalMax ? this.physicalMax * 0.5 : 50;

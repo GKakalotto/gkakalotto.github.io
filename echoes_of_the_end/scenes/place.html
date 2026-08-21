@@ -59,6 +59,25 @@
                     </div>
                 </template>
 
+                <!-- 植物园：采摘野菜 + 持续搜寻种子/草药 -->
+                <template v-if="locMode === 'botanic'">
+                    <div class="res-card">
+                        <div class="res-info">🌿 采摘野菜：得草药×2<span class="res-info-sub">（10 min）</span></div>
+                        <button class="place-back place-act-btn" :class="{ active: actType === 'forage' }"
+                                :disabled="!!activity || searching" @click="send({ type: 'forage' })">
+                            <div v-if="actType === 'forage'" class="place-act-fill" @animationend="onActAnimEnd"></div>
+                            <span v-text="actType === 'forage' ? '采集中…' : '🌿 采摘野菜'"></span>
+                        </button>
+                    </div>
+                    <div class="res-card">
+                        <div class="res-info" v-text="searching ? '🔍 搜寻中……每约 1 分钟获得一次物品' : '🔍 搜寻：概率获得各种作物种子/草药'"></div>
+                        <button class="place-back" :disabled="!!activity"
+                                @click="send({ type: searching ? 'search-stop' : 'search-start' })">
+                            <span v-text="searching ? '停止搜寻' : '开始搜寻'"></span>
+                        </button>
+                    </div>
+                </template>
+
                 <!-- 河边：取水 + 钓鱼 -->
                 <template v-if="locMode === 'river'">
                     <div class="res-card">
@@ -160,18 +179,6 @@
             <p v-else class="place-hint">此处暂未开放，敬请期待后续版本。</p>
         </div>
 
-        <!-- 搜刮方式选择弹窗：徒手（45 min）或撬棍（15 min） -->
-        <div v-if="searchMode.show" class="item-menu-overlay" @click.self="closeSearchMode">
-            <div class="item-menu">
-                <div class="item-menu-title">
-                    <span>搜刮方式</span>
-                    <button class="item-menu-close" @click="closeSearchMode">×</button>
-                </div>
-                <button class="item-menu-btn" @click="chooseSearch('hands')">徒手（45 min）</button>
-                <button class="item-menu-btn" :disabled="!hasCrowbar" @click="chooseSearch('crowbar')">撬棍（15 min）</button>
-            </div>
-        </div>
-
         <!-- 搜刮物资弹窗：与背包一致的卡片网格展示，点击卡片变色选中，勾选后带走，未选自动进暂存区 -->
         <div v-if="loot.show" class="item-menu-overlay" @click.self="closeLoot">
             <div class="item-menu loot-menu">
@@ -229,7 +236,6 @@
             stashKeep: {},    // 暂存区弹窗选中态
             stashOpen: false, // 暂存区弹窗
             loot: { show: false, items: [], keep: {} }, // 搜刮物资弹窗
-            searchMode: { show: false },// 搜刮方式选择弹窗（徒手/撬棍）
             dogAdopted: false,// 是否已领养狗
             activity: null,   // 外壳正在进行的单次动作 { type }
             searching: false  // 持续搜索进行中
@@ -257,23 +263,10 @@
             send(msg) {
                 window.parent.postMessage(msg, '*');
             },
-            // 打开搜刮方式选择弹窗（徒手 45 min / 撬棍 15 min）
-            // 没有撬棍时直接徒手搜刮；有撬棍才弹窗询问
+            // 搜刮：有撬棍直接撬棍（15 min），否则徒手（45 min），不再询问
             openSearchMode() {
                 if (this.activity || this.searching) return;
-                if (!this.hasCrowbar) {
-                    this.chooseSearch('hands');
-                    return;
-                }
-                this.searchMode.show = true;
-            },
-            closeSearchMode() {
-                this.searchMode.show = false;
-            },
-            // 选择搜刮方式后通知外壳开始搜刮
-            chooseSearch(mode) {
-                this.searchMode.show = false;
-                this.send({ type: 'loc-search', mode: mode });
+                this.send({ type: 'loc-search', mode: this.hasCrowbar ? 'crowbar' : 'hands' });
             },
             // 进度条填充动画结束：通知外壳结算产出（流动条纹为无限动画不触发）
             onActAnimEnd(e) {

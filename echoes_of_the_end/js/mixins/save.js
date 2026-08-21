@@ -25,6 +25,7 @@ const SaveMixin = {
                     fireFuelUntil: this.fireFuelUntil,
                     furnaceFuel: this.furnaceFuel,
                     furnaceJobs: this.furnaceJobs,
+                    plantationJobs: this.plantationJobs,
                     // 只存可变状态（升级等级 / 解锁状态），静态结构仍以数据文件为准
                     furnitureState: this.furniture.map(f => ({
                         bedLevel: f.bedLevel,
@@ -33,6 +34,7 @@ const SaveMixin = {
                         stoveLevel: f.stoveLevel,
                         rainLevel: f.rainLevel,
                         chairLevel: f.chairLevel,
+                        plantationLevel: f.plantationLevel,
                         rainWater: f.rainWater,
                         unlocked: f.unlocked
                     })),
@@ -99,6 +101,12 @@ const SaveMixin = {
                     .filter(j => j && (j.kind === 'plastic' || j.kind === 'iron') && typeof j.remaining === 'number')
                     .map(j => ({ kind: j.kind, remaining: j.remaining }));
             }
+            // 种植园作物队列（旧档无此字段时保持默认）
+            if (Array.isArray(save.plantationJobs)) {
+                this.plantationJobs = save.plantationJobs
+                    .filter(c => c && typeof c.name === 'string' && typeof c.remaining === 'number')
+                    .map(c => ({ name: c.name, seed: c.seed, type: c.type, total: c.total, remaining: c.remaining }));
+            }
             // 稀有武器档内上限（旧档无此字段时保持空，由 created 随机补全）
             if (save.rarityCaps) this.rarityCaps = save.rarityCaps;
             // 家具可变状态按下标回填到数据文件的静态结构上
@@ -112,6 +120,7 @@ const SaveMixin = {
                     if (typeof st.stoveLevel === 'number') f.stoveLevel = st.stoveLevel;
                     if (typeof st.rainLevel === 'number') f.rainLevel = st.rainLevel;
                     if (typeof st.chairLevel === 'number') f.chairLevel = st.chairLevel;
+                    if (typeof st.plantationLevel === 'number') f.plantationLevel = st.plantationLevel;
                     if (typeof st.rainWater === 'number') f.rainWater = st.rainWater;
                     if (typeof st.unlocked === 'boolean') f.unlocked = st.unlocked;
                 });

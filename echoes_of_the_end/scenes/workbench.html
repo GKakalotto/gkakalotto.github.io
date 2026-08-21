@@ -31,7 +31,7 @@
                     </div>
                     <div class="wb-bp-cost">
                         <span class="bed-cost-item" v-for="(amt, mat) in bp.cost" :key="mat"
-                              :class="UI.materialCount(bag, mat) >= amt ? 'enough' : 'lacking'" v-text="mat + ' ×' + amt"></span>
+                              :class="have(mat) >= amt ? 'enough' : 'lacking'" v-text="mat + ' ×' + amt"></span>
                     </div>
                     <button class="wb-craft-btn" :disabled="!canCraft(bp.cost)" @click="craft(cat, i)">制作</button>
                 </div>
@@ -50,6 +50,7 @@
             loaded: false,
             wb: null,
             bag: [],
+            storageItems: [],
             view: 'menu',   // 'menu' 一级分类 / 'list' 二级蓝图
             cat: null       // 当前选中的分类
         },
@@ -62,9 +63,18 @@
             send(msg) {
                 window.parent.postMessage(msg, '*');
             },
+            // 背包 + 仓库中某材料总数量
+            have(name) {
+                return (this.bag || []).concat(this.storageItems || [])
+                    .filter(it => it.name === name)
+                    .reduce((s, it) => s + (it.count || 1), 0);
+            },
             // 某蓝图是否满足全部材料
             canCraft(cost) {
-                return UI.hasMaterials(this.bag, cost);
+                for (const mat in cost) {
+                    if (this.have(mat) < cost[mat]) return false;
+                }
+                return true;
             },
             // 进入某分类的二级蓝图列表
             openCat(cat) {
@@ -83,6 +93,7 @@
         if (msg && msg.type === 'init') {
             app.wb = msg.state.currentWorkbench;
             app.bag = msg.state.bag;
+            app.storageItems = msg.state.storageItems || [];
             app.loaded = true;
         }
     });
