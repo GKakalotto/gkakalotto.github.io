@@ -64,6 +64,7 @@ const CoreMixin = {
             if (this.currentPage === 'rain') return '🚿 雨水收集器';
             if (this.currentPage === 'chair') return '🪑 椅子';
             if (this.currentPage === 'juicer') return '🥤 榨汁机';
+            if (this.currentPage === 'furnace') return '🏭 熔炉';
             if (this.currentPage === 'battle') return '⚔️ 战斗';
             if (this.currentPage === 'furniture' && this.currentFurniture) {
                 return `${this.currentFurniture.icon} ${this.currentFurniture.name}`;
@@ -124,6 +125,27 @@ const CoreMixin = {
                     if (this.stats.physical >= this.physicalMax) this.stopRest();
                 }
             }
+            // 熔炉后台加工：最多 6 个槽同时加工；仅在有任务且燃料充足时推进，燃尽则全部暂停（不工作时燃料不消耗）
+            if (this.furnaceJobs.length > 0) {
+                if (this.furnaceFuel > 0) {
+                    const dt = GAME_SECONDS_PER_REAL_SECOND;
+                    // 炉子整体以固定速率烧燃料（1 木板 = 1 游戏小时），与同时在加工的槽数无关；
+                    // burn ≤ dt，燃料与所有槽按同一刻度推进，燃料耗尽则一并暂停
+                    const burn = Math.min(dt, this.furnaceFuel);
+                    this.furnaceFuel -= burn;
+                    let finished = false;
+                    for (const job of this.furnaceJobs) {
+                        job.remaining -= burn;
+                        if (job.remaining <= 0) finished = true;
+                    }
+                    if (finished) {
+                        const done = this.furnaceJobs.filter(j => j.remaining <= 0);
+                        this.furnaceJobs = this.furnaceJobs.filter(j => j.remaining > 0);
+                        done.forEach(j => this.furnaceOutput(j));
+                    }
+                }
+                if (this.currentPage === 'furnace') this.postSceneState();
+            }
         },
         // 推进游戏时间（秒），处理状态消耗/恢复、跨天/跨季
         advanceGameTime(seconds) {
@@ -135,8 +157,22 @@ const CoreMixin = {
             const wasHungry = s.hunger > 0, wasThirsty = s.water > 0;
             s.hunger = Math.max(0, s.hunger - 2 * hours);
             s.water = Math.max(0, s.water - 2.5 * hours);
+            // 理智（精神值）：基础缓慢流失；超过 24 游戏小时未睡觉则额外加速流失
             s.sanity = Math.max(0, s.sanity - 0.5 * hours);
-            s.stamina = Math.min(100, s.stamina + 2 * hours);
+            if (this.gameSeconds - this.lastSleepAt > 24 * HOUR_SECONDS) {
+                s.sanity = Math.max(0, s.sanity - 3 * hours);
+                if (!this.insomniaWarned) {
+                    this.insomniaWarned = true;
+                    this.pushLog('😵 你已超过 24 小时没有睡觉，精神（理智）开始加速流失……');
+                }
+            } else {
+                this.insomniaWarned = false;
+            }
+            // 精力（体力上限 100）：恢复速度与理智（精神值）挂钩，理智越低恢复越慢；理智极低时反而净流失
+            const sanityRatio = s.sanity / 200;   // 理智恒在 [0, 200]
+            let staminaDelta = 2 * hours * sanityRatio;
+            if (s.sanity < 30) staminaDelta -= 2 * hours;
+            s.stamina = Math.max(0, Math.min(100, s.stamina + staminaDelta));
             s.physical = Math.min(this.physicalMax, s.physical + hours);
             if (wasHungry && s.hunger <= 0) this.pushLog('你饿得头晕眼花，身体开始透支……');
             if (wasThirsty && s.water <= 0) this.pushLog('你口渴难耐，急需饮水……');

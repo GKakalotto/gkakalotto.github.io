@@ -10,6 +10,7 @@ const SaveMixin = {
                 const save = {
                     gameSeconds: this.gameSeconds,
                     weatherName: this.weatherName,
+                    lastSleepAt: this.lastSleepAt,
                     stats: { ...this.stats },
                     currentScene: this.currentScene,
                     playerLocation: this.playerLocation,
@@ -22,6 +23,8 @@ const SaveMixin = {
                     equipment: this.equipment,
                     rarityCaps: this.rarityCaps,
                     fireFuelUntil: this.fireFuelUntil,
+                    furnaceFuel: this.furnaceFuel,
+                    furnaceJobs: this.furnaceJobs,
                     // 只存可变状态（升级等级 / 解锁状态），静态结构仍以数据文件为准
                     furnitureState: this.furniture.map(f => ({
                         bedLevel: f.bedLevel,
@@ -45,6 +48,9 @@ const SaveMixin = {
             const save = loadSave();
             if (!save) return false;
             if (typeof save.gameSeconds === 'number') this.gameSeconds = save.gameSeconds;
+            // 上次睡觉时刻（旧档无此字段时视为刚睡醒，避免立即触发失眠惩罚）
+            if (typeof save.lastSleepAt === 'number') this.lastSleepAt = save.lastSleepAt;
+            else this.lastSleepAt = this.gameSeconds;
             if (typeof save.weatherName === 'string') this.weatherName = save.weatherName;
             if (save.stats) Object.assign(this.stats, save.stats);
             if (save.currentScene) {
@@ -86,6 +92,13 @@ const SaveMixin = {
             }
             // 篝火燃料烧尽时刻（旧档无此字段时默认 0，即熄灭）
             if (typeof save.fireFuelUntil === 'number') this.fireFuelUntil = save.fireFuelUntil;
+            // 熔炉燃料剩余游戏秒 / 后台加工队列（旧档无此字段时保持默认）
+            if (typeof save.furnaceFuel === 'number') this.furnaceFuel = save.furnaceFuel;
+            if (Array.isArray(save.furnaceJobs)) {
+                this.furnaceJobs = save.furnaceJobs
+                    .filter(j => j && (j.kind === 'plastic' || j.kind === 'iron') && typeof j.remaining === 'number')
+                    .map(j => ({ kind: j.kind, remaining: j.remaining }));
+            }
             // 稀有武器档内上限（旧档无此字段时保持空，由 created 随机补全）
             if (save.rarityCaps) this.rarityCaps = save.rarityCaps;
             // 家具可变状态按下标回填到数据文件的静态结构上

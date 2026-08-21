@@ -78,6 +78,30 @@
                         </button>
                     </div>
                 </template>
+
+                <!-- 停车场 / 驾校：拆除汽车，车数有限 -->
+                <template v-if="locMode === 'dismantle'">
+                    <div class="res-card">
+                        <div class="res-info">🚗 汽车 ×{{ carsLeft }}：拆除得铁×3、塑料×4、布料×2<span class="res-info-sub">（10 min，需汽油喷灯+汽油）</span></div>
+                        <button class="place-back place-act-btn" :class="{ active: actType === 'dismantle' }"
+                                :disabled="!!activity || searching" @click="send({ type: 'dismantle-car' })">
+                            <div v-if="actType === 'dismantle'" class="place-act-fill" @animationend="onActAnimEnd"></div>
+                            <span v-text="actType === 'dismantle' ? '拆除中…' : '🔧 拆除汽车'"></span>
+                        </button>
+                    </div>
+                </template>
+
+                <!-- 加油站：取汽油（无限） -->
+                <template v-if="locMode === 'gas'">
+                    <div class="res-card">
+                        <div class="res-info">⛽ 取汽油：得汽油×5（无限）<span class="res-info-sub">（5 min）</span></div>
+                        <button class="place-back place-act-btn" :class="{ active: actType === 'pumpgas' }"
+                                :disabled="!!activity || searching" @click="send({ type: 'pump-gas' })">
+                            <div v-if="actType === 'pumpgas'" class="place-act-fill" @animationend="onActAnimEnd"></div>
+                            <span v-text="actType === 'pumpgas' ? '加油中…' : '⛽ 取汽油'"></span>
+                        </button>
+                    </div>
+                </template>
             </template>
 
             <!-- 资源点（公园绿地 / 森林）：树木数量 + 操作按钮 + 说明文案 -->
@@ -200,6 +224,7 @@
             locType: '',      // 地点类型（便利店/医院/…）
             locRes: null,     // 地点搜刮房间状态 { roomsLeft }
             roomsTotal: 0,    // 当前地点房间总数（用于进度显示）
+            carsLeft: 0,      // 拆车地点剩余车辆数
             stash: [],        // 当前地点暂存区物品
             stashKeep: {},    // 暂存区弹窗选中态
             stashOpen: false, // 暂存区弹窗
@@ -233,8 +258,13 @@
                 window.parent.postMessage(msg, '*');
             },
             // 打开搜刮方式选择弹窗（徒手 45 min / 撬棍 15 min）
+            // 没有撬棍时直接徒手搜刮；有撬棍才弹窗询问
             openSearchMode() {
                 if (this.activity || this.searching) return;
+                if (!this.hasCrowbar) {
+                    this.chooseSearch('hands');
+                    return;
+                }
                 this.searchMode.show = true;
             },
             closeSearchMode() {
@@ -311,6 +341,7 @@
         app.locType = p && p.base === 'loc' ? (p.type || '') : '';
         app.locRes = (p && p.base === 'loc' && p.key) ? (msg.state.locationResources || {})[p.key] : null;
         app.roomsTotal = (GameData.locationLoot[app.locType] || {}).rooms || 0;
+        app.carsLeft = app.locRes && typeof app.locRes.cars === 'number' ? app.locRes.cars : 0;
         app.bag = msg.state.bag || [];
         app.stash = (p && p.key && msg.state.placeStash) ? (msg.state.placeStash[p.key] || []) : [];
         app.stashKeep = {};

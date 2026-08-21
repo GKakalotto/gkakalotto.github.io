@@ -112,6 +112,7 @@ const InventoryMixin = {
             else if (f.isRainCollector) { if (!f.unlocked) this.openFurniture(f); else this.openRain(f); }
             else if (f.isChair) { if (!f.unlocked) this.openFurniture(f); else this.openChair(f); }
             else if (f.isJuicer) { if (!f.unlocked) this.openFurniture(f); else this.openJuicer(f); }
+            else if (f.isFurnace) { if (!f.unlocked) this.openFurniture(f); else this.openFurnace(f); }
             else this.openFurniture(f);
         },
         // 床/仓库升级与工作台制作共用的材料查询
@@ -370,6 +371,13 @@ const InventoryMixin = {
             else list.splice(index, 1);
             const label = cfg.label || ((it.type === 'water' || it.type === 'drink') ? '喝' : '吃');
             this.pushLog(`你${label}了「${it.name}」，${cfg.statName} +${cfg.amount}。`);
+            // 榨汁机果汁（type: 'drink'）额外恢复理智（精神值），上限 200
+            if (it.type === 'drink') {
+                const before = this.stats.sanity;
+                this.stats.sanity = Math.min(200, this.stats.sanity + cfg.amount);
+                const real = this.stats.sanity - before;
+                if (real > 0) this.pushLog(`🧃 维生素让你精神一振，理智 +${real}。`);
+            }
             this.postSceneState();
         },
         // 篝火：添加木板燃料（1/2/4/8 块），每块按当前等级燃烧时长累计
@@ -513,18 +521,20 @@ const InventoryMixin = {
             }
             const s = this.stats;
             this.pushLog(`当前状态：精力 ${Math.round(s.stamina)} / 血量 ${Math.round(s.hp)} / 体力 ${Math.round(s.physical)}`);
+            this.lastSleepAt = this.gameSeconds;   // 重置失眠计时：睡过一觉，重新获得 24 小时宽限
+            this.insomniaWarned = false;
             this.sleeping = null;
             // 通知床子页清除动画状态
             this.postSceneState();
         },
-        // 按当前床倍率结算 精力 / 血量 / 体力 恢复（血量上限受健康度、体力上限受力量影响，其余用固定上限）
+        // 按当前床倍率结算 精力 / 血量 / 体力 / 理智（精神值） 恢复（血量上限受健康度、体力上限受力量、理智上限固定 200）
         applySleep(bed, hours) {
             const cfg = GameData.bedSleep;
             const mult = bed.bedLevels[bed.bedLevel].recover;
-            ['stamina', 'hp', 'physical'].forEach(k => {
-                const gain = cfg.base[k] * hours * mult;
-                const max = k === 'hp' ? this.hpMax : (k === 'physical' ? this.physicalMax : cfg.max[k]);
-                this.stats[k] = Math.min(max, this.stats[k] + gain);
+            const limits = { stamina: 100, hp: this.hpMax, physical: this.physicalMax, sanity: 200 };
+            ['stamina', 'hp', 'physical', 'sanity'].forEach(k => {
+                const gain = (cfg.base[k] || 0) * hours * mult;
+                this.stats[k] = Math.min(limits[k], this.stats[k] + gain);
             });
         },
         // ============ 灶台 / 烹饪锅 ============
@@ -714,6 +724,58 @@ const InventoryMixin = {
             this.stats.physical = Math.min(this.physicalMax, this.stats.physical + restore);
             this.pushLog(`在「${st.chairLevels[st.chairLevel].name}」上休息，体力 +${restore}。`);
             this.postSceneState();
+        },
+        // ============ 熔炉 ============
+        openFurnace(item) {
+            this.currentFurnace = item;
+            this.currentPage = 'furnace';
+        },
+        // 添加木板燃料：每块燃烧 1 游戏小时（3600 游戏秒），累计到剩余燃料
+        addFurnaceFuel(count) {
+            const f = this.currentFurnace;
+            if (!f) return;
+            const have = this.combinedCount('木板');
+            if (have < count) {
+                this.pushLog(`木板不足，还需要 ${count - have} 块。`);
+                return;
+            }
+            this.spendCombined({ '木板': count });
+            const add = count * HOUR_SECONDS;
+            this.furnaceFuel += add;
+            this.pushLog(`添加 ${count} 块木板，熔炉燃料可再燃烧 ${count} 小时。`);
+            this.postSceneState();
+        },
+        // 开始加工：消耗原料（背包+仓库），加入后台加工队列（最多 6 槽）；需有燃料才会推进
+        startFurnaceJob(name) {
+            if (this.furnaceJobs.length >= 6) {
+                this.pushLog('熔炉 6 个加工槽已满，请等待当前加工完成。');
+                return;
+            }
+            const r = GameData.furnaceRecipes.find(x => x.name === name);
+            if (!r) return;
+            if (this.furnaceFuel <= 0) {
+                this.pushLog('熔炉没有燃料（木板），请先添加木板。');
+                return;
+            }
+            if (!this.hasCombined(r.inputs)) { this.pushLog(`原料不足，无法加工「${name}」。`); return; }
+            this.spendCombined(r.inputs);
+            const kind = r.output.name === '铁' ? 'iron' : 'plastic';
+            this.furnaceJobs.push({ kind, remaining: 10 * 60 });   // 10 游戏分钟
+            this.pushLog(`熔炉开始加工${name}（槽 ${this.furnaceJobs.length}/6），约需 10 分钟（后台计时）。`);
+            this.postSceneState();
+        },
+        // 单个加工槽完成：产出成品入背包
+        furnaceOutput(job) {
+            const out = job.kind === 'iron'
+                ? { name: '铁', type: 'material' }
+                : { name: '塑料', type: 'material' };
+            const existing = this.bag.find(i => i.name === out.name);
+            if (this.bag.length >= this.bagMax && !existing) {
+                this.pushLog(`背包已满，「${out.name}」未能放入。`);
+            } else {
+                this.addBag({ name: out.name, type: out.type, count: 1 });
+                this.pushLog(`熔炉加工完成，得到「${out.name}」×1。`);
+            }
         }
     }
 };

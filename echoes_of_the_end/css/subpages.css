@@ -215,6 +215,46 @@
 .fire-add-btn:hover:not(:disabled) { background: #3a6085; border-color: #5080a8; color: #fff; }
 .fire-add-btn:disabled { background: #3a3a3a; border-color: #555; color: #777; cursor: not-allowed; }
 
+/* ----- 熔炉（furnace 页）：燃料 / 加工 / 进度 ----- */
+.furnace-fuel-card {
+    background: #2c2c2c; border: 1px solid #4a4a4a; border-radius: 6px;
+    padding: 12px 14px; display: flex; flex-direction: column; gap: 10px;
+}
+.furnace-fuel-info { font-size: 13px; color: #ddd; }
+.furnace-fuel-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.furnace-ops { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.furnace-ops::-webkit-scrollbar { display: none; }
+.furnace-item-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    border-bottom: 1px solid #2e2e2e; padding: 7px 0;
+}
+.furnace-item-main { display: flex; flex-direction: column; gap: 3px; }
+.furnace-item-name { font-size: 12px; color: #ccc; }
+.furnace-item-cost { display: flex; gap: 6px; font-size: 10px; }
+.furnace-item-cost .enough { color: #6fdc6f; }
+.furnace-item-cost .lacking { color: #ff6b6b; }
+.furnace-progress { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.furnace-progress-label { font-size: 12px; color: #ffcc00; }
+.furnace-progress-bar {
+    width: 100%; height: 12px; background: #2c2c2c; border: 1px solid #4a4a4a;
+    border-radius: 6px; overflow: hidden;
+}
+.furnace-progress-fill {
+    height: 100%; width: 0; background: repeating-linear-gradient(45deg, #c0653a, #c0653a 10px, #d97a4a 10px, #d97a4a 20px);
+    background-size: 28px 28px;
+}
+.furnace-no-fuel { font-size: 11px; color: #ff6b6b; }
+/* 6 个加工槽网格：两列，实时进度 */
+.furnace-slots { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+.furnace-slot {
+    background: #2c2c2c; border: 1px solid #4a4a4a; border-radius: 5px;
+    padding: 8px; min-height: 46px; display: flex; flex-direction: column; justify-content: center; gap: 6px;
+}
+.furnace-slot.active { border-color: #c0653a; }
+.furnace-slot-label { font-size: 11px; color: #ffcc00; }
+.furnace-slot-empty { font-size: 11px; color: #777; text-align: center; }
+.furnace-slot .furnace-progress-bar { width: 100%; height: 10px; background: #1a1a1a; border-radius: 5px; overflow: hidden; }
+
 /* ----- 物品操作菜单（背包/仓库点击物品弹出） ----- */
 .item-menu-overlay {
     position: fixed; inset: 0;
@@ -270,5 +310,10 @@
 
 /* ----- 地点暂存区（复用背包网格卡片，点卡片取出） ----- */
 .stash-menu { width: 260px; }
+.stash-grid { max-height: 50vh; overflow-y: auto; scrollbar-width: none; }
+.stash-grid::-webkit-scrollbar { display: none; }
 .stash-grid .st-item { cursor: pointer; }
 .stash-btn { margin-left: auto; }
+/* 搜刮物资弹窗网格同样隐藏滚动条（可滚动） */
+.loot-grid { scrollbar-width: none; }
+.loot-grid::-webkit-scrollbar { display: none; }

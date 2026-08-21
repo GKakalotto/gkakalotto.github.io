@@ -19,6 +19,8 @@ new Vue({
     data: {
         // 游戏时间（游戏秒）：开局为 startHour 对应时刻
         gameSeconds: GameData.startHour * HOUR_SECONDS,
+        // 上次睡觉的游戏时刻（用于失眠判定；开局视为刚睡醒，给予 24 小时宽限）
+        lastSleepAt: GameData.startHour * HOUR_SECONDS,
         // 跨天 / 跨季检测
         lastDay: 0,
         lastSeason: 0,
@@ -85,6 +87,8 @@ new Vue({
         restAccum: 0,     // 已累计的休息游戏秒
         // 低状态阈值提示标记：各状态首次跌破 30% 时日志提示一次，回升后复位
         lowWarned: { hunger: false, water: false, sanity: false, stamina: false, physical: false, hp: false, health: false },
+        // 失眠提示标记：超过 24 小时未睡觉时提示一次，睡觉后复位
+        insomniaWarned: false,
         // 健康归零后游戏结束标志（防止重复触发重开）
         gameOver: false,
         // 稀有武器整档限量：物品名 → 档内掉落上限（新档随机 1~3）
@@ -99,11 +103,16 @@ new Vue({
         currentStorage: null,
         // 当前篝火（fire 页用）
         currentFire: null,
-        // 当前灶台 / 雨水收集器 / 椅子 / 榨汁机（对应子页用）
+        // 当前灶台 / 雨水收集器 / 椅子 / 榨汁机 / 熔炉（对应子页用）
         currentStove: null,
         currentRain: null,
         currentChair: null,
         currentJuicer: null,
+        currentFurnace: null,
+        // 熔炉燃料：剩余可燃烧的游戏秒（每块木板 = 1 游戏小时 = 3600 游戏秒），仅加工时消耗
+        furnaceFuel: 0,
+        // 熔炉后台加工任务队列：最多 6 个槽同时加工；每项 { kind: 'plastic'|'iron', remaining: 剩余游戏秒 }
+        furnaceJobs: [],
         // 篝火燃料烧尽时刻（游戏秒）：gameSeconds 小于它即为燃烧中，剩余时长 = (fireFuelUntil - gameSeconds) / HOUR_SECONDS
         fireFuelUntil: 0,
         // 背包物品（初始物资，来自数据文件）
@@ -138,9 +147,10 @@ new Vue({
     // 首次渲染前读取存档，避免刷新时非当前场景/弹框闪现
     created() {
         const hasSave = this.loadGame();
-        // 稀有武器档内上限：无记录时随机 1~3（旧档/新档统一补全）
-        if (!this.rarityCaps['消防斧']) this.rarityCaps['消防斧'] = this.randInt(1, 3);
-        if (!this.rarityCaps['武士刀']) this.rarityCaps['武士刀'] = this.randInt(1, 3);
+        // 稀有武器档内上限：消防斧/武士刀整档各 1 把（无条件覆盖，旧档同样生效）；撬棍随机 1~3
+        this.rarityCaps['消防斧'] = 1;
+        this.rarityCaps['武士刀'] = 1;
+        if (!this.rarityCaps['撬棍']) this.rarityCaps['撬棍'] = this.randInt(1, 3);
         const totalDay = Math.floor(this.gameSeconds / DAY_SECONDS);
         this.lastDay = totalDay;
         this.lastSeason = Math.floor(totalDay / DAYS_PER_SEASON) % SEASONS.length;

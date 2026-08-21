@@ -106,7 +106,8 @@ var GameData = {
                   { name: '铁斧', type: 'tool', axe: true, durability: 50, cost: { '铁': 2, '木板': 1 } },
                   { name: '铁锹', type: 'tool', durability: 30, cost: { '铁': 1, '木板': 1 } },
                   { name: '镐',   type: 'tool', durability: 50, cost: { '铁': 2, '木板': 1 } },
-                  { name: '鱼竿', type: 'tool', durability: 25, cost: { '木板': 2, '绳子': 1 } }
+                  { name: '鱼竿', type: 'tool', durability: 25, cost: { '木板': 2, '绳子': 1 } },
+                  { name: '撬棍', type: 'tool', durability: 40, cost: { '铁': 2, '木板': 1 } }
               ],
               armor: [
                   { name: '木甲',   type: 'armor', defense: 2, durability: 30, cost: { '木板': 2, '绳子': 1 } },
@@ -161,6 +162,7 @@ var GameData = {
               { name: '仓库',     capacity: 200, stack: 100, upgrade: null }
           ] },
         { icon: '🥤', name: '榨汁机', unlocked: false, isJuicer: true, unlockCost: { '木板': 6, '塑料': 10, '电路板': 1, '螺栓': 1 }, desc: '把蔬果榨成营养饮品，留住维生素。' },
+        { icon: '🏭', name: '熔炉', unlocked: false, isFurnace: true, unlockCost: { '木板': 4, '砖头': 6, '铁': 4, '钉子': 6 }, desc: '以木板为燃料，6 个加工槽可同时熔炼，将垃圾/金属废料炼成塑料与铁。' },
         { icon: '🪑', name: '椅子', unlocked: false, isChair: true, unlockCost: { '木板': 4, '布料': 2 },
           // 四级坐具、三次升级；rest 为每次休息恢复的体力值（上限 100）
           chairLevel: 0,
@@ -174,8 +176,8 @@ var GameData = {
 
     // 床：睡觉时每小时基础恢复量（倍率 1.0×）与各属性上限（等级越高倍率越大，恢复越快）
     bedSleep: {
-        base: { stamina: 10, hp: 8, physical: 10 },
-        max:  { stamina: 100, hp: 200, physical: 100 }
+        base: { stamina: 10, hp: 8, physical: 10, sanity: 20 },
+        max:  { stamina: 100, hp: 200, physical: 100, sanity: 200 }
     },
 
     // 丧尸：移动路上遇敌后自动战斗；hp 血量 / atk 攻击 / exp 击杀经验
@@ -186,34 +188,37 @@ var GameData = {
     },
 
     // 地点搜刮：按地点类型定义掉落池与搜刮次数上限（搜刮 1 次随机掉 1 件，按权重 w 占比）
+    // 掉落以基础材料（布料/垃圾/石头/沙子/原木/金属废料等）为主；塑料/铁/铜/电池等高级材料仅少量掉落；
+    // 撬棍/消防斧/武士刀为整档限量的极稀有物品（权重 2）
     locationLoot: {
         // rooms：地点房间数（搜刮按房间进度推进，房间数体现地点繁荣程度）；
         // 绷带/创可贴 restore 为恢复健康度（health），其他药品走 itemUse 默认恢复血量
-        '便利店':   { rooms: 16,  drops: [ { name: '罐头', type: 'food', w: 22 }, { name: '薯片', type: 'food', w: 22 }, { name: '矿泉水', type: 'water', w: 18 }, { name: '塑料', type: 'material', w: 13 }, { name: '布料', type: 'material', w: 13 }, { name: '创可贴', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 8, max: 100 }, w: 12 } ] },
-        '小型超市': { rooms: 30,  drops: [ { name: '罐头', type: 'food', w: 18 }, { name: '薯片', type: 'food', w: 18 }, { name: '矿泉水', type: 'water', w: 18 }, { name: '应急干粮', type: 'food', w: 13 }, { name: '塑料', type: 'material', w: 13 }, { name: '布料', type: 'material', w: 9 }, { name: '锅', type: 'tool', w: 8 }, { name: '创可贴', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 8, max: 100 }, w: 10 } ] },
-        '大型综合超市': { rooms: 60, drops: [ { name: '罐头', type: 'food', w: 16 }, { name: '薯片', type: 'food', w: 13 }, { name: '应急干粮', type: 'food', w: 10 }, { name: '矿泉水', type: 'water', w: 16 }, { name: '塑料', type: 'material', w: 13 }, { name: '布料', type: 'material', w: 10 }, { name: '金属废料', type: 'material', w: 9 }, { name: '锅', type: 'tool', w: 10 }, { name: '创可贴', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 8, max: 100 }, w: 10 } ] },
-        '学校':     { rooms: 30,  drops: [ { name: '布料', type: 'material', w: 40 }, { name: '塑料', type: 'material', w: 30 }, { name: '矿泉水', type: 'water', w: 15 }, { name: '创可贴', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 8, max: 100 }, w: 15 } ] },
-        '大学':     { rooms: 36, drops: [ { name: '布料', type: 'material', w: 30 }, { name: '塑料', type: 'material', w: 28 }, { name: '硝石', type: 'material', w: 15 }, { name: '金属废料', type: 'material', w: 15 }, { name: '矿泉水', type: 'water', w: 6 }, { name: '创可贴', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 8, max: 100 }, w: 6 } ] },
-        '消防局':   { rooms: 30, drops: [ { name: '金属废料', type: 'material', w: 30 }, { name: '小刀', type: 'weapon', damage: 6, durability: 30, w: 18 }, { name: '棒球棒', type: 'weapon', damage: 10, durability: 35, w: 15 }, { name: '头盔', type: 'armor', defense: 2, durability: 30, w: 18 }, { name: '消防斧', type: 'weapon', damage: 16, durability: 1000, w: 12 }, { name: '酒精喷灯', type: 'tool', durability: 50, w: 7 } ] },
-        '警察局':   { rooms: 34, enemyChance: 0.6, drops: [ { name: '金属废料', type: 'material', w: 30 }, { name: '小刀', type: 'weapon', damage: 6, durability: 30, w: 18 }, { name: '棒球棒', type: 'weapon', damage: 10, durability: 35, w: 15 }, { name: '皮甲', type: 'armor', defense: 3, durability: 40, w: 20 }, { name: '武士刀', type: 'weapon', damage: 18, durability: 1000, w: 17 } ] },
-        '诊所':     { rooms: 20,  drops: [ { name: '绷带', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 15, max: 100 }, w: 25 }, { name: '消炎药', type: 'medicine', w: 20 }, { name: '草药包', type: 'medicine', w: 16 }, { name: '布料', type: 'material', w: 12 }, { name: '塑料', type: 'material', w: 9 }, { name: '创可贴', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 8, max: 100 }, w: 18 } ] },
-        '医院':     { rooms: 50, drops: [ { name: '绷带', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 15, max: 100 }, w: 22 }, { name: '消炎药', type: 'medicine', w: 18 }, { name: '草药包', type: 'medicine', w: 16 }, { name: '塑料', type: 'material', w: 12 }, { name: '布料', type: 'material', w: 10 }, { name: '创可贴', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 8, max: 100 }, w: 15 } ] },
-        '银行':     { rooms: 16,  drops: [ { name: '布料', type: 'material', w: 40 }, { name: '塑料', type: 'material', w: 35 }, { name: '金属废料', type: 'material', w: 25 } ] },
-        '火车站':   { rooms: 38, drops: [ { name: '罐头', type: 'food', w: 30 }, { name: '布料', type: 'material', w: 25 }, { name: '塑料', type: 'material', w: 25 }, { name: '金属废料', type: 'material', w: 20 } ] },
-        '地铁站':   { rooms: 28,  drops: [ { name: '布料', type: 'material', w: 35 }, { name: '塑料', type: 'material', w: 35 }, { name: '罐头', type: 'food', w: 30 } ] },
-        '居民楼':   { rooms: 44, drops: [ { name: '薯片', type: 'food', w: 26 }, { name: '矿泉水', type: 'water', w: 26 }, { name: '布料', type: 'material', w: 17 }, { name: '塑料', type: 'material', w: 17 }, { name: '创可贴', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 8, max: 100 }, w: 14 } ] },
-        '工厂':     { rooms: 34, drops: [ { name: '金属废料', type: 'material', w: 35 }, { name: '铁', type: 'material', w: 25 }, { name: '铜', type: 'material', w: 15 }, { name: '撬棍', type: 'tool', durability: 40, w: 12 }, { name: '多功能工具', type: 'tool', durability: 30, w: 13 } ] },
+        '便利店':   { rooms: 16,  drops: [ { name: '罐头', type: 'food', w: 22 }, { name: '薯片', type: 'food', w: 22 }, { name: '矿泉水', type: 'water', w: 18 }, { name: '垃圾', type: 'material', w: 15 }, { name: '布料', type: 'material', w: 10 }, { name: '创可贴', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 8, max: 100 }, w: 12 }, { name: '塑料', type: 'material', w: 5 } ] },
+        '小型超市': { rooms: 30,  drops: [ { name: '罐头', type: 'food', w: 18 }, { name: '薯片', type: 'food', w: 18 }, { name: '矿泉水', type: 'water', w: 18 }, { name: '应急干粮', type: 'food', w: 13 }, { name: '垃圾', type: 'material', w: 15 }, { name: '布料', type: 'material', w: 8 }, { name: '锅', type: 'tool', w: 6 }, { name: '创可贴', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 8, max: 100 }, w: 10 }, { name: '塑料', type: 'material', w: 4 } ] },
+        '大型综合超市': { rooms: 60, drops: [ { name: '罐头', type: 'food', w: 16 }, { name: '薯片', type: 'food', w: 13 }, { name: '应急干粮', type: 'food', w: 10 }, { name: '矿泉水', type: 'water', w: 16 }, { name: '垃圾', type: 'material', w: 15 }, { name: '布料', type: 'material', w: 10 }, { name: '金属废料', type: 'material', w: 5 }, { name: '锅', type: 'tool', w: 8 }, { name: '创可贴', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 8, max: 100 }, w: 10 }, { name: '塑料', type: 'material', w: 4 } ] },
+        '学校':     { rooms: 30,  drops: [ { name: '布料', type: 'material', w: 40 }, { name: '垃圾', type: 'material', w: 30 }, { name: '矿泉水', type: 'water', w: 15 }, { name: '创可贴', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 8, max: 100 }, w: 15 }, { name: '塑料', type: 'material', w: 4 } ] },
+        '大学':     { rooms: 36, drops: [ { name: '布料', type: 'material', w: 30 }, { name: '垃圾', type: 'material', w: 25 }, { name: '硝石', type: 'material', w: 15 }, { name: '金属废料', type: 'material', w: 10 }, { name: '石头', type: 'material', w: 10 }, { name: '矿泉水', type: 'water', w: 6 }, { name: '创可贴', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 8, max: 100 }, w: 6 }, { name: '塑料', type: 'material', w: 3 } ] },
+        '消防局':   { rooms: 30, drops: [ { name: '金属废料', type: 'material', w: 30 }, { name: '垃圾', type: 'material', w: 15 }, { name: '石头', type: 'material', w: 10 }, { name: '小刀', type: 'weapon', damage: 6, durability: 30, w: 18 }, { name: '棒球棒', type: 'weapon', damage: 10, durability: 35, w: 15 }, { name: '头盔', type: 'armor', defense: 2, durability: 30, w: 18 }, { name: '汽油喷灯', type: 'tool', durability: 50, w: 5 }, { name: '消防斧', type: 'weapon', damage: 16, durability: 1000, w: 2 }, { name: '铁', type: 'material', w: 3 } ] },
+        '警察局':   { rooms: 34, enemyChance: 0.6, drops: [ { name: '金属废料', type: 'material', w: 30 }, { name: '垃圾', type: 'material', w: 15 }, { name: '小刀', type: 'weapon', damage: 6, durability: 30, w: 18 }, { name: '棒球棒', type: 'weapon', damage: 10, durability: 35, w: 15 }, { name: '皮甲', type: 'armor', defense: 3, durability: 40, w: 20 }, { name: '武士刀', type: 'weapon', damage: 18, durability: 1000, w: 2 }, { name: '铁', type: 'material', w: 3 } ] },
+        '诊所':     { rooms: 20,  drops: [ { name: '绷带', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 15, max: 100 }, w: 25 }, { name: '消炎药', type: 'medicine', w: 20 }, { name: '草药包', type: 'medicine', w: 16 }, { name: '草药', type: 'medicine', w: 10 }, { name: '布料', type: 'material', w: 12 }, { name: '垃圾', type: 'material', w: 8 }, { name: '创可贴', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 8, max: 100 }, w: 18 }, { name: '塑料', type: 'material', w: 3 } ] },
+        '医院':     { rooms: 50, drops: [ { name: '绷带', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 15, max: 100 }, w: 22 }, { name: '消炎药', type: 'medicine', w: 18 }, { name: '草药包', type: 'medicine', w: 16 }, { name: '草药', type: 'medicine', w: 8 }, { name: '布料', type: 'material', w: 10 }, { name: '垃圾', type: 'material', w: 10 }, { name: '创可贴', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 8, max: 100 }, w: 15 }, { name: '塑料', type: 'material', w: 3 }, { name: '电池', type: 'material', w: 3 } ] },
+        '银行':     { rooms: 16,  drops: [ { name: '布料', type: 'material', w: 40 }, { name: '垃圾', type: 'material', w: 30 }, { name: '金属废料', type: 'material', w: 20 }, { name: '石头', type: 'material', w: 10 }, { name: '电池', type: 'material', w: 3 } ] },
+        '火车站':   { rooms: 38, drops: [ { name: '罐头', type: 'food', w: 30 }, { name: '布料', type: 'material', w: 25 }, { name: '垃圾', type: 'material', w: 20 }, { name: '金属废料', type: 'material', w: 15 }, { name: '石头', type: 'material', w: 10 }, { name: '塑料', type: 'material', w: 4 } ] },
+        '地铁站':   { rooms: 28,  drops: [ { name: '布料', type: 'material', w: 35 }, { name: '垃圾', type: 'material', w: 30 }, { name: '罐头', type: 'food', w: 30 }, { name: '石头', type: 'material', w: 10 } ] },
+        '居民楼':   { rooms: 44, drops: [ { name: '薯片', type: 'food', w: 26 }, { name: '矿泉水', type: 'water', w: 26 }, { name: '布料', type: 'material', w: 17 }, { name: '垃圾', type: 'material', w: 15 }, { name: '创可贴', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 8, max: 100 }, w: 14 }, { name: '塑料', type: 'material', w: 3 } ] },
+        '工厂':     { rooms: 34, drops: [ { name: '金属废料', type: 'material', w: 35 }, { name: '垃圾', type: 'material', w: 20 }, { name: '石头', type: 'material', w: 10 }, { name: '撬棍', type: 'tool', durability: 40, w: 2 }, { name: '多功能工具', type: 'tool', durability: 30, w: 12 }, { name: '铁', type: 'material', w: 5 }, { name: '铜', type: 'material', w: 3 } ] },
         '动物园':   { mode: 'zoo' },
-        '驾校':     { rooms: 14,  drops: [ { name: '金属废料', type: 'material', w: 35 }, { name: '塑料', type: 'material', w: 25 }, { name: '布料', type: 'material', w: 20 }, { name: '电池', type: 'material', w: 20 } ] },
-        '机场':     { rooms: 40, drops: [ { name: '罐头', type: 'food', w: 30 }, { name: '布料', type: 'material', w: 25 }, { name: '塑料', type: 'material', w: 25 }, { name: '金属废料', type: 'material', w: 20 } ] },
+        '驾校':     { mode: 'dismantle', cars: 15 },
+        '机场':     { rooms: 40, drops: [ { name: '罐头', type: 'food', w: 30 }, { name: '布料', type: 'material', w: 25 }, { name: '垃圾', type: 'material', w: 20 }, { name: '金属废料', type: 'material', w: 15 }, { name: '塑料', type: 'material', w: 4 } ] },
         '景区':     { rooms: 26,  drops: [ { name: '原木', type: 'material', w: 40 }, { name: '石头', type: 'material', w: 30 }, { name: '草药', type: 'medicine', w: 30 } ] },
-        '体育馆':   { rooms: 18,  drops: [ { name: '布料', type: 'material', w: 45 }, { name: '塑料', type: 'material', w: 30 }, { name: '薯片', type: 'food', w: 25 } ] },
-        '宾馆':     { rooms: 24,  drops: [ { name: '布料', type: 'material', w: 40 }, { name: '薯片', type: 'food', w: 30 }, { name: '矿泉水', type: 'water', w: 30 } ] },
-        '办公楼':   { rooms: 24,  drops: [ { name: '布料', type: 'material', w: 35 }, { name: '塑料', type: 'material', w: 30 }, { name: '金属废料', type: 'material', w: 20 }, { name: '电池', type: 'material', w: 15 } ] },
-        '百货商场': { rooms: 46, drops: [ { name: '布料', type: 'material', w: 35 }, { name: '薯片', type: 'food', w: 25 }, { name: '塑料', type: 'material', w: 25 }, { name: '矿泉水', type: 'water', w: 15 } ] },
-        '邮局':     { rooms: 14,  drops: [ { name: '布料', type: 'material', w: 45 }, { name: '塑料', type: 'material', w: 35 }, { name: '沙子', type: 'material', w: 20 } ] },
+        '体育馆':   { rooms: 18,  drops: [ { name: '布料', type: 'material', w: 45 }, { name: '垃圾', type: 'material', w: 25 }, { name: '薯片', type: 'food', w: 25 }, { name: '矿泉水', type: 'water', w: 10 } ] },
+        '宾馆':     { rooms: 24,  drops: [ { name: '布料', type: 'material', w: 40 }, { name: '薯片', type: 'food', w: 30 }, { name: '矿泉水', type: 'water', w: 30 }, { name: '垃圾', type: 'material', w: 15 } ] },
+        '办公楼':   { rooms: 24,  drops: [ { name: '布料', type: 'material', w: 35 }, { name: '垃圾', type: 'material', w: 25 }, { name: '金属废料', type: 'material', w: 15 }, { name: '石头', type: 'material', w: 10 }, { name: '矿泉水', type: 'water', w: 8 }, { name: '电池', type: 'material', w: 3 } ] },
+        '百货商场': { rooms: 46, drops: [ { name: '布料', type: 'material', w: 35 }, { name: '薯片', type: 'food', w: 25 }, { name: '垃圾', type: 'material', w: 20 }, { name: '矿泉水', type: 'water', w: 15 }, { name: '创可贴', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 8, max: 100 }, w: 10 }, { name: '塑料', type: 'material', w: 4 } ] },
+        '邮局':     { rooms: 14,  drops: [ { name: '布料', type: 'material', w: 45 }, { name: '垃圾', type: 'material', w: 30 }, { name: '沙子', type: 'material', w: 20 }, { name: '石头', type: 'material', w: 10 } ] },
         '餐饮店':   { rooms: 16,  drops: [ { name: '生肉', type: 'rawfood', w: 35 }, { name: '鱼', type: 'rawfood', w: 30 }, { name: '纯净水', type: 'water', w: 20 }, { name: '脏水', type: 'dirty', w: 15 } ] },
-        '停车场':   { rooms: 14,  drops: [ { name: '金属废料', type: 'material', w: 35 }, { name: '塑料', type: 'material', w: 25 }, { name: '布料', type: 'material', w: 20 }, { name: '电池', type: 'material', w: 20 } ] },
+        '停车场':   { mode: 'dismantle', cars: 30 },
+        '加油站':   { mode: 'gas' },
         '河边':     { mode: 'river' }
     },
 
@@ -268,6 +273,12 @@ var GameData = {
         { name: '椰子水',   inputs: { '椰子': 1, '纯净水': 1, '杯子': 1 },                             output: { name: '椰子水',   type: 'drink', restore: { stat: 'water',     statName: '水分', amount: 30, max: 150 } } },
         { name: '芒果汁',   inputs: { '芒果': 2, '纯净水': 1, '杯子': 1 },                             output: { name: '芒果汁',   type: 'drink', restore: { stat: 'physical', statName: '体力', amount: 18, max: 100 } } },
         { name: '混合果汁', inputs: { '草莓': 1, '菠萝': 1, '西瓜': 1, '纯净水': 1, '杯子': 1 },        output: { name: '混合果汁', type: 'drink', restore: { stat: 'physical', statName: '体力', amount: 35, max: 100 } } }
+    ],
+    // 熔炉菜单：以木板为燃料（1 块燃烧 1 游戏小时，仅加工时消耗），后台加工 10 游戏分钟
+    // 10 垃圾 → 1 塑料；10 金属废料 → 1 铁（原料取背包+仓库）
+    furnaceRecipes: [
+        { name: '塑料', inputs: { '垃圾': 10 }, output: { name: '塑料', type: 'material' } },
+        { name: '铁',   inputs: { '金属废料': 10 }, output: { name: '铁', type: 'material' } }
     ],
 
     // 背包等级：升级扩充容量（bagMax 随等级更新；0 级 20 格 → 满级 40 格；str 为升级所需力量等级）

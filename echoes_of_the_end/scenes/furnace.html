@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>熔炉</title>
+    <style>[v-cloak] { display: none; }</style>
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/subpages.css">
+</head>
+<body class="scene-page" oncontextmenu="return false">
+    <!-- 熔炉子页：加木板燃料、最多 6 槽后台并行加工（每槽 10 游戏分钟）、进度展示；Vue 数据加载完成前隐藏 -->
+    <div id="furnace" class="page-root" v-cloak style="display:none" v-show="loaded">
+        <div class="page-header">
+            <button class="page-back" @click="send({ type: 'close-page' })">‹ 返回</button>
+            <span class="upgrade-max">🏭 熔炉（{{ jobs.length }}/6）</span>
+        </div>
+        <div class="page-body">
+            <!-- 燃料：以木板计，每块燃烧 1 游戏小时；仅加工时消耗 -->
+            <div class="furnace-fuel-card">
+                <div class="furnace-fuel-info">🔥 燃料剩余：{{ fuelText }}</div>
+                <div class="furnace-fuel-btns">
+                    <button class="fire-add-btn" v-for="c in [1, 2, 4, 8]" :key="c"
+                            :disabled="plank < c" @click="send({ type: 'add-furnace-fuel', count: c })">+{{ c }} 木板</button>
+                </div>
+            </div>
+
+            <!-- 加工：10 垃圾 → 1 塑料；10 金属废料 → 1 铁；满 6 槽或原料/燃料不足时禁用 -->
+            <div class="furnace-ops">
+                <div v-for="a in GameData.furnaceRecipes" :key="a.name" class="furnace-item-row">
+                    <div class="furnace-item-main">
+                        <span class="furnace-item-name" v-text="recipeLabel(a)"></span>
+                        <span class="furnace-item-cost">
+                            <span v-for="(amt, mat) in a.inputs" :key="mat"
+                                  :class="have(mat) >= amt ? 'enough' : 'lacking'" v-text="mat + '×' + amt"></span>
+                        </span>
+                    </div>
+                    <button class="bed-upgrade-btn"
+                            :disabled="jobs.length >= 6 || !canMake(a) || fuel <= 0"
+                            @click="send({ type: 'furnace-craft', name: a.name })">加工</button>
+                </div>
+            </div>
+
+            <!-- 6 个加工槽：空槽显示占位，占用槽实时随游戏时间推进，燃料耗尽暂停 -->
+            <div class="furnace-slots">
+                <div v-for="n in 6" :key="n" class="furnace-slot"
+                     :class="{ active: jobs[n - 1] }">
+                    <template v-if="jobs[n - 1]">
+                        <div class="furnace-slot-label">🔥 {{ jobs[n - 1].kind === 'iron' ? '铁' : '塑料' }} · 剩 {{ Math.ceil(jobs[n - 1].remaining / 60) }} 分</div>
+                        <div class="furnace-progress-bar">
+                            <div class="furnace-progress-fill" :style="{ width: slotPct(jobs[n - 1]) + '%' }"></div>
+                        </div>
+                    </template>
+                    <template v-else>
+                        <div class="furnace-slot-empty">空槽 {{ n }}</div>
+                    </template>
+                </div>
+            </div>
+            <div v-if="jobs.length > 0 && fuel <= 0" class="furnace-no-fuel">⚠️ 燃料耗尽，添加木板后继续（不工作时燃料不消耗）</div>
+        </div>
+    </div>
+
+    <script src="../js/data.js"></script>
+    <script src="../js/ui.js"></script>
+    <script src="../js/vue.min.js"></script>
+    <script>
+    // 熔炉子页：Vue 渲染燃料/加工/6 槽进度，操作转发给外壳在后台计时处理
+    var app = new Vue({
+        el: '#furnace',
+        data: {
+            loaded: false,
+            bag: [],
+            storageItems: [],
+            fuel: 0,          // 熔炉燃料剩余游戏秒
+            jobs: [],         // 后台加工队列 [{ kind, remaining }]
+            JOB_TOTAL: 600    // 单次加工时长（游戏秒）= 10 游戏分钟
+        },
+        computed: {
+            // 背包 + 仓库全部原料
+            allItems() {
+                return (this.bag || []).concat(this.storageItems || []);
+            },
+            // 背包 + 仓库中木板总数（用于加燃料按钮可用性）
+            plank() {
+                return this.have('木板');
+            },
+            // 燃料文案：游戏秒 → “X 小时 Y 分钟”
+            fuelText() {
+                const h = Math.floor(this.fuel / 3600);
+                const m = Math.floor((this.fuel % 3600) / 60);
+                return h > 0 ? `${h} 小时 ${m} 分钟` : `${m} 分钟`;
+            }
+        },
+        methods: {
+            send(msg) {
+                window.parent.postMessage(msg, '*');
+            },
+            // 背包 + 仓库中某物品总数量
+            have(name) {
+                return this.allItems
+                    .filter(it => it.name === name)
+                    .reduce((s, it) => s + (it.count || 1), 0);
+            },
+            // 某加工项原料是否充足
+            canMake(a) {
+                for (var mat in a.inputs) {
+                    if (this.have(mat) < a.inputs[mat]) return false;
+                }
+                return true;
+            },
+            // 配方显示名：塑料（垃圾×10）等（每个配方只有一种原料）
+            recipeLabel(a) {
+                var mat = Object.keys(a.inputs)[0];
+                return a.output.name + '（' + mat + '×' + a.inputs[mat] + '）';
+            },
+            // 单槽加工进度百分比
+            slotPct(job) {
+                return Math.max(0, Math.min(100, (1 - job.remaining / this.JOB_TOTAL) * 100));
+            }
+        }
+    });
+
+    window.addEventListener('message', function (e) {
+        var msg = e.data;
+        if (msg && msg.type === 'init') {
+            app.bag = msg.state.bag || [];
+            app.storageItems = msg.state.storageItems || [];
+            app.fuel = msg.state.furnaceFuel || 0;
+            app.jobs = msg.state.furnaceJobs || [];
+            app.loaded = true;
+        }
+    });
+    </script>
+</body>
+</html>

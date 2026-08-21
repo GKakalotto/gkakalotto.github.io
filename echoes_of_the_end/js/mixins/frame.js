@@ -80,6 +80,9 @@ const FrameMixin = {
                     currentRain: this.currentRain,
                     currentChair: this.currentChair,
                     currentJuicer: this.currentJuicer,
+                    currentFurnace: this.currentFurnace,
+                    furnaceFuel: this.furnaceFuel,
+                    furnaceJobs: this.furnaceJobs,
                     cooking: this.cooking,
                     activity: this.activity,
                     searching: this.searching,
@@ -160,6 +163,13 @@ const FrameMixin = {
                     break;
                 case 'adopt-dog':
                     this.adoptDog();
+                    break;
+                // 加油站取汽油 / 停车场/驾校拆除汽车
+                case 'pump-gas':
+                    this.startPumpGas();
+                    break;
+                case 'dismantle-car':
+                    this.startDismantle();
                     break;
                 // 资源动作进度条动画结束：结算产出
                 case 'action-anim-end':
@@ -273,6 +283,13 @@ const FrameMixin = {
                 case 'chair-rest':
                     this.restChair();
                     break;
+                // 熔炉：加燃料 / 开始加工
+                case 'add-furnace-fuel':
+                    this.addFurnaceFuel(msg.count);
+                    break;
+                case 'furnace-craft':
+                    this.startFurnaceJob(msg.name);
+                    break;
                 // 家具详情页发起的解锁
                 case 'unlock-furniture':
                     this.unlockFurniture();
@@ -338,6 +355,7 @@ const FrameMixin = {
             else if (f.isRainCollector) this.openRain(f);
             else if (f.isChair) this.openChair(f);
             else if (f.isJuicer) this.openJuicer(f);
+            else if (f.isFurnace) this.openFurnace(f);
             else this.postSceneState();
         }
     }

@@ -169,9 +169,19 @@ const TravelMixin = {
         },
         // 首次进入地点时生成房间数（特殊玩法地点无房间则不创建）
         initLocationResources(loc) {
-            if (this.locationResources[loc.name]) return;
             const cfg = GameData.locationLoot[loc.type];
-            if (!cfg || !cfg.rooms) return;
+            if (!cfg) return;
+            // 拆车地点（停车场/驾校）：生成有限车辆数；旧档可能只有 roomsLeft，缺少 cars 时补上
+            if (cfg.mode === 'dismantle') {
+                const cur = this.locationResources[loc.name];
+                if (!cur || typeof cur.cars !== 'number') {
+                    this.locationResources[loc.name] = { cars: cfg.cars || 0 };
+                    this.saveGame();
+                }
+                return;
+            }
+            if (this.locationResources[loc.name]) return;
+            if (!cfg.rooms) return;
             this.locationResources[loc.name] = { roomsLeft: cfg.rooms };
             this.saveGame();
         },
@@ -182,6 +192,17 @@ const TravelMixin = {
             if (!place || place.base !== 'loc' || !place.key) return;
             const r = this.locationResources[place.key];
             if (!r || r.roomsLeft <= 0) { this.pushLog('这里已被搜刮一空了。'); return; }
+            // 撬棍搜刮：30% 概率损耗 1 耐久
+            if (mode === 'crowbar') {
+                const crowbar = this.bag.find(i => i.name.includes('撬棍'));
+                if (crowbar && crowbar.durability && Math.random() < 0.3) {
+                    crowbar.durability--;
+                    if (crowbar.durability <= 0) {
+                        this.bag = this.bag.filter(i => i !== crowbar);
+                        this.pushLog('你的撬棍损坏了。');
+                    }
+                }
+            }
             this.beginActivity('loc-search', (mode === 'crowbar' ? 15 : 45) * 60);
         },
         // 按权重随机取 1 件掉落
@@ -198,9 +219,9 @@ const TravelMixin = {
         randInt(min, max) {
             return Math.floor(Math.random() * (max - min + 1)) + min;
         },
-        // 稀有武器名单（整档限量：消防斧/武士刀，掉落受 rarityCaps 上限约束）
+        // 稀有武器名单（整档限量：消防斧/武士刀/撬棍，掉落受 rarityCaps 上限约束）
         isRareItem(d) {
-            return d && (d.name === '消防斧' || d.name === '武士刀');
+            return d && (d.name === '消防斧' || d.name === '武士刀' || d.name === '撬棍');
         },
         // 统计全容器中某物品数量（背包/仓库/各地点暂存区/装备槽）
         ownedCount(name) {
@@ -361,6 +382,29 @@ const TravelMixin = {
             if (!place || place.base !== 'loc') return;
             this.beginActivity('drawwater', 5 * 60);
         },
+        // 取汽油（加油站）：耗时 5 分钟，得汽油×5（无限）
+        startPumpGas() {
+            if (this.activity || this.searching) return;
+            const place = this.currentPlace;
+            if (!place || place.base !== 'loc') return;
+            this.beginActivity('pumpgas', 5 * 60);
+        },
+        // 拆除汽车（停车场/驾校）：需背包携带汽油喷灯与汽油，消耗 1 汽油，耗时 10 分钟，车数有限
+        startDismantle() {
+            if (this.activity || this.searching) return;
+            const place = this.currentPlace;
+            if (!place || place.base !== 'loc') return;
+            const r = this.locationResources[place.key];
+            if (!r || r.cars <= 0) { this.pushLog('这里的车都被拆完了。'); return; }
+            const torch = this.bag.find(i => i.name === '汽油喷灯');
+            if (!torch) { this.pushLog('拆除汽车需要汽油喷灯（消防局搜刮获得）。'); return; }
+            const gas = this.bag.find(i => i.name === '汽油');
+            if (!gas || (gas.count || 0) <= 0) { this.pushLog('汽油喷灯需要汽油作燃料，请先去加油站取油。'); return; }
+            if (gas.count && gas.count > 1) gas.count--;
+            else this.bag = this.bag.filter(i => i !== gas);
+            r.cars--;
+            this.beginActivity('dismantle', 10 * 60);
+        },
         // 钓鱼（河边）：耗时 15 分钟，概率钓到鱼；需要背包携带鱼竿，鱼竿有耐久（每次 -1，损坏消失）
         startFish() {
             if (this.activity || this.searching) return;
@@ -514,10 +558,13 @@ const TravelMixin = {
                 return;
             }
             if (axe.durability) {
-                axe.durability--;
-                if (axe.durability <= 0) {
-                    this.bag = this.bag.filter(i => i !== axe);
-                    this.pushLog('你的斧头损坏了。');
+                // 斧头类工作时 30% 概率损耗 1 耐久
+                if (Math.random() < 0.3) {
+                    axe.durability--;
+                    if (axe.durability <= 0) {
+                        this.bag = this.bag.filter(i => i !== axe);
+                        this.pushLog('你的斧头损坏了。');
+                    }
                 }
             }
             this.stats.physical -= 5;
@@ -612,6 +659,14 @@ const TravelMixin = {
             } else if (this.activity.type === 'drawwater') {
                 this.addBag({ type: 'dirty', name: '脏水', count: 3 });
                 this.pushLog('你装了 3 份河水（脏水）。');
+            } else if (this.activity.type === 'pumpgas') {
+                this.addBag({ type: 'material', name: '汽油', count: 5 });
+                this.pushLog('你加满了油，获得汽油×5。');
+            } else if (this.activity.type === 'dismantle') {
+                this.addBag({ type: 'material', name: '铁', count: 3 });
+                this.addBag({ type: 'material', name: '塑料', count: 4 });
+                this.addBag({ type: 'material', name: '布料', count: 2 });
+                this.pushLog('你拆除了一辆汽车，获得铁×3、塑料×4、布料×2。');
             } else if (this.activity.type === 'fish') {
                 if (Math.random() < 0.7) {
                     this.addBag({ type: 'rawfood', name: '鱼', count: 1 });
@@ -760,6 +815,10 @@ const TravelMixin = {
                 b.zombieHp = Math.max(0, b.zombieHp - myAtk);
                 b.atkCount++;
                 b.logs.push(`你攻击${b.zombie.name}，造成 ${myAtk} 点伤害（剩余 ${b.zombieHp}）。`);
+                // 武器每次攻击 30% 概率损耗 1 耐久
+                if (this.equipment.weapon && this.equipment.weapon.durability && Math.random() < 0.3) {
+                    this.wearEquipment(this.equipment.weapon, 1, 'weapon', '武器');
+                }
                 if (b.zombieHp <= 0) { this.endBattle(true); return; }
             } else {
                 // 步骤二：丧尸反击
@@ -774,14 +833,15 @@ const TravelMixin = {
             }
             this.postSceneState();
         },
-        // 概率受伤（35%）：健康度 -5，并实时压低血量上限
+        // 概率受伤（10%）：健康度 -1~3，并实时压低血量上限
         rollBattleInjury(b) {
-            if (Math.random() >= 0.35) return;
-            b.playerHealth = Math.max(0, b.playerHealth - 5);
+            if (Math.random() >= 0.1) return;
+            const dmg = this.randInt(1, 3);
+            b.playerHealth = Math.max(0, b.playerHealth - dmg);
             const curMax = Math.round(200 * b.playerHealth / 100);
             b.hpMax = curMax;
             if (b.playerHp > curMax) b.playerHp = curMax;
-            b.logs.push(`你受了伤，健康度降至 ${b.playerHealth}（血量上限 ${curMax}）。`);
+            b.logs.push(`你受伤了，健康度 -${dmg}（血量上限 ${curMax}）。`);
         },
         // 逃跑：成功率 60%；失败不进入战斗，只被丧尸抓伤少量扣血，仍成功脱离
         fleeBattle() {
@@ -819,7 +879,7 @@ const TravelMixin = {
             this.stats.hp = Math.min(b.playerHp, this.hpMax);
             b.won = won;
             b.over = true;
-            this.wearEquipment(this.equipment.weapon, b.atkCount, 'weapon', '武器');
+            // 武器耐久已在每次攻击时按 30% 概率扣除，此处只结算防具/帽子（按受击次数）
             this.wearEquipment(this.equipment.armor, b.hitCount, 'armor', '防具');
             this.wearEquipment(this.equipment.hat, b.hitCount, 'hat', '帽子');
             if (won) {
