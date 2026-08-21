@@ -9,11 +9,15 @@ const NavigationMixin = {
                 y: (gy - 9) * 1.0 + 3
             };
         },
-        // 两点 km 坐标之间的步行耗时（确定性，两地之间耗时固定；每格 1.0km 已适当延长）
+        // 移动耗时：按路径格子数 × 每格 20 分钟，整段 ±3 分钟随机波动
         // 体力低于当前上限 50% 时移动变慢：低于 20% 更慢
         travelSeconds(from, to) {
-            const dist = Math.hypot(to.x - from.x, to.y - from.y);
-            let seconds = Math.max(HOUR_SECONDS / 60, Math.round((dist / MapData.walkSpeed) * HOUR_SECONDS));
+            // km 坐标反推格子坐标（gridToKm 逆运算：gx = x + 8，gy = y + 6）
+            const gx1 = Math.round(from.x + 8), gy1 = Math.round(from.y + 6);
+            const gx2 = Math.round(to.x + 8), gy2 = Math.round(to.y + 6);
+            const steps = Math.abs(gx1 - gx2) + Math.abs(gy1 - gy2);
+            const minutes = Math.max(1, steps * 20 + this.randInt(-3, 3));
+            let seconds = minutes * MINUTE_SECONDS;
             const ph = this.stats ? this.stats.physical : 0;
             const half = this.physicalMax ? this.physicalMax * 0.5 : 50;
             if (ph < half) {
@@ -41,10 +45,10 @@ const NavigationMixin = {
                 gy: Math.round(node.ly / 100 * (MAP_ROWS - 1))
             };
         },
-        // 玩家当前所在格子坐标（0 基；地点名 / park: / tree: / 安全屋）
+        // 玩家当前所在格子坐标（0 基；地点名 / park: / tree: / mine: / 安全屋）
         getPlayerGrid() {
             if (this.playerLocation === 'safehouse') return MapData.safehouseGridPos;
-            const m = this.playerLocation.match(/^(park|tree):(\d+),(\d+)$/);
+            const m = this.playerLocation.match(/^(park|tree|mine):(\d+),(\d+)$/);
             if (m) return { gx: +m[2], gy: +m[3] };
             const loc = this.locations.find(l => l.name === this.playerLocation);
             return loc ? this.gridPosOf(loc) : MapData.safehouseGridPos;

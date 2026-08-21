@@ -17,6 +17,9 @@
                 <div v-if="cell.loc" class="grid-building">
                     <span class="grid-building-icon" v-text="cell.loc.isHome ? '🏠' : cell.loc.icon"></span>
                 </div>
+                <div v-if="cell.base === 'mine'" class="grid-building">
+                    <span class="grid-building-icon">⛏️</span>
+                </div>
                 <div v-if="cell.lineV" class="road-line-v" :style="cell.lineV"></div>
                 <div v-if="cell.lineH" class="road-line-h" :style="cell.lineH"></div>
             </div>
@@ -43,6 +46,8 @@
             cells() {
                 var home = MapData.safehouseGridPos;
                 var homeKey = home.gx + ',' + home.gy;
+                var mine = MapData.mineCell;
+                var mineKey = mine.gx + ',' + mine.gy;
                 var locByKey = {};
                 MapData.locations.forEach(loc => {
                     var p = this.gridPosOf(loc);
@@ -59,6 +64,8 @@
                         } else if (locByKey[key]) {
                             base = 'building';
                             loc = locByKey[key];
+                        } else if (key === mineKey) {
+                            base = 'mine';
                         } else if (x === 0 || x === MAP_COLS - 1 || y === 0 || y === MAP_ROWS - 1) {
                             base = 'tree';
                         } else if (x % 2 === 1 && y % 2 === 1) {
@@ -104,7 +111,7 @@
             // 当前所在格（安全屋 / park: / tree: / 地点名）
             getPlayerGrid() {
                 if (this.playerLocation === 'safehouse') return MapData.safehouseGridPos;
-                var m = this.playerLocation.match(/^(park|tree):(\d+),(\d+)$/);
+                var m = this.playerLocation.match(/^(park|tree|mine):(\d+),(\d+)$/);
                 if (m) return { gx: +m[2], gy: +m[3] };
                 var loc = MapData.locations.filter(l => l.name === this.playerLocation)[0];
                 return loc ? this.gridPosOf(loc) : MapData.safehouseGridPos;
@@ -117,7 +124,7 @@
                 if (cell.loc) {
                     if (cell.loc.isHome) this.send({ type: 'open-home' });
                     else this.send({ type: 'open-location', name: cell.loc.name });
-                } else if (cell.base === 'park' || cell.base === 'tree') {
+                } else if (cell.base === 'park' || cell.base === 'tree' || cell.base === 'mine') {
                     this.send({ type: 'open-cell', key: cell.key, base: cell.base });
                 }
             },

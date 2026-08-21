@@ -52,7 +52,8 @@
 .equip-slot-item { font-size: 11px; color: #ddd; text-align: center; line-height: 1.3; }
 .equip-slot-item.empty { color: #666; }
 /* 物品详情菜单：属性说明 */
-.item-menu-meta { font-size: 11px; color: #999; text-align: center; padding: 0 0 6px; display: flex; flex-direction: column; gap: 2px; }
+.item-menu-meta { font-size: 11px; color: #999; text-align: center; padding: 0 0 6px; display: flex; flex-direction: row; justify-content: center; gap: 8px; }
+.item-menu-meta:empty { padding: 0; }
 
 /* ----- 床/仓库升级与睡眠 ----- */
 .bed-section { display: flex; flex-direction: column; gap: 8px; }
@@ -230,9 +231,17 @@
     display: flex; flex-direction: column; gap: 6px;
 }
 .item-menu-title {
+    position: relative;
+    display: flex; justify-content: center; align-items: center;
     font-size: 13px; color: #ddd; text-align: center;
     padding: 2px 0 6px; border-bottom: 1px solid #444;
 }
+.item-menu-close {
+    position: absolute; right: 0; top: 0;
+    background: none; border: none; color: #999;
+    font-size: 16px; line-height: 1; cursor: pointer; padding: 0;
+}
+.item-menu-close:hover { color: #fff; }
 .item-menu-btn {
     background: #353535; border: 1px solid #4a4a4a; border-radius: 4px;
     color: #ddd; font-size: 13px; padding: 8px; cursor: pointer;
@@ -261,6 +270,5 @@
 
 /* ----- 地点暂存区（复用背包网格卡片，点卡片取出） ----- */
 .stash-menu { width: 260px; }
-.stash-grid { max-height: 40vh; overflow-y: auto; }
 .stash-grid .st-item { cursor: pointer; }
 .stash-btn { margin-left: auto; }

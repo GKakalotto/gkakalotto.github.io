@@ -74,20 +74,12 @@ const CoreMixin = {
             }
             return '🏠 安全屋';
         },
-        // 顶栏正中间显示的容量（仅背包/仓库子页；其余场景为空）
-        sceneCapText() {
-            if (this.currentPage === 'bag') return `容量 ${this.bag.length}/${this.bagMax}`;
-            if (this.currentPage === 'storage') {
-                const st = this.currentStorage;
-                const cap = st ? st.storageLevels[st.storageLevel].capacity : 0;
-                return `容量 ${this.storageItems.length}/${cap}`;
-            }
-            return '';
-        },
-        // 升级弹窗（带 costMap）材料是否足够：不足时确认按钮禁用
+        // 升级弹窗（带 costMap）材料/力量是否足够：不足时确认按钮禁用
         canAffordDialog() {
-            if (!this.dialog || !this.dialog.costMap) return true;
-            return this.hasMaterials(this.dialog.costMap);
+            if (!this.dialog) return true;
+            if (this.dialog.needStr && this.stats.strength < this.dialog.needStr) return false;
+            if (this.dialog.costMap && !this.hasMaterials(this.dialog.costMap)) return false;
+            return true;
         }
     },
     methods: {
@@ -135,6 +127,7 @@ const CoreMixin = {
         },
         // 推进游戏时间（秒），处理状态消耗/恢复、跨天/跨季
         advanceGameTime(seconds) {
+            if (this.gameOver) return;
             this.gameSeconds += seconds;
             // 状态随时间变化：饱食/水分/理智持续消耗，精力/体力自然缓慢恢复
             const s = this.stats;
@@ -147,9 +140,16 @@ const CoreMixin = {
             s.physical = Math.min(this.physicalMax, s.physical + hours);
             if (wasHungry && s.hunger <= 0) this.pushLog('你饿得头晕眼花，身体开始透支……');
             if (wasThirsty && s.water <= 0) this.pushLog('你口渴难耐，急需饮水……');
-            // 饥饿或缺水归零后持续掉血
+            // 饥饿或缺水归零后持续损耗健康：每分钟 -1
             if (s.hunger <= 0 || s.water <= 0) {
-                s.hp = Math.max(0, s.hp - 3 * hours);
+                s.health = Math.max(0, s.health - seconds / MINUTE_SECONDS);
+            }
+            // 健康归零：游戏结束（清档重开）
+            if (s.health <= 0) {
+                this.gameOver = true;
+                this.pushLog('💀 健康值归零，你在末日中倒下了……');
+                setTimeout(() => this.resetGame(), 1500);
+                return;
             }
             const totalDay = Math.floor(this.gameSeconds / DAY_SECONDS);
             // 逐日推进：跨天重新随机天气

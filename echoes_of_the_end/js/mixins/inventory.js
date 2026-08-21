@@ -31,7 +31,7 @@ const InventoryMixin = {
             }
             this.currentPage = 'bag';
         },
-        // 背包：点击升级 → 弹窗确认（扩充容量）
+        // 背包：点击升级 → 弹窗确认（扩充容量；升级还需力量等级）
         upgradeBag() {
             if (this.bagLevel >= GameData.bagLevels.length - 1) return;
             const level = GameData.bagLevels[this.bagLevel];
@@ -39,15 +39,23 @@ const InventoryMixin = {
             this.dialog = {
                 show: true, icon: '🎒',
                 title: `升级背包：${next.name}`,
-                desc: `容量 ${level.capacity} → ${next.capacity}，能携带更多物资。`,
+                desc: next.str
+                    ? `容量 ${level.capacity} → ${next.capacity}，需力量 ${next.str} 级。`
+                    : `容量 ${level.capacity} → ${next.capacity}，能携带更多物资。`,
                 costMap: level.upgrade,
+                needStr: next.str || 0,
                 confirmText: '升级',
                 onConfirm: () => this.doUpgradeBag()
             };
         },
-        // 执行背包升级（满足材料时扣减并升级，bagMax 随等级更新）
+        // 执行背包升级（满足材料与力量时扣减并升级，bagMax 随等级更新）
         doUpgradeBag() {
             if (this.bagLevel >= GameData.bagLevels.length - 1) return;
+            const next = GameData.bagLevels[this.bagLevel + 1];
+            if (next.str && this.stats.strength < next.str) {
+                this.pushLog(`力量不足 ${next.str} 级，无法升级背包。`);
+                return;
+            }
             const cost = GameData.bagLevels[this.bagLevel].upgrade;
             if (!this.hasMaterials(cost)) return;
             this.spendMaterials(cost);

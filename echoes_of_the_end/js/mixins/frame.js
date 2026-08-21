@@ -135,7 +135,7 @@ const FrameMixin = {
                     break;
                 // 地点搜刮
                 case 'loc-search':
-                    this.startLocationSearch();
+                    this.startLocationSearch(msg.mode);
                     break;
                 // 搜刮物资弹窗确认（keep 为带走的索引数组，其余进暂存区）
                 case 'loot-confirm':

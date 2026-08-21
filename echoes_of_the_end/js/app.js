@@ -85,6 +85,10 @@ new Vue({
         restAccum: 0,     // 已累计的休息游戏秒
         // 低状态阈值提示标记：各状态首次跌破 30% 时日志提示一次，回升后复位
         lowWarned: { hunger: false, water: false, sanity: false, stamina: false, physical: false, hp: false, health: false },
+        // 健康归零后游戏结束标志（防止重复触发重开）
+        gameOver: false,
+        // 稀有武器整档限量：物品名 → 档内掉落上限（新档随机 1~3）
+        rarityCaps: {},
         // 战斗状态：{ zombie, zombieHp, playerHp, logs, won, over, atk, def }；遇敌后进入战斗页，胜利才继续原流程
         battle: null,
         pendingAfterBattle: null,   // 战斗胜利后继续执行的移动完成回调
@@ -118,8 +122,8 @@ new Vue({
         pendingLoot: null,
         // 装备槽：武器 / 帽子 / 防具（装备后从背包取出，不占背包格）
         equipment: { weapon: null, hat: null, armor: null },
-        // 背包最大容量
-        bagMax: 30,
+        // 背包最大容量（初始为 0 级容量，读档后按背包等级更新）
+        bagMax: 20,
         // 清除进度确认弹窗
         confirmDialog: { show: false, title: '', desc: '' },
         // 安全屋家具
@@ -134,6 +138,9 @@ new Vue({
     // 首次渲染前读取存档，避免刷新时非当前场景/弹框闪现
     created() {
         const hasSave = this.loadGame();
+        // 稀有武器档内上限：无记录时随机 1~3（旧档/新档统一补全）
+        if (!this.rarityCaps['消防斧']) this.rarityCaps['消防斧'] = this.randInt(1, 3);
+        if (!this.rarityCaps['武士刀']) this.rarityCaps['武士刀'] = this.randInt(1, 3);
         const totalDay = Math.floor(this.gameSeconds / DAY_SECONDS);
         this.lastDay = totalDay;
         this.lastSeason = Math.floor(totalDay / DAYS_PER_SEASON) % SEASONS.length;

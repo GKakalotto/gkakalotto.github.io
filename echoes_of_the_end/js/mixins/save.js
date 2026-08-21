@@ -20,6 +20,7 @@ const SaveMixin = {
                     locationResources: this.locationResources,
                     placeStash: this.placeStash,
                     equipment: this.equipment,
+                    rarityCaps: this.rarityCaps,
                     fireFuelUntil: this.fireFuelUntil,
                     // 只存可变状态（升级等级 / 解锁状态），静态结构仍以数据文件为准
                     furnitureState: this.furniture.map(f => ({
@@ -85,6 +86,8 @@ const SaveMixin = {
             }
             // 篝火燃料烧尽时刻（旧档无此字段时默认 0，即熄灭）
             if (typeof save.fireFuelUntil === 'number') this.fireFuelUntil = save.fireFuelUntil;
+            // 稀有武器档内上限（旧档无此字段时保持空，由 created 随机补全）
+            if (save.rarityCaps) this.rarityCaps = save.rarityCaps;
             // 家具可变状态按下标回填到数据文件的静态结构上
             if (Array.isArray(save.furnitureState)) {
                 save.furnitureState.forEach((st, i) => {

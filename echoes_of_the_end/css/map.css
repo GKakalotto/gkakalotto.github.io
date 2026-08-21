@@ -77,6 +77,9 @@
     font-size: clamp(8px, 2vw, 14px);
 }
 
+/* 矿场：灰色矿地，图标由模板渲染 */
+.map-cell.mine { background: #4c4438; }
+
 /* 建筑（地点 / 安全屋）：只显示图标 */
 .grid-building {
     position: absolute;
@@ -105,9 +108,10 @@
     box-shadow: inset 0 0 8px rgba(240, 180, 60, .3);
 }
 
-/* 公园 / 树：可点击前往 */
+/* 公园 / 树 / 矿场：可点击前往 */
 .map-cell.park,
-.map-cell.tree {
+.map-cell.tree,
+.map-cell.mine {
     cursor: pointer;
 }
 

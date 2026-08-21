@@ -24,7 +24,7 @@
                      @click="bag[i - 1] && openMenu(i - 1)">
                     <template v-if="bag[i - 1]">
                         <span class="st-item-name" v-text="bag[i - 1].name"></span>
-                        <span class="st-item-meta" v-if="bag[i - 1].count" v-text="'×' + bag[i - 1].count"></span>
+                        <span class="st-item-meta" v-if="!bag[i - 1].durability" v-text="'×' + (bag[i - 1].count || 1)"></span>
                     </template>
                 </div>
             </div>
@@ -48,19 +48,21 @@
                     <button class="item-menu-btn" @click="menu.confirmDiscard = false">返回</button>
                 </template>
                 <template v-else>
-                    <div class="item-menu-title" v-text="menuItem ? menuItem.name : ''"></div>
-                    <div class="item-menu-meta" v-if="menuItem">
-                        <div v-if="menuItem.damage" v-text="'攻击 ' + menuItem.damage"></div>
-                        <div v-else-if="menuItem.defense" v-text="'减伤 ' + menuItem.defense"></div>
-                        <div v-if="menuItem.durability" v-text="'耐久 ' + menuItem.durability"></div>
-                        <div v-if="menuItem.restore" v-text="'恢复' + menuItem.restore.statName + ' +' + menuItem.restore.amount"></div>
+                    <div class="item-menu-title">
+                        <span v-text="menuItem ? menuItem.name : ''"></span>
+                        <button class="item-menu-close" @click="closeMenu">×</button>
                     </div>
-                    <button v-if="equipSlot" class="item-menu-btn" @click="act('bag-equip')">⚔️ 装备</button>
-                    <button v-if="currentScene === 'safehouse'" class="item-menu-btn" @click="act('bag-move-storage')">📦 放入仓库</button>
-                    <button v-if="canStash" class="item-menu-btn" @click="act('bag-stash')">🗃️ 放入暂存区</button>
+                    <div class="item-menu-meta" v-if="menuItem && (menuItem.damage || menuItem.defense || menuItem.durability || useCfg)">
+                        <div v-if="menuItem.damage" v-text="'攻击 ' + menuItem.damage"></div>
+                        <div v-if="menuItem.defense" v-text="'减伤 ' + menuItem.defense"></div>
+                        <div v-if="menuItem.durability" v-text="'耐久 ' + menuItem.durability"></div>
+                        <div v-if="useCfg" v-text="useCfg.statName + ' +' + useCfg.amount"></div>
+                    </div>
+                    <button v-if="equipSlot" class="item-menu-btn" @click="act('bag-equip')">装备</button>
+                    <button v-if="currentScene === 'safehouse'" class="item-menu-btn" @click="act('bag-move-storage')">存仓库</button>
+                    <button v-if="canStash" class="item-menu-btn" @click="act('bag-stash')">暂存</button>
                     <button v-if="useCfg" class="item-menu-btn" @click="act('bag-use')" v-text="useCfg.label"></button>
-                    <button class="item-menu-btn danger" @click="menu.confirmDiscard = true">🗑️ 丢弃</button>
-                    <button class="item-menu-btn" @click="closeMenu">取消</button>
+                    <button class="item-menu-btn danger" @click="menu.confirmDiscard = true">丢弃</button>
                 </template>
             </div>
         </div>
@@ -68,14 +70,16 @@
         <!-- 装备详情菜单：点击装备槽弹出，查看属性并可卸下 -->
         <div v-if="equipMenu.show" class="item-menu-overlay" @click.self="closeEquipMenu">
             <div class="item-menu">
-                <div class="item-menu-title" v-text="equippedItem ? equippedItem.name : ''"></div>
-                <div class="item-menu-meta" v-if="equippedItem">
+                <div class="item-menu-title">
+                    <span v-text="equippedItem ? equippedItem.name : ''"></span>
+                    <button class="item-menu-close" @click="closeEquipMenu">×</button>
+                </div>
+                <div class="item-menu-meta" v-if="equippedItem && (equippedItem.damage || equippedItem.defense || equippedItem.durability)">
                     <div v-if="equippedItem.damage" v-text="'攻击 ' + equippedItem.damage"></div>
-                    <div v-else-if="equippedItem.defense" v-text="'减伤 ' + equippedItem.defense"></div>
+                    <div v-if="equippedItem.defense" v-text="'减伤 ' + equippedItem.defense"></div>
                     <div v-if="equippedItem.durability" v-text="'耐久 ' + equippedItem.durability"></div>
                 </div>
                 <button class="item-menu-btn" @click="unequipEquipped">卸下</button>
-                <button class="item-menu-btn" @click="closeEquipMenu">取消</button>
             </div>
         </div>
     </div>
@@ -128,7 +132,7 @@
                 var it = this.menuItem;
                 if (!it) return null;
                 var cfg = it.restore || GameData.itemUse[it.type] || null;
-                if (cfg && !cfg.label) cfg = Object.assign({}, cfg, { label: (it.type === 'water' || it.type === 'drink') ? '喝' : '吃' });
+                if (cfg && !cfg.label) cfg = Object.assign({}, cfg, { label: it.type === 'medicine' ? '使用' : (it.type === 'water' || it.type === 'drink') ? '喝' : '吃' });
                 return cfg;
             }
         },

@@ -8,8 +8,8 @@ var MapData = {
     safehouseCoord: { x: 0, y: 3 },
     // 安全屋格子坐标（0 基，地图中心附近，x、y 均为偶数避开道路）
     safehouseGridPos: { gx: 8, gy: 8 },
-    // 移动速度（km/h）
-    walkSpeed: 4,
+    // 矿场格子坐标（0 基，x、y 均为偶数的空闲公园格）
+    mineCell: { gx: 10, gy: 12 },
 
     // ===== 地点 =====
     // 成都真实地名；lx/ly 为画布位置，换算后落在 x、y 均为偶数的格子上（避开道路）；

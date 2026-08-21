@@ -133,11 +133,13 @@ const TravelMixin = {
         // 从地点占位场景返回地图
         backToMap() {
             this.currentScene = 'map';
+            this.currentPlace = null;
         },
         // 地图 → 返回安全屋
         backToSafehouse() {
             this.currentScene = 'safehouse';
             this.playerLocation = 'safehouse';
+            this.currentPlace = null;
             this.pushLog('你回到安全屋，反手关上了门。');
         },
         // 实际步行前往地点：外壳推进时间，iframe 红点沿路径移动；到达后询问是否进入
@@ -173,14 +175,14 @@ const TravelMixin = {
             this.locationResources[loc.name] = { roomsLeft: cfg.rooms };
             this.saveGame();
         },
-        // 搜刮一个房间（耗时 10 游戏分钟，进度条结束后产出若干物资并由玩家选取）
-        startLocationSearch() {
+        // 搜刮一个房间：mode 为 'crowbar'（15 游戏分钟）或 'hands'（45 游戏分钟），进度条结束后产出若干物资并由玩家选取
+        startLocationSearch(mode) {
             if (this.activity || this.searching) return;
             const place = this.currentPlace;
             if (!place || place.base !== 'loc' || !place.key) return;
             const r = this.locationResources[place.key];
             if (!r || r.roomsLeft <= 0) { this.pushLog('这里已被搜刮一空了。'); return; }
-            this.beginActivity('loc-search', 10 * 60);
+            this.beginActivity('loc-search', (mode === 'crowbar' ? 15 : 45) * 60);
         },
         // 按权重随机取 1 件掉落
         pickDrop(drops) {
@@ -196,13 +198,34 @@ const TravelMixin = {
         randInt(min, max) {
             return Math.floor(Math.random() * (max - min + 1)) + min;
         },
-        // 生成一个房间的物资：随机 4~8 件（按掉落池权重，可重复）
+        // 稀有武器名单（整档限量：消防斧/武士刀，掉落受 rarityCaps 上限约束）
+        isRareItem(d) {
+            return d && (d.name === '消防斧' || d.name === '武士刀');
+        },
+        // 统计全容器中某物品数量（背包/仓库/各地点暂存区/装备槽）
+        ownedCount(name) {
+            let n = 0;
+            const count = (arr) => { if (arr) for (const it of arr) if (it.name === name) n += it.count || 1; };
+            count(this.bag);
+            count(this.storageItems);
+            for (const k in this.placeStash) count(this.placeStash[k]);
+            for (const slot in this.equipment) {
+                if (this.equipment[slot] && this.equipment[slot].name === name) n += 1;
+            }
+            return n;
+        },
+        // 生成一个房间的物资：随机 4~8 件（按掉落池权重，可重复；稀有武器不超过档内上限）
         generateRoomLoot(cfg) {
             const drops = cfg && cfg.drops ? cfg.drops : [];
             const count = this.randInt(4, 8);
             const items = [];
             for (let i = 0; i < count; i++) {
-                const d = this.pickDrop(drops);
+                let d = this.pickDrop(drops);
+                // 稀有武器整档限量：已达上限（含本次房间已掉落的）则不再掉落
+                if (this.isRareItem(d)) {
+                    const inLoot = items.filter(it => it.name === d.name).length;
+                    if (this.ownedCount(d.name) + inLoot >= this.rarityCaps[d.name]) d = null;
+                }
                 if (d) items.push({ name: d.name, type: d.type, damage: d.damage, defense: d.defense, durability: d.durability, restore: d.restore, count: 1 });
             }
             return items;
@@ -317,12 +340,19 @@ const TravelMixin = {
             this.saveGame();
             this.postSceneState();
         },
-        // 打猎（动物园）：动物会繁殖，可无限次猎取（耗时 15 分钟）
+        // 打猎（动物园/森林）：需背包携带弓与箭，耗时 30 分钟，得生肉×1~3；每次消耗 1 支箭，弓无耐久
         startHunt() {
             if (this.activity || this.searching) return;
             const place = this.currentPlace;
-            if (!place || place.base !== 'loc') return;
-            this.beginActivity('hunt', 15 * 60);
+            if (!place) return;
+            if (place.base !== 'loc' && place.base !== 'tree') return;
+            const bow = this.bag.find(i => i.name === '弓');
+            if (!bow) { this.pushLog('打猎需要弓，请先在背包中准备（工作台制作）。'); return; }
+            const arrows = this.bag.find(i => i.name === '箭');
+            if (!arrows || (arrows.count || 0) <= 0) { this.pushLog('打猎需要箭，请先在背包中准备（工作台制作）。'); return; }
+            if (arrows.count && arrows.count > 1) arrows.count--;
+            else this.bag = this.bag.filter(i => i !== arrows);
+            this.beginActivity('hunt', 30 * 60);
         },
         // 取水（河边）：耗时 5 分钟，得脏水×3
         startDrawWater() {
@@ -381,51 +411,60 @@ const TravelMixin = {
             const from = this.getLocationCoord();
             const to = this.gridToKm(gx, gy);
             this.pendingSeconds = atCurrent ? 0 : this.travelSeconds(from, to);
+            const meta = base === 'park' ? { icon: '🌳', title: '公园绿地', desc: '一片安静的公园绿地，可以放松片刻。' }
+                : base === 'mine' ? { icon: '⛏️', title: '矿场', desc: '废弃的采石场，还能翻出些矿藏。' }
+                : { icon: '🌲', title: '森林', desc: '地图边缘的树林，草木茂密。' };
             this.dialog = {
                 show: true,
-                icon: base === 'park' ? '🌳' : '🌲',
-                title: base === 'park' ? '公园绿地' : '森林',
-                desc: base === 'park' ? '一片安静的公园绿地，可以放松片刻。' : '地图边缘的树林，草木茂密。',
+                icon: meta.icon,
+                title: meta.title,
+                desc: meta.desc,
                 cost: atCurrent ? '' : `步行约 ${this.formatDuration(this.pendingSeconds)}`,
                 action: atCurrent ? 'enter-cell' : 'cell'
             };
         },
-        // 前往公园/树格：到达后询问是否进入
+        // 前往公园/树格/矿场：到达后询问是否进入
         travelToCell(cell) {
             const seconds = this.pendingSeconds;
             const from = this.getPlayerGrid();
             this.startTravel(from, { gx: cell.gx, gy: cell.gy }, seconds, () => {
-                this.playerLocation = (cell.base === 'park' ? 'park:' : 'tree:') + cell.key;
-                this.pushLog(`你来到了${cell.base === 'park' ? '一片公园绿地' : '地图边缘的树林'}。`);
+                this.playerLocation = (cell.base === 'park' ? 'park:' : cell.base === 'mine' ? 'mine:' : 'tree:') + cell.key;
+                const meta = cell.base === 'park' ? { icon: '🌳', title: '公园绿地', name: '一片公园绿地' }
+                    : cell.base === 'mine' ? { icon: '⛏️', title: '矿场', name: '一座矿场' }
+                    : { icon: '🌲', title: '森林', name: '地图边缘的树林' };
+                this.pushLog(`你来到了${meta.name}。`);
                 this.postSceneState();
                 this.dialog = {
                     show: true,
-                    icon: cell.base === 'park' ? '🌳' : '🌲',
-                    title: cell.base === 'park' ? '公园绿地' : '森林',
-                    desc: cell.base === 'park' ? '一片安静的公园绿地，可以放松片刻。' : '地图边缘的树林，草木茂密。',
+                    icon: meta.icon,
+                    title: meta.title,
+                    desc: meta.name,
                     cost: '',
                     action: 'enter-cell'
                 };
             });
         },
-        // 进入公园/树格：切换为资源点场景（首次进入生成有限资源）
+        // 进入公园/树格/矿场：切换为资源点场景（首次进入生成有限资源）
         enterCell(cell) {
-            const isPark = cell.base === 'park';
+            const meta = cell.base === 'park' ? { name: '公园绿地', icon: '🌳' }
+                : cell.base === 'mine' ? { name: '矿场', icon: '⛏️' }
+                : { name: '森林', icon: '🌲' };
             this.currentPlace = {
-                name: isPark ? '公园绿地' : '森林',
-                icon: isPark ? '🌳' : '🌲',
+                name: meta.name,
+                icon: meta.icon,
                 base: cell.base,
                 key: `${cell.base}:${cell.key}`
             };
             this.currentScene = 'place';
             this.initCellResources(this.currentPlace);
-            this.pushLog(`你进入了${isPark ? '一片公园绿地' : '地图边缘的树林'}。`);
+            this.pushLog(`你进入了${meta.name}。`);
             this.postSceneState();
         },
-        // 首次进入资源格时生成树木数量（树格=森林 200 棵；公园 50 棵；黏土/搜索不限次数，无需记录）
+        // 首次进入资源格时生成资源（树格=森林 200 棵；公园 50 棵；矿场无限不记录；黏土/搜索不限次数）
         initCellResources(place) {
             const key = place.key;
             if (this.cellResources[key]) return;
+            if (place.base === 'mine') return;   // 矿场矿藏无限
             this.cellResources[key] = { trees: place.base === 'tree' ? 200 : 50 };
             this.saveGame();
         },
@@ -461,7 +500,7 @@ const TravelMixin = {
             if (remaining > 0) this.pushLog('背包已满，部分物品未能收纳。');
             return remaining;
         },
-        // 砍树（耗时 10 游戏分钟）：消耗体力 5；需要背包携带斧头（axe 属性），斧头有耐久（每次 -1，损坏消失）；开始时扣一棵树，进度条结束后产出原木×4 + 种子概率
+        // 砍树（耗时 10 游戏分钟）：消耗体力 5；需要背包携带名字含"斧"的斧头（消防斧/石斧/铁斧），斧头有耐久（每次 -1，损坏消失）；开始时扣一棵树，进度条结束后产出原木×4 + 种子概率
         startChop() {
             if (this.activity || this.searching) return;
             const place = this.currentPlace;
@@ -469,7 +508,7 @@ const TravelMixin = {
             const r = this.cellResources[place.key];
             if (!r || r.trees <= 0) { this.pushLog('这里的树已被砍光了。'); return; }
             if (this.stats.physical < 5) { this.pushLog('体力不足（需 5），无法砍树，请先休息。'); return; }
-            const axe = this.bag.find(i => i.axe);
+            const axe = this.bag.find(i => i.name.includes('斧'));
             if (!axe) {
                 this.pushLog('砍树需要斧头，请先在背包中准备一把（工作台制作）。');
                 return;
@@ -485,34 +524,40 @@ const TravelMixin = {
             r.trees--;
             this.beginActivity('chop', 10 * 60);
         },
-        // 挖黏土（耗时 5 游戏分钟）：消耗体力 3；需要背包中携带铁锹，铁锹有耐久（每次 -1，损坏消失）
+        // 挖土（5 游戏分钟，需铁锹）/ 挖矿（30 游戏分钟，需镐子，矿藏无限）：消耗体力 3；工具耐久每次 -1，损坏消失
         startDig() {
             if (this.activity || this.searching) return;
             const place = this.currentPlace;
             if (!place || !place.key) return;
-            if (this.stats.physical < 3) { this.pushLog('体力不足（需 3），无法挖土，请先休息。'); return; }
-            const shovel = this.bag.find(i => i.name === '铁锹');
-            if (!shovel) {
-                this.pushLog('挖土需要铁锹，请先在背包中准备一把（工作台制作）。');
+            const isMine = place.base === 'mine';
+            if (this.stats.physical < 3) { this.pushLog('体力不足（需 3），无法挖矿/挖土，请先休息。'); return; }
+            const toolName = isMine ? '镐' : '铁锹';
+            const tool = this.bag.find(i => i.name === toolName);
+            if (!tool) {
+                this.pushLog(isMine ? '挖矿需要镐子，请先在背包中准备（工作台制作）。' : '挖土需要铁锹，请先在背包中准备一把（工作台制作）。');
                 return;
             }
-            if (shovel.durability) {
-                shovel.durability--;
-                if (shovel.durability <= 0) {
-                    this.bag = this.bag.filter(i => i !== shovel);
-                    this.pushLog('你的铁锹损坏了。');
+            // 矿场：随机决定本次挖出的矿种（矿藏无限）
+            const mined = isMine ? (Math.random() < 0.6 ? '铁' : '铜') : null;
+            if (tool.durability) {
+                tool.durability--;
+                if (tool.durability <= 0) {
+                    this.bag = this.bag.filter(i => i !== tool);
+                    this.pushLog(`你的${toolName}损坏了。`);
                 }
             } else {
-                this.spendMaterials({ '铁锹': 1 });
+                const c = {};
+                c[toolName] = 1;
+                this.spendMaterials(c);
             }
             this.stats.physical -= 3;
-            this.beginActivity('dig', 5 * 60);
+            this.beginActivity('dig', (isMine ? 30 : 5) * 60, mined);
         },
-        // 启动单次资源动作：1.5 秒动画内把 seconds 游戏秒推进完（顶部时间快速流动）
-        beginActivity(type, seconds) {
+        // 启动单次资源动作：1.5 秒动画内把 seconds 游戏秒推进完（顶部时间快速流动）；extra 为结算需要的附加信息
+        beginActivity(type, seconds, extra) {
             if (this.resting) this.stopRest();   // 开始活动时自动结束休息
             const MS = 1500;
-            this.activity = { type };
+            this.activity = { type, extra: extra || null };
             this.actionTarget = this.gameSeconds + seconds;
             this.postSceneState();
             const speed = seconds / MS;
@@ -560,8 +605,8 @@ const TravelMixin = {
                     this.showLootDialog();
                 }
             } else if (this.activity.type === 'hunt') {
-                // 打猎只产出生肉，随机 1~2 份
-                const n = this.randInt(1, 2);
+                // 打猎只产出生肉，随机 1~3 份
+                const n = this.randInt(1, 3);
                 this.addBag({ type: 'rawfood', name: '生肉', count: n });
                 this.pushLog(`你猎到了一只动物，获得生肉×${n}。`);
             } else if (this.activity.type === 'drawwater') {
@@ -575,6 +620,11 @@ const TravelMixin = {
                     this.addBag({ type: 'water', name: '纯净水', count: 1 });
                     this.pushLog('你只捞上来一瓶干净的水。');
                 }
+            } else if (this.activity.extra) {
+                // 挖矿（矿场）：随机产出铁/铜矿石 ×1~3
+                const n = this.randInt(1, 3);
+                this.addBag({ type: 'material', name: this.activity.extra, count: n });
+                this.pushLog(`你挖到了${this.activity.extra}矿石×${n}。`);
             } else {
                 this.addBag({ type: 'material', name: '黏土', count: 2 });
                 this.pushLog('你挖了些黏土（×2）。');
@@ -590,7 +640,7 @@ const TravelMixin = {
             if (!place || !place.key) return;
             this.searching = true;
             this.searchAccum = 0;
-            this.pushLog('你开始搜索这片区域，时间将不断流逝……');
+            this.pushLog('你开始搜寻这片区域，时间将不断流逝……');
             this.postSceneState();
         },
         // 停止搜索
@@ -598,22 +648,29 @@ const TravelMixin = {
             if (!this.searching) return;
             this.searching = false;
             this.searchAccum = 0;
-            this.pushLog('你停止了搜索。');
+            this.pushLog('你停止了搜寻。');
             this.postSceneState();
         },
-        // 搜索产出：消耗体力 2（不足则停止搜索）；概率互斥获取草药/石头/垃圾（草药 1%、石头 10%、其余为垃圾）
+        // 搜索产出：消耗精力 2（不足则停止搜索）；概率互斥获取草药/石头/垃圾（草药 1%、石头 10%、其余为垃圾）；
+        // 动物园额外 15% 互斥概率找到蛋
         searchDrop() {
-            if (this.stats.physical < 2) {
-                this.pushLog('体力不足，无法继续搜索，请先休息。');
+            if (this.stats.stamina < 2) {
+                this.pushLog('精力不足，无法继续搜寻，请先休息。');
                 this.stopSearch();
                 return;
             }
-            this.stats.physical -= 2;
+            this.stats.stamina -= 2;
             let item, log;
-            const roll = Math.random();
-            if (roll < 0.01) { item = { type: 'medicine', name: '草药' }; log = '你找到了一些草药。'; }
-            else if (roll < 0.11) { item = { type: 'material', name: '石头' }; log = '你捡到了一块石头。'; }
-            else { item = { type: 'material', name: '垃圾' }; log = '你翻到了一些垃圾。'; }
+            const isZoo = this.currentPlace && this.currentPlace.type === '动物园';
+            if (isZoo && Math.random() < 0.15) {
+                item = { type: 'food', name: '蛋' };
+                log = '你在笼舍角落找到了一枚蛋。';
+            } else {
+                const roll = Math.random();
+                if (roll < 0.01) { item = { type: 'medicine', name: '草药' }; log = '你找到了一些草药。'; }
+                else if (roll < 0.11) { item = { type: 'material', name: '石头' }; log = '你捡到了一块石头。'; }
+                else { item = { type: 'material', name: '垃圾' }; log = '你翻到了一些垃圾。'; }
+            }
             this.addBag({ ...item, count: 1 });
             this.pushLog(log);
         },
