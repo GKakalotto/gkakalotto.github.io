@@ -89,27 +89,27 @@
                     { flag: 'isFireplace', type: 'fire', name: '篝火', levelKey: 'fireLevel', levelsKey: 'fireLevels' },
                     { flag: 'isStove', type: 'stove', name: '灶台', levelKey: 'stoveLevel', levelsKey: 'stoveLevels' },
                     { flag: 'isRainCollector', type: 'rain', name: '雨水收集器', levelKey: 'rainLevel', levelsKey: 'rainLevels' },
-                    { flag: 'isStorage', type: 'storage', name: '仓库', levelKey: 'storageLevel', levelsKey: 'storageLevels' },
                     { flag: 'isPlantation', type: 'plantation', name: '种植园', levelKey: 'plantationLevel', levelsKey: 'plantationLevels' }
                 ];
                 const list = items.map(it => {
                     const x = find(it.flag);
-                    if (!x) return null;
+                    if (!x || !x.unlocked) return null;   // 未解锁不显示
                     const level = x[it.levelKey] || 0;
                     const levels = x[it.levelsKey] || [];
-                    const maxed = level >= levels.length - 1;
-                    const cost = maxed ? {} : (levels[level].upgrade || {});
-                    return { type: 'upgrade-' + it.type, name: it.name, level: level, maxed: maxed, cost: cost };
+                    if (level >= levels.length - 1) return null;   // 已达最高等级不显示
+                    return { type: 'upgrade-' + it.type, name: it.name, level: level, maxed: false, cost: levels[level].upgrade || {} };
                 }).filter(Boolean);
-                // 背包升级
+                // 背包升级（已达最高等级不显示）
                 const bagMaxed = this.bagLevel >= this.bagUpgradeMax();
-                list.push({
-                    type: 'upgrade-bag',
-                    name: '背包',
-                    level: this.bagLevel,
-                    maxed: bagMaxed,
-                    cost: bagMaxed ? {} : this.bagUpgradeCost()
-                });
+                if (!bagMaxed) {
+                    list.push({
+                        type: 'upgrade-bag',
+                        name: '背包',
+                        level: this.bagLevel,
+                        maxed: false,
+                        cost: this.bagUpgradeCost()
+                    });
+                }
                 return list;
             }
         },

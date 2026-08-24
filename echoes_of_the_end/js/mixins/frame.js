@@ -53,8 +53,20 @@ const FrameMixin = {
                 frame.contentWindow.postMessage(msg, '*');
             }
         },
+        // 清理所有容器中耐久为 0 的物品（工具/武器/防具直接消失）
+        cleanupBroken() {
+            const clean = (arr) => { if (!arr) return; for (let i = arr.length - 1; i >= 0; i--) { if (arr[i] && arr[i].durability !== undefined && arr[i].durability <= 0) arr.splice(i, 1); } };
+            clean(this.bag);
+            clean(this.storageItems);
+            for (const k in this.placeStash) clean(this.placeStash[k]);
+            for (const slot in this.equipment) {
+                const it = this.equipment[slot];
+                if (it && it.durability !== undefined && it.durability <= 0) this.equipment[slot] = null;
+            }
+        },
         // 向场景 iframe 推送当前状态（渲染与刷新用；字段均被对应场景页消费）
         postSceneState() {
+            this.cleanupBroken();
             this.postScene({
                 type: 'init',
                 state: {
@@ -73,7 +85,6 @@ const FrameMixin = {
                     pendingLoot: this.pendingLoot,
                     equipment: this.equipment,
                     currentBed: this.currentBed,
-                    currentStorage: this.currentStorage,
                     currentFurniture: this.currentFurniture,
                     currentWorkbench: this.currentWorkbench,
                     currentFire: this.currentFire,
@@ -140,7 +151,7 @@ const FrameMixin = {
                     break;
                 // 地点搜刮
                 case 'loc-search':
-                    this.startLocationSearch(msg.mode);
+                    this.startLocationSearch();
                     break;
                 // 暂存区取出 / 战利品取回（点击直接取回背包）
                 case 'stash-take':
@@ -205,9 +216,6 @@ const FrameMixin = {
                 case 'sleep-anim-end':
                     this.finishSleep();
                     break;
-                case 'upgrade-storage':
-                    this.upgradeStorage();
-                    break;
                 case 'add-fuel':
                     this.addFuel(msg.count);
                     break;
@@ -220,6 +228,9 @@ const FrameMixin = {
                     break;
                 case 'bag-stash':
                     this.moveToStash(msg.index);
+                    break;
+                case 'bag-to-loot':
+                    this.moveToLoot(msg.index);
                     break;
                 case 'bag-discard':
                     this.discard('bag', msg.index);
@@ -255,12 +266,16 @@ const FrameMixin = {
                     if (bp) this.craft(bp);
                     break;
                 }
-                // 灶台：升级 / 按菜单制作（耗时进度）
-                case 'upgrade-stove':
-                    this.upgradeStove();
-                    break;
+                // 灶台：按菜单制作（耗时进度）
                 case 'stove-cook':
                     this.startCooking('stove', msg.name);
+                    break;
+                // 篝火：烹饪（烤肉/烧水等）与锅槽
+                case 'fire-cook':
+                    this.startFireCook(msg.name);
+                    break;
+                case 'fire-pot':
+                    this.toggleFirePot();
                     break;
                 // 榨汁机：按菜单制作（耗时进度）
                 case 'juice-make':

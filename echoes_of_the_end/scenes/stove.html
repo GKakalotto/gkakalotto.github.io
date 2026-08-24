@@ -28,10 +28,9 @@
                     <button class="bed-upgrade-btn stove-cook-btn"
                             :class="{ cooking: cooking && cooking.name === a.name }"
                             :disabled="!!cooking || !canCook(a)"
-                            :title="stove && stove.stoveLevel < a.level ? '需升级为烹饪锅' : ''"
                             @click="send({ type: 'stove-cook', name: a.name })">
                         <div v-if="cooking && cooking.name === a.name" class="stove-cook-fill" @animationend="onCookAnimEnd"></div>
-                        <span v-text="cooking && cooking.name === a.name ? '烹饪中…' : (stove && stove.stoveLevel < a.level ? '需烹饪锅' : '制作')"></span>
+                        <span v-text="cooking && cooking.name === a.name ? '烹饪中…' : '制作'"></span>
                     </button>
                 </div>
             </div>
@@ -68,9 +67,9 @@
                     .filter(it => it.name === name)
                     .reduce((s, it) => s + (it.count || 1), 0);
             },
-            // 当前菜单项是否可制作：灶台等级达标且原料充足
+            // 当前菜单项是否可制作：原料充足即可（烹饪锅单级）
             canCook(a) {
-                if (!this.stove || this.stove.stoveLevel < a.level) return false;
+                if (!this.stove) return false;
                 for (var mat in a.inputs) {
                     if (this.have(mat) < a.inputs[mat]) return false;
                 }

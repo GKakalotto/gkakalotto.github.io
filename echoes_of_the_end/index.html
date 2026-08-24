@@ -114,7 +114,7 @@
                             <span class="sdi-name" v-text="a.label"></span>
                             <span class="sdi-amt"><span v-text="a.value"></span><span v-if="a.sub" class="sdi-sub" v-text="a.sub"></span></span>
                         </div>
-                        <div v-if="!statDetail.attr && statDetail.items && statDetail.items.length" v-for="(it, i) in statDetail.items" :key="i" class="stat-detail-item">
+                        <div v-if="!statDetail.attr && statDetail.items && statDetail.items.length" v-for="(it, i) in statDetail.items" :key="i" class="stat-detail-item clickable" @click="useStatItem(it)">
                             <span class="sdi-name"><span v-text="it.name"></span><span class="sdi-count" v-text="' ×' + it.count"></span></span>
                             <span class="sdi-amt" v-text="'+' + it.amount"></span>
                         </div>

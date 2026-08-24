@@ -94,8 +94,6 @@ new Vue({
         battleTimer: null,          // 逐回合定时器句柄
         // 当前工作台（workbench 页用）
         currentWorkbench: null,
-        // 当前仓库（storage 页用）
-        currentStorage: null,
         // 当前篝火（fire 页用）
         currentFire: null,
         // 当前灶台 / 雨水收集器 / 榨汁机 / 熔炉（对应子页用）

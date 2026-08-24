@@ -29,15 +29,12 @@ const InventoryMixin = {
         // 点击状态图标：弹出详情（当前值/上限 + 对应恢复物品）
         openStatDetail(key) {
             const label = (this.statItems.find(s => s.key === key) || {}).label || key;
-            // 力量：展示人物的攻击（基础+武器）、防御（基础+防具）与暴击率（暴击 2 倍伤害）
+            // 力量：展示人物的攻击（基础+武器）、减伤（装备防甲最高）与暴击率（暴击 2 倍伤害）
             if (key === 'strength') {
                 const str = this.stats.strength || 1;
                 const baseAtk = Math.round(5 + (str - 1) * 1.5);
                 const wpnDmg = (this.equipment.weapon && this.equipment.weapon.damage) || 0;
-                const baseDef = Math.round((str - 1) * 0.5);
-                const armorDef = (this.equipment.armor && this.equipment.armor.defense) || 0;
-                const hatDef = (this.equipment.hat && this.equipment.hat.defense) || 0;
-                const eqDef = armorDef + hatDef;
+                const red = Math.max((this.equipment.hat && this.equipment.hat.damageReduction) || 0, (this.equipment.armor && this.equipment.armor.damageReduction) || 0);
                 const crit = this.playerCrit();
                 this.statDetail = {
                     key: key,
@@ -47,25 +44,27 @@ const InventoryMixin = {
                     items: [],
                     attr: [
                         { label: '攻击', value: baseAtk, sub: wpnDmg ? `（+${wpnDmg}）` : '' },
-                        { label: '防御', value: baseDef, sub: eqDef ? `（+${eqDef}）` : '' },
+                        { label: '减伤', value: red + '%', sub: '' },
                         { label: '暴击', value: crit + '%', sub: '' }
                     ]
                 };
                 return;
             }
-            // 物品来源：家→背包+仓库；地图→仅背包；地点→该地点暂存点
-            let pool;
-            if (this.currentScene === 'safehouse') pool = this.bag.concat(this.storageItems || []);
-            else if (this.currentScene === 'place') pool = (this.currentPlace && this.placeStash[this.currentPlace.key]) || [];
-            else pool = this.bag;
-            // 按恢复目标 stat 筛选并聚合
+            // 物品来源：家→背包+仓库；地图→仅背包；地点→背包+该地点暂存点
+            // 按恢复目标 stat 筛选并聚合（记录首个可用位置用于点击使用）
             const map = {};
-            for (const it of pool) {
+            const addToMap = (it, source, index) => {
                 const cfg = it.restore || GameData.itemUse[it.type];
-                if (!cfg || cfg.stat !== key) continue;
-                const name = it.name;
-                if (!map[name]) map[name] = { name: name, count: 0, amount: cfg.amount || 0 };
-                map[name].count += (it.count || 1);
+                if (!cfg || cfg.stat !== key) return;
+                if (!map[it.name]) map[it.name] = { name: it.name, count: 0, amount: cfg.amount || 0, statName: cfg.statName || '', source: source, index: index };
+                map[it.name].count += (it.count || 1);
+            };
+            this.bag.forEach((it, i) => addToMap(it, 'bag', i));
+            if (this.currentScene === 'safehouse') {
+                (this.storageItems || []).forEach((it, i) => { if (!map[it.name]) addToMap(it, 'storage', i); });
+            } else if (this.currentScene === 'place') {
+                const stash = (this.currentPlace && this.placeStash[this.currentPlace.key]) || [];
+                stash.forEach((it, i) => { if (!map[it.name]) addToMap(it, 'stash', i); });
             }
             const items = Object.values(map);
             let emptyText = '暂无可恢复该状态的物品';
@@ -79,10 +78,27 @@ const InventoryMixin = {
                 items: items,
                 emptyText: emptyText
             };
+            // 打开后滚动区回到顶部
+            this.$nextTick(() => { const el = document.querySelector('.stat-detail-body'); if (el) el.scrollTop = 0; });
         },
         // 关闭状态详情弹窗
         closeStatDetail() {
             this.statDetail = null;
+        },
+        // 状态弹窗点击恢复物品：弹确认框，确认后使用该物品并刷新
+        useStatItem(item) {
+            if (!item || !this.statDetail) return;
+            const key = this.statDetail.key;
+            this.dialog = {
+                show: true, icon: '❓',
+                title: `使用「${item.name}」？`,
+                desc: `恢复 ${item.amount} 点${item.statName || ''}。`,
+                confirmText: '使用',
+                onConfirm: () => {
+                    this.useItem(item.source, item.index);
+                    this.openStatDetail(key);
+                }
+            };
         },
         // 背包 / 家具 / 床 / 工作台 / 仓库：点击均改为 iframe 加载对应子页
         openBag() {
@@ -138,10 +154,6 @@ const InventoryMixin = {
             this.currentWorkbench = item;
             this.currentPage = 'workbench';
         },
-        openStorage(item) {
-            this.currentStorage = item;
-            this.currentPage = 'storage';
-        },
         openFire(item) {
             this.currentFire = item;
             this.currentPage = 'fire';
@@ -164,7 +176,6 @@ const InventoryMixin = {
             if (!f) return;
             if (f.isBed) this.openBed(f);
             else if (f.isWorkbench) this.openWorkbench(f);
-            else if (f.isStorage) this.openStorage(f);
             else if (f.isFireplace) this.openFire(f);
             else if (f.isStove) { if (!f.unlocked) this.openFurniture(f); else this.openStove(f); }
             else if (f.isRainCollector) { if (!f.unlocked) this.openFurniture(f); else this.openRain(f); }
@@ -214,33 +225,6 @@ const InventoryMixin = {
                 }
             }
         },
-        // 仓库：点击升级 → 弹窗确认
-        upgradeStorage() {
-            const st = this.currentStorage;
-            if (!st || st.storageLevel >= st.storageLevels.length - 1) return;
-            const level = st.storageLevels[st.storageLevel];
-            const next = st.storageLevels[st.storageLevel + 1];
-            this.dialog = {
-                show: true,
-                icon: '📦',
-                title: `升级仓库：${next.name}`,
-                desc: `容量保持 ${level.capacity} 格，每槽堆叠上限 ${level.stack} → ${next.stack}，能叠放更多同类物品。`,
-                costMap: level.upgrade,
-                confirmText: '升级',
-                onConfirm: () => this.doUpgradeStorage()
-            };
-        },
-        // 执行仓库升级（满足材料时扣减并升级）
-        doUpgradeStorage() {
-            const st = this.currentStorage;
-            if (!st || st.storageLevel >= st.storageLevels.length - 1) return;
-            const cost = st.storageLevels[st.storageLevel].upgrade;
-            if (!this.hasMaterials(cost)) return;
-            this.spendMaterials(cost);
-            st.storageLevel++;
-            this.pushLog(`仓库升级为「${st.storageLevels[st.storageLevel].name}」，每槽堆叠上限提升到 ${st.storageLevels[st.storageLevel].stack}。`);
-            this.postSceneState();
-        },
         // 工作台：点击制作 → 弹窗确认
         craft(bp) {
             const cat = GameData.itemCategories[bp.type];
@@ -265,59 +249,61 @@ const InventoryMixin = {
             this.postSceneState();
         },
         // 仓库当前容量上限（固定 200 格，升级只提升堆叠上限）
+        // 仓库容量无限
         storageCapacity() {
-            const st = this.furniture.find(f => f.isStorage);
-            return st ? st.storageLevels[st.storageLevel].capacity : 0;
+            return 999999;
         },
-        // 仓库当前每槽堆叠上限（随仓库等级提升）
+        // 仓库每槽堆叠上限固定 20（不随等级变化）
         storageStack() {
-            const st = this.furniture.find(f => f.isStorage);
-            return st ? st.storageLevels[st.storageLevel].stack : 20;
+            return 20;
         },
         // 背包 → 仓库（仅安全屋可存取；普通物品按仓库堆叠上限合并，耐久物品不堆叠，放不下的剩余留在背包）
+        // 背包 → 仓库：每次转移 1 件（耐久物品整件占一槽）
         moveToStorage(index) {
             const it = this.bag[index];
             if (!it) return;
             if (this.currentScene !== 'safehouse') return;
             const stack = this.storageStack();
             const durable = !!it.durability;
-            let remaining = it.count || 1;
             if (!durable) {
-                for (const si of this.storageItems) {
-                    if (remaining <= 0) break;
-                    if (si.name === it.name) {
-                        const space = stack - (si.count || 1);
-                        if (space > 0) {
-                            const take = Math.min(remaining, space);
-                            si.count = (si.count || 1) + take;
-                            remaining -= take;
-                        }
-                    }
+                // 同类已有且未满：叠加 1 件
+                const si = this.storageItems.find(s => s.name === it.name && (s.count || 1) < stack);
+                if (si) { si.count++; }
+                else {
+                    if (this.storageItems.length >= this.storageCapacity()) { this.pushLog('仓库已满。'); return; }
+                    this.storageItems.push({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, restore: it.restore, durability: it.durability, count: 1 });
                 }
+            } else {
+                if (this.storageItems.length >= this.storageCapacity()) { this.pushLog('仓库已满。'); return; }
+                this.storageItems.push({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, restore: it.restore, durability: it.durability, count: 1 });
             }
-            while (remaining > 0) {
-                if (this.storageItems.length >= this.storageCapacity()) { this.pushLog('仓库已满，无法全部放入。'); break; }
-                const take = durable ? 1 : Math.min(remaining, stack);
-                this.storageItems.push({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, restore: it.restore, durability: it.durability, count: take });
-                remaining -= take;
-            }
-            const moved = (it.count || 1) - remaining;
-            if (moved <= 0) return;
-            if (it.count) it.count -= moved;
-            if (!it.count || it.count <= 0) this.bag.splice(index, 1);
-            this.pushLog(`放入仓库「${it.name}」×${moved}。`);
+            // 背包扣 1 件
+            if (it.count && it.count > 1) it.count--;
+            else this.bag.splice(index, 1);
+            this.pushLog(`放入仓库「${it.name}」1 件。`);
             this.postSceneState();
         },
-        // 仓库 → 背包（背包堆叠上限 20，放不下时整条拒绝移动）
+        // 仓库 → 背包：每次转移 1 件（耐久物品整件占一槽）
         moveToBag(index) {
             const it = this.storageItems[index];
             if (!it) return;
-            if (!this.canFitBag(it)) {
-                this.pushLog('背包已满，无法取出。');
-                return;
+            const durable = !!it.durability;
+            const take = durable ? 1 : 1;
+            // 检查背包是否放得下 1 件
+            if (durable) {
+                if (this.bag.length >= this.bagMax) { this.pushLog('背包已满，无法取出。'); return; }
+            } else {
+                const existing = this.bag.find(b => b.name === it.name && (b.count || 1) < 20);
+                const emptySlots = Math.max(0, this.bagMax - this.bag.length);
+                if (!existing && emptySlots <= 0) { this.pushLog('背包已满，无法取出。'); return; }
             }
-            this.storageItems.splice(index, 1);
-            this.addBag({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, durability: it.durability, restore: it.restore, count: it.count || 1 });
+            if (it.count && it.count > 1) {
+                it.count--;
+                this.addBag({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, durability: it.durability, restore: it.restore, count: take });
+            } else {
+                this.storageItems.splice(index, 1);
+                this.addBag({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, durability: it.durability, restore: it.restore, count: take });
+            }
             this.postSceneState();
         },
         // 背包能否容纳某物品（耐久物品每件占一槽不堆叠；普通物品按同类未满槽 + 空槽×20）
@@ -400,7 +386,7 @@ const InventoryMixin = {
         equipItem(index) {
             const it = this.bag[index];
             if (!it) return;
-            const slot = this.slotOf(it.type, it.name);
+            const slot = this.slotOf(it.type, it.name, it.slot);
             if (!slot) return;
             if (this.equipment[slot]) {
                 if (this.bag.length >= this.bagMax) { this.pushLog('背包已满，无法替换装备。'); return; }
@@ -421,11 +407,14 @@ const InventoryMixin = {
             this.pushLog(`卸下了「${it.name}」（${this.slotLabel(slot)}槽）。`);
             this.postSceneState();
         },
-        // 物品对应装备槽：武器→武器；工具→工具；头盔→帽子；其余防具→防具
-        slotOf(type, name) {
+        // 物品对应装备槽：武器→武器；工具→工具；防具→优先 slot 字段（hat/armor），否则按名字（含"盔/帽"→hat）
+        slotOf(type, name, slot) {
             if (type === 'weapon') return 'weapon';
             if (type === 'tool') return 'tool';
-            if (type === 'armor') return name === '头盔' ? 'hat' : 'armor';
+            if (type === 'armor') {
+                if (slot === 'hat' || slot === 'armor') return slot;
+                return (name && (name.includes('盔') || name.includes('帽'))) ? 'hat' : 'armor';
+            }
             return null;
         },
         // 装备槽显示名
@@ -434,7 +423,10 @@ const InventoryMixin = {
         },
         // 使用物品（吃/喝/使用药品）：恢复对应状态，状态已满时提示
         useItem(source, index) {
-            const list = source === 'storage' ? this.storageItems : this.bag;
+            let list;
+            if (source === 'storage') list = this.storageItems;
+            else if (source === 'stash') list = (this.currentPlace && this.placeStash[this.currentPlace.key]) || [];
+            else list = this.bag;
             const it = list[index];
             if (!it) return;
             // 熟食/菜谱等物品自带 restore，否则按类型取默认使用效果
@@ -617,33 +609,6 @@ const InventoryMixin = {
                 this.stats[k] = Math.min(limits[k], this.stats[k] + gain);
             });
         },
-        // ============ 灶台 / 烹饪锅 ============
-        upgradeStove() {
-            const st = this.currentStove;
-            if (!st || st.stoveLevel >= st.stoveLevels.length - 1) return;
-            const level = st.stoveLevels[st.stoveLevel];
-            const next = st.stoveLevels[st.stoveLevel + 1];
-            this.dialog = {
-                show: true, icon: '🍳',
-                title: `升级灶台：${next.name}`,
-                desc: st.stoveLevel === 0
-                    ? `当前可加热食物、净水；升级为「${next.name}」后解锁菜谱做饭。`
-                    : `升级为「${next.name}」。`,
-                costMap: level.upgrade,
-                confirmText: '升级',
-                onConfirm: () => this.doUpgradeStove()
-            };
-        },
-        doUpgradeStove() {
-            const st = this.currentStove;
-            if (!st || st.stoveLevel >= st.stoveLevels.length - 1) return;
-            const cost = st.stoveLevels[st.stoveLevel].upgrade;
-            if (!this.hasMaterials(cost)) return;
-            this.spendMaterials(cost);
-            st.stoveLevel++;
-            this.pushLog(`灶台升级为「${st.stoveLevels[st.stoveLevel].name}」，烹饪能力更强了。`);
-            this.postSceneState();
-        },
         // 熔炉加燃料等：背包+仓库某物品总数量（熔炉仅在安全屋使用，等价于 materialCount）
         combinedCount(name) {
             return this.materialCount(name);
@@ -663,9 +628,7 @@ const InventoryMixin = {
             const a = list.find(x => x.name === name);
             if (!a) return;
             if (kind === 'stove') {
-                const st = this.currentStove;
-                if (!st) return;
-                if (st.stoveLevel < a.level) { this.pushLog(`「${name}」需先把灶台升级为烹饪锅。`); return; }
+                if (!this.currentStove) return;
             } else if (!this.currentJuicer) {
                 return;
             }
@@ -696,6 +659,58 @@ const InventoryMixin = {
             };
             this.cookRAF = requestAnimationFrame(step);
         },
+        // 篝火烹饪（烤肉/烤鱼/烧水等）：烧水需先放锅
+        startFireCook(name) {
+            if (this.cooking) return;
+            const fire = this.currentFire;
+            if (!fire) return;
+            const a = GameData.fireMenu.find(x => x.name === name);
+            if (!a) return;
+            if (a.needsPot && !fire.hasPot) { this.pushLog('烧水需要在篝火上放一口锅。'); return; }
+            const o = a.output;
+            const existing = this.bag.find(i => i.name === o.name);
+            if (this.bag.length >= this.bagMax && !existing) {
+                this.pushLog('背包已满，无法放入成品。');
+                return;
+            }
+            if (!this.hasCombined(a.inputs)) { this.pushLog(`材料不足，无法${name === '烧水' ? '烧水' : '烹饪'}「${name}」。`); return; }
+            this.spendCombined(a.inputs);
+            const COOK_MS = 1500;
+            const COOK_SECONDS = 1800;
+            this.cooking = { kind: 'fire', name, output: o };
+            this.cookTarget = this.gameSeconds + COOK_SECONDS;
+            this.postSceneState();
+            const speed = COOK_SECONDS / COOK_MS;
+            let last = performance.now();
+            const step = (now) => {
+                if (!this.cooking) return;
+                const dt = now - last;
+                last = now;
+                this.advanceGameTime(speed * dt);
+                if (this.gameSeconds < this.cookTarget) {
+                    this.cookRAF = requestAnimationFrame(step);
+                }
+            };
+            this.cookRAF = requestAnimationFrame(step);
+        },
+        // 篝火锅槽：放入/取下锅
+        toggleFirePot() {
+            const fire = this.currentFire;
+            if (!fire) return;
+            if (fire.hasPot) {
+                if (this.bag.length >= this.bagMax) { this.pushLog('背包已满，无法取下锅。'); return; }
+                fire.hasPot = false;
+                this.bag.push({ name: '锅', type: 'tool' });
+                this.pushLog('把锅从篝火上取下。');
+            } else {
+                const idx = this.bag.findIndex(i => i.name === '锅');
+                if (idx === -1) { this.pushLog('背包里没有锅。'); return; }
+                fire.hasPot = true;
+                this.bag.splice(idx, 1);
+                this.pushLog('把锅放在了篝火上。');
+            }
+            this.postSceneState();
+        },
         // 进度条动画结束：补齐剩余游戏时间并产出成品
         finishCooking() {
             if (!this.cooking) return;
@@ -705,7 +720,9 @@ const InventoryMixin = {
             const o = this.cooking.output;
             const kind = this.cooking.kind;
             this.addBag({ name: o.name, type: o.type, restore: o.restore, count: 1 });
-            this.pushLog(kind === 'stove' ? `制作了「${o.name}」。` : `榨了杯「${o.name}」。`);
+            if (kind === 'stove') this.pushLog(`制作了「${o.name}」。`);
+            else if (kind === 'fire') this.pushLog(`在篝火上做好了「${o.name}」。`);
+            else this.pushLog(`榨了杯「${o.name}」。`);
             this.cooking = null;
             this.postSceneState();
         },
@@ -778,16 +795,14 @@ const InventoryMixin = {
             }
             if (!this.hasCombined(r.inputs)) { this.pushLog(`原料不足，无法加工「${name}」。`); return; }
             this.spendCombined(r.inputs);
-            const kind = r.output.name === '铁' ? 'iron' : 'plastic';
-            this.furnaceJobs.push({ kind, remaining: 10 * 60 });   // 10 游戏分钟
-            this.pushLog(`熔炉开始加工${name}（槽 ${this.furnaceJobs.length}/6），约需 10 分钟（后台计时）。`);
+            const kind = r.output.name;   // '铁' / '塑料' / '玻璃'
+            this.furnaceJobs.push({ kind, remaining: 30 * 60 });   // 30 游戏分钟
+            this.pushLog(`熔炉开始加工${name}（槽 ${this.furnaceJobs.length}/6），约需 30 分钟（后台计时）。`);
             this.postSceneState();
         },
         // 单个加工槽完成：产出成品入背包
         furnaceOutput(job) {
-            const out = job.kind === 'iron'
-                ? { name: '铁', type: 'material' }
-                : { name: '塑料', type: 'material' };
+            const out = { name: job.kind, type: 'material' };
             const existing = this.bag.find(i => i.name === out.name);
             if (this.bag.length >= this.bagMax && !existing) {
                 this.pushLog(`背包已满，「${out.name}」未能放入。`);

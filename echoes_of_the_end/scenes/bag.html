@@ -66,7 +66,7 @@
                         <span class="equip-item-name" v-text="e.item.name"></span>
                         <span class="equip-item-stat">
                             <span v-if="e.item.damage" v-text="'攻 ' + e.item.damage"></span>
-                            <span v-if="e.item.defense" v-text="'防 ' + e.item.defense"></span>
+                            <span v-if="e.item.damageReduction" v-text="'减伤 ' + e.item.damageReduction + '%'"></span>
                             <span v-if="e.item.durability" v-text="'耐 ' + e.item.durability"></span>
                         </span>
                     </div>
@@ -103,10 +103,10 @@
             equipMenu: { show: false, slot: null, items: [] }
         },
         computed: {
-            // 下部展示：有战利品（搜刮所得）优先；否则家→仓库、地点→暂存点、地图→不显示
+            // 下部展示：搜刮后（有 pendingLoot）恒为战利品区（即使取完）；否则家→仓库、地点→暂存点、地图→不显示
             storageView() {
-                if (this.pendingLoot && this.pendingLoot.items && this.pendingLoot.items.length) {
-                    return { title: '战利品', items: this.pendingLoot.items, isLoot: true };
+                if (this.pendingLoot) {
+                    return { title: '战利品', items: this.pendingLoot.items || [], isLoot: true };
                 }
                 if (this.currentScene === 'safehouse') {
                     return { title: '仓库', items: this.storageItems || [] };
@@ -126,9 +126,11 @@
             send(msg) {
                 window.parent.postMessage(msg, '*');
             },
-            // 点击背包物品：转移到仓库（家）或暂存点（地点）
+            // 点击背包物品：搜刮后移入战利品区；否则家→仓库、地点→暂存点
             onBagItem(index) {
-                if (this.currentScene === 'safehouse') {
+                if (this.pendingLoot) {
+                    this.send({ type: 'bag-to-loot', index: index });
+                } else if (this.currentScene === 'safehouse') {
                     this.send({ type: 'bag-move-storage', index: index });
                 } else if (this.currentScene === 'place') {
                     this.send({ type: 'bag-stash', index: index });
@@ -159,10 +161,12 @@
                 for (var i = 0; i < this.bag.length; i++) {
                     var it = this.bag[i];
                     if (!it) continue;
+                    var isHat = it.type === 'armor' && (it.slot === 'hat' || (!it.slot && it.name && (it.name.includes('盔') || it.name.includes('帽'))));
+                    var isArmor = it.type === 'armor' && !isHat;
                     var match = slot === 'weapon' ? it.type === 'weapon'
                         : slot === 'tool' ? it.type === 'tool'
-                        : slot === 'hat' ? (it.type === 'armor' && it.name === '头盔')
-                        : slot === 'armor' ? (it.type === 'armor' && it.name !== '头盔')
+                        : slot === 'hat' ? isHat
+                        : slot === 'armor' ? isArmor
                         : false;
                     if (match) list.push({ item: it, index: i, equipped: false });
                 }
@@ -196,6 +200,13 @@
             app.bagLevel = msg.state.bagLevel || 0;
             app.equipment = msg.state.equipment || { weapon: null, tool: null, hat: null, armor: null };
             app.loaded = true;
+            // 打开背包后：各滚动区回到顶部
+            app.$nextTick(function () {
+                var el = document.querySelector('.bag-mid .st-items');
+                if (el) el.scrollTop = 0;
+                var el2 = document.querySelector('.bag-bottom .st-items');
+                if (el2) el2.scrollTop = 0;
+            });
         }
     });
     </script>

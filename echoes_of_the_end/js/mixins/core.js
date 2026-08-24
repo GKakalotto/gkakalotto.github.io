@@ -150,7 +150,9 @@ const CoreMixin = {
             const s = this.stats;
             const hours = seconds / HOUR_SECONDS;
             const wasHungry = s.hunger > 0, wasThirsty = s.water > 0;
-            s.hunger = Math.max(0, s.hunger - 3 * hours);
+            // 铁甲等防具可能加快饱食消耗（hungerMult）
+            const hMult = (this.equipment && this.equipment.armor && this.equipment.armor.hungerMult) || 1;
+            s.hunger = Math.max(0, s.hunger - 3 * hours * hMult);
             s.water = Math.max(0, s.water - 3 * hours);
             // 理智（精神值）：基础缓慢流失；超过 24 游戏小时未睡觉则额外加速流失
             s.sanity = Math.max(0, s.sanity - 0.5 * hours);

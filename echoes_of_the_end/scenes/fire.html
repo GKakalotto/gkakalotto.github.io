@@ -14,12 +14,21 @@
         <div class="page-header">
             <button class="page-back" @click="send({ type: 'close-page' })">‹ 返回</button>
         </div>
-        <div class="page-body">
-            <!-- 燃烧状态与剩余燃料倒计时 -->
-            <div class="upgrade-card fire-info">
-                <div class="fire-status" :class="{ lit: burning }" v-text="burning ? '🔥 燃烧中' : '⛔ 已熄灭'"></div>
-                <div class="fire-timer" v-text="timerText"></div>
-                <div class="fire-desc" v-text="burning ? '篝火燃烧中，房间温暖。' : '添加木板点燃篝火。'"></div>
+        <div class="page-body fire-body">
+            <!-- 燃烧状态（窄）与锅槽（右侧）并排 -->
+            <div class="fire-top">
+                <div class="upgrade-card fire-info">
+                    <div class="fire-status" :class="{ lit: burning }" v-text="burning ? '🔥 燃烧中' : '⛔ 已熄灭'"></div>
+                    <div class="fire-timer" v-text="timerText"></div>
+                    <div class="fire-desc" v-text="burning ? '篝火燃烧中，房间温暖。' : '添加木板点燃篝火。'"></div>
+                </div>
+                <!-- 锅槽：放锅后可以烧水；点击放入/取下锅 -->
+                <div class="fire-pot">
+                    <div class="fire-add-title">锅槽</div>
+                    <button class="fire-pot-slot" :class="{ has: hasPot }" @click="send({ type: 'fire-pot' })"
+                            :title="hasPot ? '取下锅' : '放一口锅'"
+                            v-text="hasPot ? '🍳' : ''"></button>
+                </div>
             </div>
 
             <!-- 添加燃料 -->
@@ -31,6 +40,29 @@
                             @click="send({ type: 'add-fuel', count: n })">
                         {{ '添加 ' + n + ' 块' }}
                     </button>
+                </div>
+            </div>
+
+            <!-- 篝火烹饪菜单（烤肉/烤鱼/烧水等；烧水需放锅）：标题固定，仅菜单项滚动 -->
+            <div class="fire-menu">
+                <div class="fire-add-title">烹饪</div>
+                <div class="fire-menu-list">
+                    <div v-for="a in GameData.fireMenu" :key="a.name" class="stove-item-row">
+                        <div class="stove-item-main">
+                            <span class="stove-item-name" v-text="a.name"></span>
+                            <span class="stove-item-cost">
+                                <span v-for="(amt, mat) in a.inputs" :key="mat"
+                                      :class="have(mat) >= amt ? 'enough' : 'lacking'" v-text="mat + '×' + amt"></span>
+                            </span>
+                        </div>
+                        <button class="bed-upgrade-btn stove-cook-btn"
+                                :class="{ cooking: cooking && cooking.name === a.name }"
+                                :disabled="!!cooking || !canFireCook(a)"
+                                @click="send({ type: 'fire-cook', name: a.name })">
+                            <div v-if="cooking && cooking.name === a.name" class="stove-cook-fill" @animationend="onCookAnimEnd"></div>
+                            <span v-text="cooking && cooking.name === a.name ? '烹饪中…' : (a.needsPot && !hasPot ? '需放锅' : '制作')"></span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -50,9 +82,14 @@
             storageItems: [],
             fuelUntil: 0,
             gameSeconds: 0,
+            cooking: null,
             addAmounts: [1, 2, 4, 8]
         },
         computed: {
+            // 篝火是否已放锅
+            hasPot() {
+                return !!(this.fire && this.fire.hasPot);
+            },
             burning() {
                 return !!this.fire && this.gameSeconds < this.fuelUntil;
             },
@@ -67,16 +104,40 @@
             },
             // 剩余燃料倒计时（X 小时 Y 分）
             timerText() {
-                if (!this.burning) return '剩余燃料 0 分钟';
+                if (!this.burning) return '剩余 0 分钟';
                 var sec = this.fuelUntil - this.gameSeconds;
                 var h = Math.floor(sec / 3600);
                 var m = Math.floor((sec % 3600) / 60);
-                return '剩余燃料 ' + (h > 0 ? h + ' 小时 ' : '') + m + ' 分钟';
+                return '剩余 ' + (h > 0 ? h + ' 小时 ' : '') + m + ' 分钟';
+            },
+            // 背包 + 仓库全部物品
+            allItems() {
+                return (this.bag || []).concat(this.storageItems || []);
             }
         },
         methods: {
             send(msg) {
                 window.parent.postMessage(msg, '*');
+            },
+            // 当前背包+仓库中某物品总数量
+            have(name) {
+                return this.allItems
+                    .filter(it => it.name === name)
+                    .reduce((s, it) => s + (it.count || 1), 0);
+            },
+            // 篝火菜单项是否可做：烧水需放锅，且原料充足
+            canFireCook(a) {
+                if (a.needsPot && !this.hasPot) return false;
+                for (var mat in a.inputs) {
+                    if (this.have(mat) < a.inputs[mat]) return false;
+                }
+                return true;
+            },
+            // 进度条填充动画结束：通知外壳结算产出
+            onCookAnimEnd(e) {
+                if (e.animationName === 'bedSleepFill') {
+                    this.send({ type: 'cook-anim-end' });
+                }
             }
         }
     });
@@ -89,6 +150,7 @@
             app.storageItems = msg.state.storageItems || [];
             app.fuelUntil = msg.state.fireFuelUntil;
             app.gameSeconds = msg.state.gameSeconds;
+            app.cooking = msg.state.cooking || null;
             app.loaded = true;
         }
     });

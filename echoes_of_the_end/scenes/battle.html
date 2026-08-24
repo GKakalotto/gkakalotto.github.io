@@ -19,6 +19,7 @@
                     <div class="battle-icon" v-text="battle.zombie.icon"></div>
                     <div class="battle-name" v-text="battle.zombie.name"></div>
                     <div class="battle-hp">血量 {{ battle.zombieHp }} / {{ battle.zombie.hp }}</div>
+                    <div class="battle-strength" v-if="battle.count > 1 && !battle.over">第 {{ battle.index + 1 }} / {{ battle.count }} 只</div>
                 </div>
                 <div class="battle-card player">
                     <div class="battle-icon">😮</div>

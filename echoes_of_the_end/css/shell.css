@@ -161,7 +161,7 @@
     position: fixed; inset: 0;
     background: rgba(0, 0, 0, 0.6);
     display: flex; justify-content: center; align-items: center;
-    z-index: 100;
+    z-index: 110;   /* 确认框须位于所有弹窗之上 */
 }
 .dialog-panel {
     width: 280px;
@@ -282,6 +282,8 @@
     display: flex; justify-content: space-between; align-items: center;
     font-size: 13px; color: #ccc;
 }
+.stat-detail-item.clickable { cursor: pointer; }
+.stat-detail-item.clickable:hover { color: #ffcc00; }
 .sdi-amt { color: #6fdc6f; flex-shrink: 0; margin-left: 10px; }
 /* 物品行内数量：黄色 */
 .sdi-count { color: #ffcc00; }

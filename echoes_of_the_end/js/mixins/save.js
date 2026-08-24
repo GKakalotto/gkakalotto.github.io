@@ -35,6 +35,7 @@ const SaveMixin = {
                         rainLevel: f.rainLevel,
                         plantationLevel: f.plantationLevel,
                         rainWater: f.rainWater,
+                        fireHasPot: f.hasPot,
                         unlocked: f.unlocked
                     })),
                     outdoorState: this.outdoors.map(o => ({ unlocked: o.unlocked }))
@@ -102,8 +103,9 @@ const SaveMixin = {
             // 熔炉燃料剩余游戏秒 / 后台加工队列（旧档无此字段时保持默认）
             if (typeof save.furnaceFuel === 'number') this.furnaceFuel = save.furnaceFuel;
             if (Array.isArray(save.furnaceJobs)) {
+                const valid = { '铁': 1, '塑料': 1, '玻璃': 1 };
                 this.furnaceJobs = save.furnaceJobs
-                    .filter(j => j && (j.kind === 'plastic' || j.kind === 'iron') && typeof j.remaining === 'number')
+                    .filter(j => j && valid[j.kind] && typeof j.remaining === 'number')
                     .map(j => ({ kind: j.kind, remaining: j.remaining }));
             }
             // 种植园作物队列（旧档无此字段时保持默认）
@@ -126,6 +128,7 @@ const SaveMixin = {
                     if (typeof st.rainLevel === 'number') f.rainLevel = st.rainLevel;
                     if (typeof st.plantationLevel === 'number') f.plantationLevel = st.plantationLevel;
                     if (typeof st.rainWater === 'number') f.rainWater = st.rainWater;
+                    if (typeof st.fireHasPot === 'boolean') f.hasPot = st.fireHasPot;
                     if (typeof st.unlocked === 'boolean') f.unlocked = st.unlocked;
                 });
             }
