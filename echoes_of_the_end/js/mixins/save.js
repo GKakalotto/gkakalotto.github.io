@@ -33,7 +33,6 @@ const SaveMixin = {
                         fireLevel: f.fireLevel,
                         stoveLevel: f.stoveLevel,
                         rainLevel: f.rainLevel,
-                        chairLevel: f.chairLevel,
                         plantationLevel: f.plantationLevel,
                         rainWater: f.rainWater,
                         unlocked: f.unlocked
@@ -54,7 +53,12 @@ const SaveMixin = {
             if (typeof save.lastSleepAt === 'number') this.lastSleepAt = save.lastSleepAt;
             else this.lastSleepAt = this.gameSeconds;
             if (typeof save.weatherName === 'string') this.weatherName = save.weatherName;
-            if (save.stats) Object.assign(this.stats, save.stats);
+            if (save.stats) {
+                Object.assign(this.stats, save.stats);
+                // 旧档可能残留已移除的体力/精力字段，清除避免冗余
+                delete this.stats.stamina;
+                delete this.stats.physical;
+            }
             if (save.currentScene) {
                 // 占位场景不持久化：读档时回退到地图，避免 currentPlace 缺失
                 this.currentScene = save.currentScene === 'place' ? 'map' : save.currentScene;
@@ -88,6 +92,7 @@ const SaveMixin = {
             if (save.equipment) {
                 this.equipment = {
                     weapon: save.equipment.weapon || null,
+                    tool: save.equipment.tool || null,
                     hat: save.equipment.hat || null,
                     armor: save.equipment.armor || null
                 };
@@ -119,7 +124,6 @@ const SaveMixin = {
                     if (typeof st.fireLevel === 'number') f.fireLevel = st.fireLevel;
                     if (typeof st.stoveLevel === 'number') f.stoveLevel = st.stoveLevel;
                     if (typeof st.rainLevel === 'number') f.rainLevel = st.rainLevel;
-                    if (typeof st.chairLevel === 'number') f.chairLevel = st.chairLevel;
                     if (typeof st.plantationLevel === 'number') f.plantationLevel = st.plantationLevel;
                     if (typeof st.rainWater === 'number') f.rainWater = st.rainWater;
                     if (typeof st.unlocked === 'boolean') f.unlocked = st.unlocked;

@@ -13,8 +13,6 @@
     <div id="fire" class="page-root" v-cloak style="display:none" v-show="loaded">
         <div class="page-header">
             <button class="page-back" @click="send({ type: 'close-page' })">‹ 返回</button>
-            <button v-if="fire && fire.fireLevel < fire.fireLevels.length - 1" class="upgrade-btn" @click="send({ type: 'upgrade-fire' })">升级</button>
-            <span v-else class="upgrade-max">已达最高等级</span>
         </div>
         <div class="page-body">
             <!-- 燃烧状态与剩余燃料倒计时 -->

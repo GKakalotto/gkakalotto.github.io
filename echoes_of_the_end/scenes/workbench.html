@@ -17,14 +17,14 @@
         <div class="page-body">
             <!-- 一级：分类菜单 -->
             <div v-if="view === 'menu'" class="wb-menu">
-                <div class="wb-cat" v-for="(list, cat) in blueprints" :key="cat" @click="openCat(cat)">
+                <div class="wb-cat" v-for="cat in cats" :key="cat" @click="openCat(cat)">
                     <span class="wb-cat-icon" v-text="UI.catIcon(cat)"></span>
                     <span class="wb-cat-name" v-text="UI.catName(cat)"></span>
-                    <span class="wb-cat-count" v-text="list.length + ' 项'"></span>
+                    <span class="wb-cat-count" v-text="catCount(cat)"></span>
                 </div>
             </div>
-            <!-- 二级：所选分类的蓝图列表 -->
-            <div v-else class="wb-list">
+            <!-- 二级：蓝图列表或升级列表 -->
+            <div v-else-if="cat !== 'upgrade'" class="wb-list">
                 <div class="wb-bp" v-for="(bp, i) in blueprints[cat]" :key="i">
                     <div class="wb-bp-head">
                         <span class="wb-bp-name" v-text="bp.name + (bp.count > 1 ? ' ×' + bp.count : '')"></span>
@@ -34,6 +34,20 @@
                               :class="have(mat) >= amt ? 'enough' : 'lacking'" v-text="mat + ' ×' + amt"></span>
                     </div>
                     <button class="wb-craft-btn" :disabled="!canCraft(bp.cost)" @click="craft(cat, i)">制作</button>
+                </div>
+            </div>
+            <!-- 二级：升级列表（原分散在各家具/背包页的升级统一收拢到这里） -->
+            <div v-else class="wb-list">
+                <div class="wb-bp" v-for="u in upgradeList" :key="u.type">
+                    <div class="wb-bp-head">
+                        <span class="wb-bp-name" v-text="u.name"></span>
+                    </div>
+                    <div v-if="!u.maxed" class="wb-bp-cost">
+                        <span class="bed-cost-item" v-for="(amt, mat) in u.cost" :key="mat"
+                              :class="have(mat) >= amt ? 'enough' : 'lacking'" v-text="mat + ' ×' + amt"></span>
+                    </div>
+                    <button v-if="!u.maxed" class="wb-craft-btn" :disabled="!canCraft(u.cost)" @click="upgrade(u.type)">升级</button>
+                    <span v-else class="upgrade-max">已达最高等级</span>
                 </div>
             </div>
         </div>
@@ -51,12 +65,52 @@
             wb: null,
             bag: [],
             storageItems: [],
-            view: 'menu',   // 'menu' 一级分类 / 'list' 二级蓝图
+            furniture: [],
+            bagLevel: 0,
+            bagMax: 0,
+            view: 'menu',   // 'menu' 一级分类 / 'list' 二级蓝图或升级
             cat: null       // 当前选中的分类
         },
         computed: {
+            // 六类蓝图（来自工作台数据）
             blueprints() {
                 return this.wb ? this.wb.blueprints : {};
+            },
+            // 一级菜单分类：六类蓝图 + 升级
+            cats() {
+                return Object.keys(this.blueprints).concat(['upgrade']);
+            },
+            // 升级列表：床/篝火/灶台/雨水/仓库/种植园 + 背包
+            upgradeList() {
+                const f = this.furniture || [];
+                const find = (flag) => f.find(x => x[flag]);
+                const items = [
+                    { flag: 'isBed', type: 'bed', name: '床', levelKey: 'bedLevel', levelsKey: 'bedLevels' },
+                    { flag: 'isFireplace', type: 'fire', name: '篝火', levelKey: 'fireLevel', levelsKey: 'fireLevels' },
+                    { flag: 'isStove', type: 'stove', name: '灶台', levelKey: 'stoveLevel', levelsKey: 'stoveLevels' },
+                    { flag: 'isRainCollector', type: 'rain', name: '雨水收集器', levelKey: 'rainLevel', levelsKey: 'rainLevels' },
+                    { flag: 'isStorage', type: 'storage', name: '仓库', levelKey: 'storageLevel', levelsKey: 'storageLevels' },
+                    { flag: 'isPlantation', type: 'plantation', name: '种植园', levelKey: 'plantationLevel', levelsKey: 'plantationLevels' }
+                ];
+                const list = items.map(it => {
+                    const x = find(it.flag);
+                    if (!x) return null;
+                    const level = x[it.levelKey] || 0;
+                    const levels = x[it.levelsKey] || [];
+                    const maxed = level >= levels.length - 1;
+                    const cost = maxed ? {} : (levels[level].upgrade || {});
+                    return { type: 'upgrade-' + it.type, name: it.name, level: level, maxed: maxed, cost: cost };
+                }).filter(Boolean);
+                // 背包升级
+                const bagMaxed = this.bagLevel >= this.bagUpgradeMax();
+                list.push({
+                    type: 'upgrade-bag',
+                    name: '背包',
+                    level: this.bagLevel,
+                    maxed: bagMaxed,
+                    cost: bagMaxed ? {} : this.bagUpgradeCost()
+                });
+                return list;
             }
         },
         methods: {
@@ -76,7 +130,13 @@
                 }
                 return true;
             },
-            // 进入某分类的二级蓝图列表
+            // 一级菜单各类别的条目数
+            catCount(cat) {
+                if (cat === 'upgrade') return this.upgradeList.length + ' 项';
+                const list = this.blueprints[cat];
+                return (list ? list.length : 0) + ' 项';
+            },
+            // 进入某分类的二级列表
             openCat(cat) {
                 this.cat = cat;
                 this.view = 'list';
@@ -84,6 +144,21 @@
             // 制作：把分类 + 索引交给外壳处理（材料校验与扣减在外壳）
             craft(cat, index) {
                 this.send({ type: 'craft', cat: cat, index: index });
+            },
+            // 背包升级最大等级（与外壳 GameData.bagLevels 一致）
+            bagUpgradeMax() {
+                const levels = (window.GameData && window.GameData.bagLevels) || [];
+                return levels.length - 1;
+            },
+            // 背包升级成本：复用外壳 GameData 中 bagLevels 配置（当前等级的 upgrade）
+            bagUpgradeCost() {
+                const levels = (window.GameData && window.GameData.bagLevels) || [];
+                const cur = levels[this.bagLevel];
+                return cur ? (cur.upgrade || {}) : {};
+            },
+            // 升级：把升级类型交给外壳处理（弹窗/扣料在外壳）
+            upgrade(type) {
+                this.send({ type: type });
             }
         }
     });
@@ -94,6 +169,9 @@
             app.wb = msg.state.currentWorkbench;
             app.bag = msg.state.bag;
             app.storageItems = msg.state.storageItems || [];
+            app.furniture = msg.state.furniture || [];
+            app.bagLevel = msg.state.bagLevel || 0;
+            app.bagMax = msg.state.bagMax || 0;
             app.loaded = true;
         }
     });

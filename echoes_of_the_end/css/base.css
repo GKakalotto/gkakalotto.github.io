@@ -24,9 +24,9 @@ body.scene-page {
     padding: 10px;
 }
 
-/* 滚动条美化 */
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
+/* 所有滚动条一律隐藏（内容仍可滚动，仅不显示滚动条） */
+* { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
 /* 电脑端响应式：整体限制 450px 宽模拟手机屏幕，悬停效果更明显 */
 @media screen and (min-width: 768px) {

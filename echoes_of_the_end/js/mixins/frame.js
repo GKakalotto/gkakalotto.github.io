@@ -70,6 +70,7 @@ const FrameMixin = {
                     cellResources: this.cellResources,
                     locationResources: this.locationResources,
                     placeStash: this.placeStash,
+                    pendingLoot: this.pendingLoot,
                     equipment: this.equipment,
                     currentBed: this.currentBed,
                     currentStorage: this.currentStorage,
@@ -78,7 +79,6 @@ const FrameMixin = {
                     currentFire: this.currentFire,
                     currentStove: this.currentStove,
                     currentRain: this.currentRain,
-                    currentChair: this.currentChair,
                     currentJuicer: this.currentJuicer,
                     currentFurnace: this.currentFurnace,
                     furnaceFuel: this.furnaceFuel,
@@ -142,16 +142,12 @@ const FrameMixin = {
                 case 'loc-search':
                     this.startLocationSearch(msg.mode);
                     break;
-                // 搜刮物资弹窗确认（keep 为带走的索引数组，其余进暂存区）
-                case 'loot-confirm':
-                    this.lootConfirm(msg.keep);
-                    break;
-                // 暂存区取出（单条 / 批量选中）
+                // 暂存区取出 / 战利品取回（点击直接取回背包）
                 case 'stash-take':
                     this.stashTake(msg.index);
                     break;
-                case 'stash-take-many':
-                    this.stashTakeMany(msg.keep);
+                case 'loot-take':
+                    this.takeLoot(msg.index);
                     break;
                 // 地点特殊玩法：打猎 / 取水 / 钓鱼 / 领养狗
                 case 'hunt':
@@ -281,13 +277,6 @@ const FrameMixin = {
                 case 'rain-bottle':
                     this.bottleRain();
                     break;
-                // 椅子：升级 / 休息
-                case 'upgrade-chair':
-                    this.upgradeChair();
-                    break;
-                case 'chair-rest':
-                    this.restChair();
-                    break;
                 // 熔炉：加燃料 / 开始加工
                 case 'add-furnace-fuel':
                     this.addFurnaceFuel(msg.count);
@@ -313,7 +302,6 @@ const FrameMixin = {
         },
         // 开始移动：外壳负责推进游戏时间，iframe 负责红点动画；完成后回调
         startTravel(from, to, seconds, cb) {
-            if (this.resting) this.stopRest();   // 移动前自动结束休息
             this.moving = true;
             this.pendingTravelCb = cb;
             const path = this.buildRoute(from.gx, from.gy, to.gx, to.gy);
@@ -351,6 +339,14 @@ const FrameMixin = {
             if (this.battleTimer) { clearInterval(this.battleTimer); this.battleTimer = null; }
             this.battle = null;
             this.pendingAfterBattle = null;
+            // 关闭背包：未取回的战利品落入当前地点暂存区
+            if (this.pendingLoot && this.pendingLoot.items && this.pendingLoot.items.length) {
+                let n = 0;
+                for (const it of this.pendingLoot.items) { this.stashAdd(this.pendingLoot.placeKey, it); n += it.count || 1; }
+                this.pushLog(`${n} 件战利品放进了该地点暂存区，可随时回来取。`);
+                this.saveGame();
+            }
+            this.pendingLoot = null;
             this.currentPage = null;
         },
         // 解锁当前家具详情页所指的家具（消耗材料后置 unlocked），保存并直接打开对应功能页
@@ -368,7 +364,6 @@ const FrameMixin = {
             // 有功能页的家具解锁后直接进对应子页
             if (f.isStove) this.openStove(f);
             else if (f.isRainCollector) this.openRain(f);
-            else if (f.isChair) this.openChair(f);
             else if (f.isJuicer) this.openJuicer(f);
             else if (f.isFurnace) this.openFurnace(f);
             else if (f.isPlantation) this.openPlantation(f);

@@ -8,19 +8,81 @@ const InventoryMixin = {
         closeSettings() {
             this.showSettings = false;
         },
-        // 状态面板：❤ 切换 / 关闭
-        toggleStats() {
-            this.showStats = !this.showStats;
-        },
-        closeStats() {
-            this.showStats = false;
-        },
-        // 状态条百分比：按各自上限换算（血量受健康、体力受力量影响；力量为等级 1-10）
+        // 状态条百分比：按各自上限换算（血量受健康影响；力量为等级 1-10）
         statPct(key) {
-            const limits = { hunger: 150, water: 150, sanity: 200, stamina: 100, physical: this.physicalMax, health: 100, strength: 10 };
+            const limits = { hunger: 150, water: 150, sanity: 200, health: 100, strength: 10 };
             const max = key === 'hp' ? this.hpMax : (limits[key] || 100);
             if (!max) return 0;
             return Math.round(Math.max(0, Math.min(1, this.stats[key] / max)) * 100);
+        },
+        // 是否低状态：力量不计入；其余状态低于上限 30% 时返回 true（用于红色光晕提示）
+        isLow(key) {
+            if (key === 'strength') return false;
+            return this.statPct(key) < 30;
+        },
+        // 状态上限：hp 受健康度影响，其余为固定值；strength 为等级 1-10
+        statMax(key) {
+            if (key === 'hp') return this.hpMax;
+            const limits = { hunger: 150, water: 150, sanity: 200, health: 100, strength: 10 };
+            return limits[key] || 100;
+        },
+        // 点击状态图标：弹出详情（当前值/上限 + 对应恢复物品）
+        openStatDetail(key) {
+            const label = (this.statItems.find(s => s.key === key) || {}).label || key;
+            // 力量：展示人物的攻击（基础+武器）、防御（基础+防具）与暴击率（暴击 2 倍伤害）
+            if (key === 'strength') {
+                const str = this.stats.strength || 1;
+                const baseAtk = Math.round(5 + (str - 1) * 1.5);
+                const wpnDmg = (this.equipment.weapon && this.equipment.weapon.damage) || 0;
+                const baseDef = Math.round((str - 1) * 0.5);
+                const armorDef = (this.equipment.armor && this.equipment.armor.defense) || 0;
+                const hatDef = (this.equipment.hat && this.equipment.hat.defense) || 0;
+                const eqDef = armorDef + hatDef;
+                const crit = this.playerCrit();
+                this.statDetail = {
+                    key: key,
+                    name: label,
+                    value: this.stats[key],
+                    max: this.statMax(key),
+                    items: [],
+                    attr: [
+                        { label: '攻击', value: baseAtk, sub: wpnDmg ? `（+${wpnDmg}）` : '' },
+                        { label: '防御', value: baseDef, sub: eqDef ? `（+${eqDef}）` : '' },
+                        { label: '暴击', value: crit + '%', sub: '' }
+                    ]
+                };
+                return;
+            }
+            // 物品来源：家→背包+仓库；地图→仅背包；地点→该地点暂存点
+            let pool;
+            if (this.currentScene === 'safehouse') pool = this.bag.concat(this.storageItems || []);
+            else if (this.currentScene === 'place') pool = (this.currentPlace && this.placeStash[this.currentPlace.key]) || [];
+            else pool = this.bag;
+            // 按恢复目标 stat 筛选并聚合
+            const map = {};
+            for (const it of pool) {
+                const cfg = it.restore || GameData.itemUse[it.type];
+                if (!cfg || cfg.stat !== key) continue;
+                const name = it.name;
+                if (!map[name]) map[name] = { name: name, count: 0, amount: cfg.amount || 0 };
+                map[name].count += (it.count || 1);
+            }
+            const items = Object.values(map);
+            let emptyText = '暂无可恢复该状态的物品';
+            if (key === 'strength') emptyText = '力量为等级属性，无法通过物品提升';
+            else if (key === 'sanity') emptyText = '暂无直接恢复理智的物品';
+            this.statDetail = {
+                key: key,
+                name: label,
+                value: this.stats[key],
+                max: this.statMax(key),
+                items: items,
+                emptyText: emptyText
+            };
+        },
+        // 关闭状态详情弹窗
+        closeStatDetail() {
+            this.statDetail = null;
         },
         // 背包 / 家具 / 床 / 工作台 / 仓库：点击均改为 iframe 加载对应子页
         openBag() {
@@ -92,10 +154,6 @@ const InventoryMixin = {
             this.currentRain = item;
             this.currentPage = 'rain';
         },
-        openChair(item) {
-            this.currentChair = item;
-            this.currentPage = 'chair';
-        },
         openJuicer(item) {
             this.currentJuicer = item;
             this.currentPage = 'juicer';
@@ -110,7 +168,6 @@ const InventoryMixin = {
             else if (f.isFireplace) this.openFire(f);
             else if (f.isStove) { if (!f.unlocked) this.openFurniture(f); else this.openStove(f); }
             else if (f.isRainCollector) { if (!f.unlocked) this.openFurniture(f); else this.openRain(f); }
-            else if (f.isChair) { if (!f.unlocked) this.openFurniture(f); else this.openChair(f); }
             else if (f.isJuicer) { if (!f.unlocked) this.openFurniture(f); else this.openJuicer(f); }
             else if (f.isFurnace) { if (!f.unlocked) this.openFurniture(f); else this.openFurnace(f); }
             else if (f.isPlantation) { if (!f.unlocked) this.openFurniture(f); else this.openPlantation(f); }
@@ -197,12 +254,10 @@ const InventoryMixin = {
                 onConfirm: () => this.doCraft(bp)
             };
         },
-        // 执行制作（消耗精力 5 与材料，产物按蓝图 count 批量加入背包，堆叠上限 20）
+        // 执行制作（消耗材料，产物按蓝图 count 批量加入背包，堆叠上限 20）
         doCraft(bp) {
-            if (this.stats.stamina < 5) { this.pushLog('精力不足（需 5），无法制作，请先休息。'); return; }
             if (!this.hasMaterials(bp.cost)) return;
             this.spendMaterials(bp.cost);
-            this.stats.stamina -= 5;
             const count = bp.count || 1;
             this.addBag({ type: bp.type, name: bp.name, damage: bp.damage, defense: bp.defense, durability: bp.durability, restore: bp.restore, count: count });
             this.pushLog(`你制作了「${bp.name}」${count > 1 ? '×' + count : ''}。`);
@@ -366,15 +421,16 @@ const InventoryMixin = {
             this.pushLog(`卸下了「${it.name}」（${this.slotLabel(slot)}槽）。`);
             this.postSceneState();
         },
-        // 物品对应装备槽：武器→武器；头盔→帽子；其余防具→防具
+        // 物品对应装备槽：武器→武器；工具→工具；头盔→帽子；其余防具→防具
         slotOf(type, name) {
             if (type === 'weapon') return 'weapon';
+            if (type === 'tool') return 'tool';
             if (type === 'armor') return name === '头盔' ? 'hat' : 'armor';
             return null;
         },
         // 装备槽显示名
         slotLabel(slot) {
-            return { weapon: '武器', hat: '帽子', armor: '防具' }[slot] || '';
+            return { weapon: '武器', tool: '工具', hat: '帽子', armor: '防具' }[slot] || '';
         },
         // 使用物品（吃/喝/使用药品）：恢复对应状态，状态已满时提示
         useItem(source, index) {
@@ -384,8 +440,8 @@ const InventoryMixin = {
             // 熟食/菜谱等物品自带 restore，否则按类型取默认使用效果
             const cfg = it.restore || GameData.itemUse[it.type];
             if (!cfg) return;
-            // 血量上限受健康度、体力上限受力量影响，其余用默认上限
-            const max = cfg.stat === 'hp' ? this.hpMax : (cfg.stat === 'physical' ? this.physicalMax : cfg.max);
+            // 血量上限受健康度影响，其余用默认上限
+            const max = cfg.stat === 'hp' ? this.hpMax : cfg.max;
             if (this.stats[cfg.stat] >= max) {
                 this.pushLog(`「${it.name}」：${cfg.statName}已满，暂时不需要。`);
                 return;
@@ -485,13 +541,12 @@ const InventoryMixin = {
         // 床：点击睡眠 → 弹窗确认（确认后触发进度条动画，并在动画期间加速推进游戏时间）
         startSleep(mode) {
             if (this.sleeping) return;   // 动画进行中，禁止重复点击
-            if (this.resting) this.stopRest();   // 睡觉前自动结束休息
             const label = mode === '1h' ? '睡 1 小时' : mode === '4h' ? '睡 4 小时' : '睡到天亮';
             this.dialog = {
                 show: true,
                 icon: '🛏️',
                 title: label,
-                desc: '确认睡觉？睡眠期间时间加速，恢复精力、血量与体力。',
+                desc: '确认睡觉？睡眠期间时间加速，恢复血量与理智。',
                 cost: '',
                 confirmText: '睡觉',
                 onConfirm: () => this.doStartSleep(mode)
@@ -545,19 +600,19 @@ const InventoryMixin = {
                 this.pushLog(`你睡了 ${mode === '1h' ? 1 : 4} 小时，恢复完毕。`);
             }
             const s = this.stats;
-            this.pushLog(`当前状态：精力 ${Math.round(s.stamina)} / 血量 ${Math.round(s.hp)} / 体力 ${Math.round(s.physical)}`);
+            this.pushLog(`当前状态：血量 ${Math.round(s.hp)} / 理智 ${Math.round(s.sanity)}`);
             this.lastSleepAt = this.gameSeconds;   // 重置失眠计时：睡过一觉，重新获得 24 小时宽限
             this.insomniaWarned = false;
             this.sleeping = null;
             // 通知床子页清除动画状态
             this.postSceneState();
         },
-        // 按当前床倍率结算 精力 / 血量 / 体力 / 理智（精神值） 恢复（血量上限受健康度、体力上限受力量、理智上限固定 200）
+        // 按当前床倍率结算 血量 / 理智（精神值） 恢复（血量上限受健康度、理智上限固定 200）
         applySleep(bed, hours) {
             const cfg = GameData.bedSleep;
             const mult = bed.bedLevels[bed.bedLevel].recover;
-            const limits = { stamina: 100, hp: this.hpMax, physical: this.physicalMax, sanity: 200 };
-            ['stamina', 'hp', 'physical', 'sanity'].forEach(k => {
+            const limits = { hp: this.hpMax, sanity: 200 };
+            ['hp', 'sanity'].forEach(k => {
                 const gain = (cfg.base[k] || 0) * hours * mult;
                 this.stats[k] = Math.min(limits[k], this.stats[k] + gain);
             });
@@ -604,7 +659,6 @@ const InventoryMixin = {
         // 制作/榨汁：点击后扣料并进入耗时进度（动画期间推进游戏时间，结束后产出）
         startCooking(kind, name) {
             if (this.cooking) return;
-            if (this.resting) this.stopRest();   // 烹饪/榨汁前自动结束休息
             const list = kind === 'stove' ? GameData.stoveMenu : GameData.juiceRecipes;
             const a = list.find(x => x.name === name);
             if (!a) return;
@@ -688,41 +742,6 @@ const InventoryMixin = {
             st.rainWater = Math.max(0, st.rainWater - amt);
             this.addBag({ type: 'water', name: '雨水瓶', count: amt });
             this.pushLog(`装瓶 ${amt} 份雨水（雨水瓶）。`);
-            this.postSceneState();
-        },
-        // ============ 椅子 ============
-        upgradeChair() {
-            const st = this.currentChair;
-            if (!st || st.chairLevel >= st.chairLevels.length - 1) return;
-            const level = st.chairLevels[st.chairLevel];
-            const next = st.chairLevels[st.chairLevel + 1];
-            this.dialog = {
-                show: true, icon: '🪑',
-                title: `升级椅子：${next.name}`,
-                desc: `休息恢复体力 ${level.restore} → ${next.restore}。`,
-                costMap: level.upgrade,
-                confirmText: '升级',
-                onConfirm: () => this.doUpgradeChair()
-            };
-        },
-        doUpgradeChair() {
-            const st = this.currentChair;
-            if (!st || st.chairLevel >= st.chairLevels.length - 1) return;
-            const cost = st.chairLevels[st.chairLevel].upgrade;
-            if (!this.hasMaterials(cost)) return;
-            this.spendMaterials(cost);
-            st.chairLevel++;
-            this.pushLog(`椅子升级为「${st.chairLevels[st.chairLevel].name}」，休息恢复体力提升到 ${st.chairLevels[st.chairLevel].restore}。`);
-            this.postSceneState();
-        },
-        // 休息：推进 30 分钟游戏时间，恢复当前等级的体力（上限随力量提升）
-        restChair() {
-            const st = this.currentChair;
-            if (!st) return;
-            const restore = st.chairLevels[st.chairLevel].restore;
-            this.advanceGameTime(30 * 60);
-            this.stats.physical = Math.min(this.physicalMax, this.stats.physical + restore);
-            this.pushLog(`在「${st.chairLevels[st.chairLevel].name}」上休息，体力 +${restore}。`);
             this.postSceneState();
         },
         // ============ 熔炉 ============

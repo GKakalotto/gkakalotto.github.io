@@ -18,9 +18,16 @@
             <div class="top-bar">
                 <span class="day-count" v-text="'📅 ' + day"></span>
                 <span v-text="season + '季'"></span>
-                <span v-text="'🌡️ ' + temperature + '°C'"></span>
+                <span class="time-info" v-text="'🕒' + time"></span>
                 <span v-text="weather"></span>
-                <span class="time-info" v-text="'🕒 ' + time"></span>
+                <span v-text="'🌡️ ' + temperature + '°C'"></span>
+            </div>
+
+            <!-- 人物状态（一行六个，点击图标弹出详情；非力量状态低于 30% 时光晕闪烁） -->
+            <div class="status-bar">
+                <div class="stat-v" v-for="s in statItems" :key="s.key" :class="{ low: isLow(s.key) }" @click="openStatDetail(s.key)">
+                    <div class="stat-v-icon" v-text="s.icon"></div>
+                </div>
             </div>
 
             <!-- 日志（只显示最新 5 条） -->
@@ -34,8 +41,6 @@
             <div class="section-title scene-title">
                 <span v-text="sceneTitle"></span>
                 <div class="scene-title-btns">
-                    <button class="rest-btn" :class="{ resting: resting }" :disabled="searching" @click="toggleRest" title="休息">💤</button>
-                    <button class="stats-btn" @click="toggleStats" title="状态">❤</button>
                     <button class="bag-btn" :disabled="searching" @click="openBag" title="背包">🎒</button>
                     <button class="settings-btn" @click="openSettings" title="设置">⚙️</button>
                 </div>
@@ -70,23 +75,6 @@
             </div>
         </div>
 
-        <!-- 状态面板（点击 ❤ 显示，初始内联隐藏，防止刷新闪烁） -->
-        <div v-show="showStats" style="display:none" class="stats-overlay" @click.self="closeStats">
-            <div class="stats-panel">
-                <div class="stats-header">
-                    <span>❤ 人物状态</span>
-                    <button class="stats-close" @click="closeStats">✕</button>
-                </div>
-                <div class="stats-body">
-                    <div class="stat-item" v-for="s in statItems" :key="s.key" :class="s.key">
-                        <div class="stat-icon" v-text="s.icon"></div>
-                        <div class="stat-bar-bg"><div class="stat-bar-fill" :style="{ width: statPct(s.key) + '%' }"></div><div class="stat-value" v-text="Math.round(stats[s.key])"></div></div>
-                        <span class="stat-label" v-text="s.label"></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- 设置面板（非首次显示，初始内联隐藏，防止刷新闪烁） -->
         <div v-show="showSettings" style="display:none" class="settings-overlay" @click.self="closeSettings">
             <div class="settings-panel">
@@ -109,6 +97,29 @@
                 <div class="dialog-btns">
                     <button class="dialog-cancel" @click="confirmCancel">取消</button>
                     <button class="dialog-confirm" @click="confirmClear">确定</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 状态详情弹窗（点击状态图标，显示当前值/上限与对应恢复物品） -->
+        <div v-show="statDetail" style="display:none" class="stat-detail-overlay" @click.self="closeStatDetail">
+            <div class="stat-detail-panel">
+                <div class="stat-detail-header">
+                    <span v-if="statDetail"><span v-text="statDetail.name + '：'"></span><span class="stat-detail-num" v-text="Math.round(statDetail.value) + ' / ' + statDetail.max"></span></span>
+                    <button class="stat-detail-close" @click="closeStatDetail">✕</button>
+                </div>
+                <div class="stat-detail-body">
+                    <template v-if="statDetail">
+                        <div v-if="statDetail.attr && statDetail.attr.length" v-for="(a, i) in statDetail.attr" :key="i" class="stat-detail-item">
+                            <span class="sdi-name" v-text="a.label"></span>
+                            <span class="sdi-amt"><span v-text="a.value"></span><span v-if="a.sub" class="sdi-sub" v-text="a.sub"></span></span>
+                        </div>
+                        <div v-if="!statDetail.attr && statDetail.items && statDetail.items.length" v-for="(it, i) in statDetail.items" :key="i" class="stat-detail-item">
+                            <span class="sdi-name"><span v-text="it.name"></span><span class="sdi-count" v-text="' ×' + it.count"></span></span>
+                            <span class="sdi-amt" v-text="'+' + it.amount"></span>
+                        </div>
+                        <div v-if="(!statDetail.attr || !statDetail.attr.length) && (!statDetail.items || !statDetail.items.length)" class="stat-detail-empty" v-text="statDetail.emptyText"></div>
+                    </template>
                 </div>
             </div>
         </div>

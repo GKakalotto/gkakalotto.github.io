@@ -13,73 +13,65 @@
     <div id="bag" class="page-root" v-cloak style="display:none" v-show="loaded">
         <div class="page-header">
             <button class="page-back" @click="send({ type: 'close-page' })">‹ 返回</button>
-            <button v-if="bagLevel < GameData.bagLevels.length - 1" class="upgrade-btn" @click="send({ type: 'upgrade-bag' })">升级</button>
-            <span v-else class="upgrade-max">已达最高等级</span>
-            <button class="sort-btn" @click="send({ type: 'sort-bag' })">整理</button>
         </div>
-        <div class="page-body bag-body">
-            <!-- 物品卡片：按背包容量渲染全部槽位格子，空槽也显示；名字居中、数量右下角 -->
-            <div class="st-items">
-                <div class="st-item" v-for="i in bagMax" :key="i" :class="{ empty: !bag[i - 1] }"
-                     @click="bag[i - 1] && openMenu(i - 1)">
-                    <template v-if="bag[i - 1]">
-                        <span class="st-item-name" v-text="bag[i - 1].name"></span>
-                        <span class="st-item-meta" v-if="!bag[i - 1].durability" v-text="'×' + (bag[i - 1].count || 1)"></span>
-                    </template>
+        <div class="page-body bag-body bag-three">
+            <!-- 上：装备栏（武器 / 工具 / 帽子 / 防具） -->
+            <div class="bag-top">
+                <div class="bag-sec-title">装备</div>
+                <div class="bag-footer">
+                    <div class="equip-slot" v-for="s in equipSlots" :key="s.key" @click="onEquipSlot(s.key)">
+                        <div class="equip-slot-label" v-text="s.label"></div>
+                        <div class="equip-slot-item" :class="{ empty: !equipment[s.key] }"
+                             v-text="equipment[s.key] ? (UI.catIcon(equipment[s.key].type) + ' ' + equipment[s.key].name) : '空'"></div>
+                    </div>
+                </div>
+            </div>
+            <!-- 中：背包物品（点击转移到仓库/暂存点） -->
+            <div class="bag-mid">
+                <div class="bag-sec-title">背包</div>
+                <div class="st-items">
+                    <div class="st-item" v-for="i in bagMax" :key="i" :class="{ empty: !bag[i - 1] }"
+                         :class="{ clickable: bag[i - 1] && canMoveOut }"
+                         @click="bag[i - 1] && onBagItem(i - 1)">
+                        <template v-if="bag[i - 1]">
+                            <span class="st-item-name" v-text="bag[i - 1].name"></span>
+                            <span class="st-item-meta" v-if="!bag[i - 1].durability" v-text="'×' + (bag[i - 1].count || 1)"></span>
+                        </template>
+                    </div>
+                </div>
+            </div>
+            <!-- 下：战利品（搜刮所得，可操作）/ 仓库 / 暂存点（点击转移到背包） -->
+            <div class="bag-bottom" v-if="storageView">
+                <div class="bag-sec-title" v-text="storageView.title"></div>
+                <div class="st-items">
+                    <div class="st-item" v-for="(it, i) in storageView.items" :key="i"
+                         class="clickable" @click="storageView.isLoot ? lootTake(i) : onStorageItem(i)">
+                        <span class="st-item-name" v-text="it.name"></span>
+                        <span class="st-item-meta" v-if="!it.durability" v-text="'×' + (it.count || 1)"></span>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- 底部装备栏：武器 / 帽子 / 防具 -->
-        <div class="bag-footer">
-            <div class="equip-slot" v-for="s in equipSlots" :key="s.key" @click="onEquipSlot(s.key)">
-                <div class="equip-slot-label" v-text="s.label"></div>
-                <div class="equip-slot-item" :class="{ empty: !equipment[s.key] }"
-                     v-text="equipment[s.key] ? (UI.catIcon(equipment[s.key].type) + ' ' + equipment[s.key].name) : '空'"></div>
-            </div>
-        </div>
-
-        <!-- 物品详情菜单 -->
-        <div v-if="menu.show" class="item-menu-overlay" @click.self="closeMenu">
-            <div class="item-menu">
-                <template v-if="menu.confirmDiscard">
-                    <div class="item-menu-title">确定丢弃「{{ menuItem ? menuItem.name : '' }}」？</div>
-                    <button class="item-menu-btn danger" @click="act('bag-discard')">确定丢弃</button>
-                    <button class="item-menu-btn" @click="menu.confirmDiscard = false">返回</button>
-                </template>
-                <template v-else>
-                    <div class="item-menu-title">
-                        <span v-text="menuItem ? menuItem.name : ''"></span>
-                        <button class="item-menu-close" @click="closeMenu">×</button>
-                    </div>
-                    <div class="item-menu-meta" v-if="menuItem && (menuItem.damage || menuItem.defense || menuItem.durability || useCfg)">
-                        <div v-if="menuItem.damage" v-text="'攻击 ' + menuItem.damage"></div>
-                        <div v-if="menuItem.defense" v-text="'减伤 ' + menuItem.defense"></div>
-                        <div v-if="menuItem.durability" v-text="'耐久 ' + menuItem.durability"></div>
-                        <div v-if="useCfg" v-text="useCfg.statName + ' +' + useCfg.amount"></div>
-                    </div>
-                    <button v-if="equipSlot" class="item-menu-btn" @click="act('bag-equip')">装备</button>
-                    <button v-if="currentScene === 'safehouse'" class="item-menu-btn" @click="act('bag-move-storage')">存仓库</button>
-                    <button v-if="canStash" class="item-menu-btn" @click="act('bag-stash')">暂存</button>
-                    <button v-if="useCfg" class="item-menu-btn" @click="act('bag-use')" v-text="useCfg.label"></button>
-                    <button class="item-menu-btn danger" @click="menu.confirmDiscard = true">丢弃</button>
-                </template>
-            </div>
-        </div>
-
-        <!-- 装备详情菜单：点击装备槽弹出，查看属性并可卸下 -->
+        <!-- 装备选择菜单：点击装备槽弹出，显示背包中该槽可选物品，点击装备；可卸下当前 -->
         <div v-if="equipMenu.show" class="item-menu-overlay" @click.self="closeEquipMenu">
             <div class="item-menu">
                 <div class="item-menu-title">
-                    <span v-text="equippedItem ? equippedItem.name : ''"></span>
+                    <span v-text="equipMenu.slotLabel + '装备'"></span>
                     <button class="item-menu-close" @click="closeEquipMenu">×</button>
                 </div>
-                <div class="item-menu-meta" v-if="equippedItem && (equippedItem.damage || equippedItem.defense || equippedItem.durability)">
-                    <div v-if="equippedItem.damage" v-text="'攻击 ' + equippedItem.damage"></div>
-                    <div v-if="equippedItem.defense" v-text="'减伤 ' + equippedItem.defense"></div>
-                    <div v-if="equippedItem.durability" v-text="'耐久 ' + equippedItem.durability"></div>
+                <div class="equip-list">
+                    <div class="equip-item" v-for="e in equipMenu.items" :key="(e.equipped ? 'eq' : 'bag') + (e.index !== null ? e.index : '')"
+                         :class="{ equipped: e.equipped }" @click="onEquipItem(e)">
+                        <span class="equip-item-name" v-text="e.item.name"></span>
+                        <span class="equip-item-stat">
+                            <span v-if="e.item.damage" v-text="'攻 ' + e.item.damage"></span>
+                            <span v-if="e.item.defense" v-text="'防 ' + e.item.defense"></span>
+                            <span v-if="e.item.durability" v-text="'耐 ' + e.item.durability"></span>
+                        </span>
+                    </div>
                 </div>
-                <button class="item-menu-btn" @click="unequipEquipped">卸下</button>
+                <p v-if="equipMenu.items.length === 0" class="bag-empty">背包中没有可装备的{{ equipMenu.slotLabel }}。</p>
             </div>
         </div>
     </div>
@@ -96,71 +88,96 @@
             currentScene: 'safehouse',
             currentPlace: null,
             bag: [],
+            storageItems: [],
+            placeStash: {},
+            pendingLoot: null,
             bagMax: 30,
             bagLevel: 0,
-            equipment: { weapon: null, hat: null, armor: null },
+            equipment: { weapon: null, tool: null, hat: null, armor: null },
             equipSlots: [
                 { key: 'weapon', label: '武器' },
+                { key: 'tool',   label: '工具' },
                 { key: 'hat',    label: '帽子' },
                 { key: 'armor',  label: '防具' }
             ],
-            menu: { show: false, index: -1, confirmDiscard: false },
-            equipMenu: { show: false, slot: null }
+            equipMenu: { show: false, slot: null, items: [] }
         },
         computed: {
-            menuItem() {
-                return this.menu.show ? this.bag[this.menu.index] : null;
-            },
-            // 装备槽详情菜单中显示的物品
-            equippedItem() {
-                return this.equipMenu.show ? this.equipment[this.equipMenu.slot] : null;
-            },
-            // 是否可放入当前地点暂存区（仅在地点场景）
-            canStash() {
-                return this.currentPlace && this.currentPlace.key;
-            },
-            // 物品对应的装备槽（武器→武器；头盔→帽子；其余防具→防具）；不可装备为 null
-            equipSlot() {
-                var it = this.menuItem;
-                if (!it) return null;
-                if (it.type === 'weapon') return 'weapon';
-                if (it.type === 'armor') return it.name === '头盔' ? 'hat' : 'armor';
+            // 下部展示：有战利品（搜刮所得）优先；否则家→仓库、地点→暂存点、地图→不显示
+            storageView() {
+                if (this.pendingLoot && this.pendingLoot.items && this.pendingLoot.items.length) {
+                    return { title: '战利品', items: this.pendingLoot.items, isLoot: true };
+                }
+                if (this.currentScene === 'safehouse') {
+                    return { title: '仓库', items: this.storageItems || [] };
+                }
+                if (this.currentScene === 'place') {
+                    var key = this.currentPlace && this.currentPlace.key;
+                    return { title: '暂存点', items: (key && this.placeStash[key]) || [] };
+                }
                 return null;
             },
-            // 物品是否可用（吃/喝/使用）：熟食/饮品自带 restore，否则按类型取默认
-            useCfg() {
-                var it = this.menuItem;
-                if (!it) return null;
-                var cfg = it.restore || GameData.itemUse[it.type] || null;
-                if (cfg && !cfg.label) cfg = Object.assign({}, cfg, { label: it.type === 'medicine' ? '使用' : (it.type === 'water' || it.type === 'drink') ? '喝' : '吃' });
-                return cfg;
+            // 背包物品能否转移（家→仓库，地点→暂存点；地图不可）
+            canMoveOut() {
+                return this.currentScene === 'safehouse' || this.currentScene === 'place';
             }
         },
         methods: {
             send(msg) {
                 window.parent.postMessage(msg, '*');
             },
-            openMenu(i) {
-                this.menu = { show: true, index: i, confirmDiscard: false };
+            // 点击背包物品：转移到仓库（家）或暂存点（地点）
+            onBagItem(index) {
+                if (this.currentScene === 'safehouse') {
+                    this.send({ type: 'bag-move-storage', index: index });
+                } else if (this.currentScene === 'place') {
+                    this.send({ type: 'bag-stash', index: index });
+                }
             },
-            closeMenu() {
-                this.menu.show = false;
+            // 点击下部物品：转移到背包（仓库→背包 / 暂存点→背包）
+            onStorageItem(index) {
+                if (this.currentScene === 'safehouse') {
+                    this.send({ type: 'storage-move-bag', index: index });
+                } else if (this.currentScene === 'place') {
+                    this.send({ type: 'stash-take', index: index });
+                }
             },
-            // 执行菜单操作并关闭
-            act(type) {
-                this.send({ type: type, index: this.menu.index });
-                this.menu.show = false;
+            // 点击战利品：直接取回背包（有空间则入包，否则落入暂存区）
+            lootTake(index) {
+                this.send({ type: 'loot-take', index: index });
             },
-            // 点击装备槽：弹出装备详情（查看属性/卸下），不直接卸下
+            // 点击装备槽：弹出选择菜单，列出该槽可装备物品（含已装备，已装备置顶标记）
             onEquipSlot(slot) {
-                if (this.equipment[slot]) this.equipMenu = { show: true, slot: slot };
+                var label = { weapon: '武器', tool: '工具', hat: '帽子', armor: '防具' }[slot] || '';
+                this.equipMenu = { show: true, slot: slot, slotLabel: label, items: this.equipItemsForSlot(slot) };
             },
-            closeEquipMenu() {
+            // 该槽可装备物品（含已装备），返回 { item, index, equipped }；index 为背包索引（已装备为 null）
+            equipItemsForSlot(slot) {
+                var cur = this.equipment[slot];
+                var list = [];
+                if (cur) list.push({ item: cur, index: null, equipped: true });
+                for (var i = 0; i < this.bag.length; i++) {
+                    var it = this.bag[i];
+                    if (!it) continue;
+                    var match = slot === 'weapon' ? it.type === 'weapon'
+                        : slot === 'tool' ? it.type === 'tool'
+                        : slot === 'hat' ? (it.type === 'armor' && it.name === '头盔')
+                        : slot === 'armor' ? (it.type === 'armor' && it.name !== '头盔')
+                        : false;
+                    if (match) list.push({ item: it, index: i, equipped: false });
+                }
+                return list;
+            },
+            // 点击装备项：已装备→卸下，未装备→装备
+            onEquipItem(e) {
+                if (e.equipped) {
+                    this.send({ type: 'unequip-slot', slot: this.equipMenu.slot });
+                } else {
+                    this.send({ type: 'bag-equip', index: e.index });
+                }
                 this.equipMenu.show = false;
             },
-            // 卸下当前查看的装备回背包
-            unequipEquipped() {
-                if (this.equipMenu.slot) this.send({ type: 'unequip-slot', slot: this.equipMenu.slot });
+            closeEquipMenu() {
                 this.equipMenu.show = false;
             }
         }
@@ -172,9 +189,12 @@
             app.currentScene = msg.state.currentScene;
             app.currentPlace = msg.state.currentPlace || null;
             app.bag = msg.state.bag;
+            app.storageItems = msg.state.storageItems || [];
+            app.placeStash = msg.state.placeStash || {};
+            app.pendingLoot = msg.state.pendingLoot || null;
             app.bagMax = msg.state.bagMax;
             app.bagLevel = msg.state.bagLevel || 0;
-            app.equipment = msg.state.equipment || { weapon: null, hat: null, armor: null };
+            app.equipment = msg.state.equipment || { weapon: null, tool: null, hat: null, armor: null };
             app.loaded = true;
         }
     });

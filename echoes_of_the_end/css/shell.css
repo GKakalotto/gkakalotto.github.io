@@ -35,9 +35,7 @@
 }
 .day-count { color: #ffcc00; font-weight: bold; font-size: 16px; }
 
-/* 状态/休息/背包/设置按钮 */
-.stats-btn,
-.rest-btn,
+/* 背包/设置按钮 */
 .settings-btn,
 .bag-btn {
     flex: none;
@@ -55,24 +53,63 @@
     cursor: pointer;
     transition: all 0.2s;
 }
-.stats-btn:hover,
-.rest-btn:hover,
 .settings-btn:hover,
 .bag-btn:hover { color: #ffcc00; }
-.rest-btn.resting { color: #ffcc00; background: rgba(60, 90, 40, 0.5); border-radius: 6px; }
-/* 搜寻中禁用休息/背包（状态、设置保持可用） */
-.rest-btn:disabled,
+/* 搜寻中禁用背包 */
 .bag-btn:disabled { color: #555; cursor: default; }
-.rest-btn:disabled:hover,
 .bag-btn:disabled:hover { color: #555; }
 
-/* ---------- 上部：日志（固定高度，仅显示最新 5 条） ---------- */
+/* ---------- 上部：人物状态（一行六个，图标内显示数值） ---------- */
+.status-bar {
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    gap: 6px;
+    border-bottom: 1px solid #333;
+    flex-shrink: 0;
+}
+.stat-v {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 34px;
+}
+.stat-v-icon {
+    font-size: 16px;
+    line-height: 1;
+}
+/* 数值叠放在图标中心 */
+.stat-v-val {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 11px;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 0 0 3px #000, 0 0 3px #000;
+    pointer-events: none;
+}
+/* 非力量状态低于 30%：图标自身闪烁提示 */
+.stat-v.low .stat-v-icon {
+    animation: statLowPulse 1s ease-in-out infinite;
+}
+@keyframes statLowPulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+}
+
+/* ---------- 上部：日志（固定高度，仅显示最新 4 条） ---------- */
 .log-panel {
     background: rgba(0, 0, 0, 0.5);
     padding: 8px 15px;
     border-bottom: 1px solid #333;
     flex-shrink: 0;
-    height: 120px;
+    height: 98px;
     overflow: hidden;
 }
 .log-line {
@@ -119,54 +156,6 @@
     padding-bottom: 5px;
 }
 
-/* ---------- 状态条（状态面板内） ---------- */
-.stat-item { display: flex; align-items: center; gap: 5px; min-width: 0; }
-.stat-icon {
-    width: 15px; height: 15px; border-radius: 50%;
-    display: flex; justify-content: center; align-items: center;
-    font-size: 9px; font-weight: bold; flex-shrink: 0;
-}
-.stat-bar-bg {
-    flex: 1; height: 9px; background: #333;
-    border-radius: 2px; overflow: hidden; position: relative;
-    min-width: 0;
-}
-.stat-bar-fill { height: 100%; transition: width 0.3s ease; }
-.stat-value {
-    position: absolute; inset: 0;
-    display: flex; justify-content: center; align-items: center;
-    font-size: 9px; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.8);
-}
-.stat-label {
-    flex-shrink: 0;
-    width: 32px;
-    font-size: 12px;
-    color: #888;
-    text-align: right;
-}
-
-/* 状态颜色定义 */
-.hp .stat-icon { background: #d32f2f; }
-.hp .stat-bar-fill { background: #d32f2f; }
-.hunger .stat-icon { background: #f57c00; }
-.hunger .stat-bar-fill { background: #f57c00; }
-.water .stat-icon { background: #1e88e5; }
-.water .stat-bar-fill { background: #1e88e5; }
-.sanity .stat-icon { background: #7b1fa2; }
-.sanity .stat-bar-fill { background: #7b1fa2; }
-.stamina .stat-icon { background: #00bcd4; }
-.stamina .stat-bar-fill { background: #00bcd4; }
-.physical .stat-icon { background: #ff7043; }
-.physical .stat-bar-fill { background: #ff7043; }
-.health .stat-icon { background: #388e3c; }
-.health .stat-bar-fill { background: #388e3c; }
-.strength .stat-icon { background: #c62828; }
-.strength .stat-bar-fill { background: #c62828; }
-.speed .stat-icon { background: #fdd835; }
-.speed .stat-bar-fill { background: #fdd835; }
-.knowledge .stat-icon { background: #3949ab; }
-.knowledge .stat-bar-fill { background: #3949ab; }
-
 /* ---------- 确认弹窗（地点信息 / 是否出发） ---------- */
 .dialog-overlay {
     position: fixed; inset: 0;
@@ -205,41 +194,6 @@
 }
 .dialog-confirm:hover { background: #3a6085; border-color: #5080a8; color: #fff; }
 .dialog-confirm:disabled { background: #3a3a3a; border-color: #555; color: #777; cursor: not-allowed; }
-
-/* ---------- 状态面板（❤ 按钮） ---------- */
-.stats-overlay {
-    position: fixed; inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    display: flex; justify-content: center; align-items: center;
-    z-index: 100;
-}
-.stats-panel {
-    width: 280px;
-    background: #2c2c2c;
-    border: 1px solid #555;
-    border-radius: 6px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-    overflow: hidden;
-}
-.stats-header {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 12px 15px;
-    border-bottom: 1px solid #444;
-    font-size: 14px; color: #ddd;
-}
-.stats-close {
-    background: transparent; border: none;
-    color: #888; font-size: 14px; cursor: pointer;
-    line-height: 1; padding: 2px 6px;
-}
-.stats-close:hover { color: #ffcc00; }
-.stats-body {
-    padding: 15px;
-    display: flex; flex-direction: column; gap: 10px;
-}
-.stats-body .stat-item { gap: 8px; }
-.stats-body .stat-bar-bg { height: 14px; }
-.stats-body .stat-value { font-size: 10px; }
 
 /* ---------- 设置面板 ---------- */
 .settings-overlay {
@@ -288,3 +242,49 @@
     border-color: #a04040;
     color: #ffd0d0;
 }
+
+/* ---------- 状态详情弹窗 ---------- */
+.stat-detail-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex; justify-content: center; align-items: center;
+    z-index: 100;
+}
+.stat-detail-panel {
+    width: 260px;
+    background: #2c2c2c;
+    border: 1px solid #555;
+    border-radius: 6px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+}
+.stat-detail-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 15px;
+    border-bottom: 1px solid #444;
+    font-size: 14px; color: #ddd;
+}
+.stat-detail-close {
+    background: transparent; border: none;
+    color: #888; font-size: 14px; cursor: pointer;
+    line-height: 1; padding: 2px 6px;
+}
+.stat-detail-close:hover { color: #ffcc00; }
+/* 状态数值：缩小、黄色 */
+.stat-detail-num { color: #ffcc00; font-size: 12px; }
+.stat-detail-body {
+    padding: 12px 15px;
+    display: flex; flex-direction: column; gap: 8px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+.stat-detail-item {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 13px; color: #ccc;
+}
+.sdi-amt { color: #6fdc6f; flex-shrink: 0; margin-left: 10px; }
+/* 物品行内数量：黄色 */
+.sdi-count { color: #ffcc00; }
+/* 属性行的括注说明：较小灰色 */
+.sdi-sub { color: #999; font-size: 11px; margin-left: 6px; }
+.stat-detail-empty { font-size: 12px; color: #888; text-align: center; padding: 8px 0; }

@@ -15,6 +15,7 @@
         <div class="interior-area">
             <div class="furniture-grid">
                 <div class="furniture-slot" v-for="(f, i) in furniture" :key="i"
+                     v-if="!f.isStorage"
                      :class="{ unlocked: f.unlocked }" @click="onSlot(i)">
                     <div class="slot-icon" v-text="slotIcon(f)"></div>
                     <span v-text="slotName(f)"></span>
@@ -67,7 +68,6 @@
                 if (f.isFireplace) return f.fireLevels[f.fireLevel].name;
                 if (f.isStove) return f.stoveLevels[f.stoveLevel].name;
                 if (f.isRainCollector) return f.rainLevels[f.rainLevel].name;
-                if (f.isChair) return f.chairLevels[f.chairLevel].name;
                 return f.name;
             },
             slotIcon(f) {

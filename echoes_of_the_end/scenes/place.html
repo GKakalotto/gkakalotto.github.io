@@ -14,7 +14,6 @@
     <div id="place" class="page-root" v-cloak style="display:none" v-show="loaded">
         <div class="page-header">
             <button class="page-back" :disabled="!!activity || searching" @click="send({ type: 'back-to-map' })">‹ 返回</button>
-            <button class="sort-btn stash-btn" :disabled="!!activity || searching" @click="openStash">暂存区</button>
         </div>
         <div class="page-body">
             <!-- 地点（城市地点）：按类型模式渲染 -->
@@ -101,7 +100,7 @@
                 <!-- 停车场 / 驾校：拆除汽车，车数有限 -->
                 <template v-if="locMode === 'dismantle'">
                     <div class="res-card">
-                        <div class="res-info">🚗 汽车 ×{{ carsLeft }}：拆除得铁×3、塑料×4、布料×2<span class="res-info-sub">（10 min，需汽油喷灯+汽油）</span></div>
+                        <div class="res-info">🚗 汽车 ×{{ carsLeft }}：拆除得随机铁/布料/皮革/塑料<span class="res-info-sub">（10 min，需汽油喷灯+汽油）</span></div>
                         <button class="place-back place-act-btn" :class="{ active: actType === 'dismantle' }"
                                 :disabled="!!activity || searching" @click="send({ type: 'dismantle-car' })">
                             <div v-if="actType === 'dismantle'" class="place-act-fill" @animationend="onActAnimEnd"></div>
@@ -162,10 +161,10 @@
                 <p v-if="base === 'tree' && res && res.trees <= 0" class="place-hint">这片森林的树已被砍光了。</p>
             </template>
 
-            <!-- 矿场：矿藏无限，挖矿需镐子，随机得铁/铜矿 ×1~3 -->
+            <!-- 矿场：矿藏无限，挖矿需镐子，随机得石头50% / 铜25% / 铁25% -->
             <template v-else-if="base === 'mine'">
                 <div class="res-card">
-                    <div class="res-info">⛏️ 挖矿：随机得铁/铜矿×1~3<span class="res-info-sub">（30 min，需镐子）</span></div>
+                    <div class="res-info">⛏️ 挖矿：随机得石头50% / 铜25% / 铁25%<span class="res-info-sub">（30 min，需镐子，无限）</span></div>
                     <button class="place-back place-act-btn" :class="{ active: actType === 'dig' }"
                             :disabled="!!activity || searching"
                             @click="send({ type: 'dig-clay' })">
@@ -175,46 +174,24 @@
                 </div>
             </template>
 
+            <!-- 沙石场：资源无限，挖沙石需铁锹，随机得石头/沙子 各50% -->
+            <template v-else-if="base === 'sand'">
+                <div class="res-card">
+                    <div class="res-info">🏜️ 挖沙石：随机得石头50% / 沙子50%<span class="res-info-sub">（5 min，需铁锹，无限）</span></div>
+                    <button class="place-back place-act-btn" :class="{ active: actType === 'dig' }"
+                            :disabled="!!activity || searching"
+                            @click="send({ type: 'dig-clay' })">
+                        <div v-if="actType === 'dig'" class="place-act-fill" @animationend="onActAnimEnd"></div>
+                        <span v-text="actType === 'dig' ? '挖沙石中…' : '挖沙石'"></span>
+                    </button>
+                </div>
+            </template>
+
             <!-- 其他：占位 -->
             <p v-else class="place-hint">此处暂未开放，敬请期待后续版本。</p>
         </div>
 
-        <!-- 搜刮物资弹窗：与背包一致的卡片网格展示，点击卡片变色选中，勾选后带走，未选自动进暂存区 -->
-        <div v-if="loot.show" class="item-menu-overlay" @click.self="closeLoot">
-            <div class="item-menu loot-menu">
-                <div class="item-menu-title">📦 搜刮到 {{ loot.items.length }} 件物资（点选带走）</div>
-                <div class="st-items loot-grid">
-                    <div class="st-item" v-for="(it, i) in loot.items" :key="i" :class="{ selected: loot.keep[i] }"
-                         @click="toggleLoot(i)">
-                        <span class="st-item-name" v-text="it.name"></span>
-                        <span class="st-item-meta" v-if="!it.durability" v-text="'×' + (it.count || 1)"></span>
-                    </div>
-                </div>
-                <div class="dialog-btns">
-                    <button class="dialog-cancel" @click="closeLoot">全部暂存</button>
-                    <button class="dialog-confirm" @click="confirmLoot">带走选中</button>
-                </div>
-            </div>
-        </div>
 
-        <!-- 暂存区弹窗：与背包一致的卡片网格展示，点击卡片变色选中，点「取出选中」批量取出 -->
-        <div v-if="stashOpen" class="item-menu-overlay" @click.self="closeStash">
-            <div class="item-menu stash-menu">
-                <div class="item-menu-title">🗃️ 暂存区（点选后取出）</div>
-                <div class="st-items stash-grid">
-                    <div class="st-item" v-for="(it, i) in stash" :key="i" :class="{ selected: stashKeep[i] }"
-                         @click="toggleStash(i)">
-                        <span class="st-item-name" v-text="it.name"></span>
-                        <span class="st-item-meta" v-if="!it.durability" v-text="'×' + (it.count || 1)"></span>
-                    </div>
-                </div>
-                <p v-if="stash.length === 0" class="bag-empty">暂存区是空的。</p>
-                <div class="dialog-btns">
-                    <button class="dialog-cancel" @click="closeStash">关闭</button>
-                    <button class="dialog-confirm" @click="takeStashSel">取出选中</button>
-                </div>
-            </div>
-        </div>
     </div>
 
     <script src="../js/data.js"></script>
@@ -232,10 +209,6 @@
             locRes: null,     // 地点搜刮房间状态 { roomsLeft }
             roomsTotal: 0,    // 当前地点房间总数（用于进度显示）
             carsLeft: 0,      // 拆车地点剩余车辆数
-            stash: [],        // 当前地点暂存区物品
-            stashKeep: {},    // 暂存区弹窗选中态
-            stashOpen: false, // 暂存区弹窗
-            loot: { show: false, items: [], keep: {} }, // 搜刮物资弹窗
             dogAdopted: false,// 是否已领养狗
             activity: null,   // 外壳正在进行的单次动作 { type }
             searching: false  // 持续搜索进行中
@@ -274,58 +247,12 @@
                     this.send({ type: 'action-anim-end' });
                 }
             },
-            // 点击物资卡片：切换带走/暂存
-            toggleLoot(i) {
-                this.$set(this.loot.keep, i, !this.loot.keep[i]);
-            },
-            // 确认带走：把勾选的物资交给外壳入包
-            confirmLoot() {
-                const keep = [];
-                for (let i = 0; i < this.loot.items.length; i++) {
-                    if (this.loot.keep[i]) keep.push(i);
-                }
-                this.send({ type: 'loot-confirm', keep: keep });
-                this.loot.show = false;
-            },
-            // 全部暂存：不带走任何物资
-            closeLoot() {
-                this.send({ type: 'loot-confirm', keep: [] });
-                this.loot.show = false;
-            },
-            // 打开/关闭暂存区弹窗
-            openStash() {
-                this.stashKeep = {};
-                this.stashOpen = true;
-            },
-            closeStash() {
-                this.stashKeep = {};
-                this.stashOpen = false;
-            },
-            // 点击暂存区卡片：切换选中
-            toggleStash(i) {
-                this.$set(this.stashKeep, i, !this.stashKeep[i]);
-            },
-            // 取出选中：把勾选的物资交给外壳批量入包
-            takeStashSel() {
-                const keep = [];
-                for (let i = 0; i < this.stash.length; i++) {
-                    if (this.stashKeep[i]) keep.push(i);
-                }
-                if (keep.length === 0) return;
-                this.send({ type: 'stash-take-many', keep: keep });
-                this.stashKeep = {};
-            }
         }
     });
 
     window.addEventListener('message', function (e) {
         var msg = e.data;
         if (!msg || !msg.type) return;
-        if (msg.type === 'loot') {
-            // 搜刮房间结算：展示物资弹窗，默认不选中，玩家点击卡片选中
-            app.loot = { show: true, items: msg.items || [], keep: {} };
-            return;
-        }
         if (msg.type !== 'init') return;
         var p = msg.state.currentPlace;
         app.loaded = true;
@@ -336,8 +263,6 @@
         app.roomsTotal = (GameData.locationLoot[app.locType] || {}).rooms || 0;
         app.carsLeft = app.locRes && typeof app.locRes.cars === 'number' ? app.locRes.cars : 0;
         app.bag = msg.state.bag || [];
-        app.stash = (p && p.key && msg.state.placeStash) ? (msg.state.placeStash[p.key] || []) : [];
-        app.stashKeep = {};
         app.dogAdopted = !!(msg.state.outdoors && msg.state.outdoors[0] && msg.state.outdoors[0].unlocked);
         app.activity = msg.state.activity || null;
         app.searching = !!msg.state.searching;

@@ -35,12 +35,11 @@
 /* ----- 背包空提示（物品卡片复用仓库 .st-items/.st-item） ----- */
 .bag-empty { font-size: 12px; color: #888; text-align: center; margin: 8px 0; }
 
-/* ----- 背包底部装备栏（武器 / 帽子 / 防具） ----- */
+/* ----- 背包装备栏（武器 / 工具 / 帽子 / 防具） ----- */
 .bag-footer {
     flex-shrink: 0;
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
-    padding: 10px 15px; border-top: 1px solid #333;
-    background: rgba(0, 0, 0, 0.3);
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+    padding: 6px 0;
 }
 .equip-slot {
     display: flex; flex-direction: column; gap: 4px; align-items: center;
@@ -165,6 +164,31 @@
 /* 背包/仓库物品区：隐藏滚动条（仍可滚动） */
 .bag-body, .st-body { scrollbar-width: none; }
 .bag-body::-webkit-scrollbar, .st-body::-webkit-scrollbar { display: none; }
+/* 背包三段式：上装备 / 中背包 / 下仓库或暂存点（同窗，中下各自内部滚动） */
+.bag-three {
+    gap: 12px;
+    overflow: hidden;   /* 不再整体滚动 */
+}
+.bag-top { flex-shrink: 0; }
+.bag-mid, .bag-bottom {
+    flex: 1;            /* 均分剩余可视高度 */
+    min-height: 0;
+    overflow: hidden;   /* 标题固定，物品区内部滚动 */
+    display: flex;
+    flex-direction: column;
+}
+.bag-mid .st-items, .bag-bottom .st-items {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;   /* 滚动限制在物品区内部 */
+    align-content: flex-start;
+}
+.bag-sec-title {
+    font-size: 12px; color: #999; margin-bottom: 8px;
+    padding-left: 2px; border-left: 3px solid #4f86c6; padding-left: 6px;
+    flex-shrink: 0;
+}
+
 .st-items {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
@@ -184,6 +208,22 @@
     overflow: hidden;
 }
 .st-item.empty { border-style: dashed; background: #262626; cursor: default; }
+.st-item.clickable { cursor: pointer; }
+.st-item.clickable:hover { border-color: #6aa3d6; }
+/* 装备选择列表：行式，每行物品名 + 属性 */
+.equip-list { display: flex; flex-direction: column; gap: 6px; }
+.equip-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 10px;
+    background: #2c2c2c; border: 1px solid #4a4a4a; border-radius: 5px;
+    color: #ddd; font-size: 12px;
+    cursor: pointer; transition: all 0.15s;
+}
+.equip-item:hover { border-color: #6aa3d6; }
+.equip-item.equipped { border-color: #4caf50; background: #2e4a35; }
+.equip-item.equipped:hover { border-color: #66bb6a; }
+.equip-item-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.equip-item-stat { display: flex; gap: 8px; flex-shrink: 0; font-size: 11px; color: #ffcc00; }
 .st-item-name { font-size: 11px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .st-item-meta {
     position: absolute;
@@ -290,30 +330,3 @@
 .item-menu-btn:hover { background: #444; border-color: #666; }
 .item-menu-btn.danger { color: #f0b0b0; }
 .item-menu-btn.danger:hover { background: #5c2b2b; border-color: #7a3a3a; }
-
-/* ----- 搜刮物资弹窗（地点页）：复用背包网格卡片 .st-items/.st-item，选中高亮 ----- */
-.loot-menu { width: 260px; }
-.loot-grid { max-height: 40vh; overflow-y: auto; }
-.loot-grid .st-item { cursor: pointer; }
-.st-item.selected { background: #4f86c6; border-color: #9cc7e8; color: #fff; border-radius: 6px; }
-.st-item.selected .st-item-meta { color: #fff; }
-.loot-menu .dialog-btns, .stash-menu .dialog-btns { display: flex; gap: 8px; margin-top: 2px; }
-.loot-menu .dialog-cancel, .loot-menu .dialog-confirm,
-.stash-menu .dialog-cancel, .stash-menu .dialog-confirm {
-    flex: 1; border-radius: 4px; padding: 8px; font-size: 12px; cursor: pointer;
-    transition: all .15s;
-}
-.loot-menu .dialog-cancel, .stash-menu .dialog-cancel { background: #353535; border: 1px solid #555; color: #aaa; }
-.loot-menu .dialog-cancel:hover, .stash-menu .dialog-cancel:hover { border-color: #888; color: #ddd; }
-.loot-menu .dialog-confirm, .stash-menu .dialog-confirm { background: #2f4f6b; border: 1px solid #3f6b8f; color: #cfe3f5; }
-.loot-menu .dialog-confirm:hover, .stash-menu .dialog-confirm:hover { background: #3a6085; border-color: #5080a8; color: #fff; }
-
-/* ----- 地点暂存区（复用背包网格卡片，点卡片取出） ----- */
-.stash-menu { width: 260px; }
-.stash-grid { max-height: 50vh; overflow-y: auto; scrollbar-width: none; }
-.stash-grid::-webkit-scrollbar { display: none; }
-.stash-grid .st-item { cursor: pointer; }
-.stash-btn { margin-left: auto; }
-/* 搜刮物资弹窗网格同样隐藏滚动条（可滚动） */
-.loot-grid { scrollbar-width: none; }
-.loot-grid::-webkit-scrollbar { display: none; }

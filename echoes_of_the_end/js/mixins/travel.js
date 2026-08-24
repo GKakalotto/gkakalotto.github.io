@@ -247,7 +247,14 @@ const TravelMixin = {
                     const inLoot = items.filter(it => it.name === d.name).length;
                     if (this.ownedCount(d.name) + inLoot >= this.rarityCaps[d.name]) d = null;
                 }
-                if (d) items.push({ name: d.name, type: d.type, damage: d.damage, defense: d.defense, durability: d.durability, restore: d.restore, count: 1 });
+                if (d) {
+                    // 可叠加物品（无耐久）同类合并显示；耐久物品每件独立一条
+                    if (!d.durability) {
+                        const found = items.find(x => x.name === d.name);
+                        if (found) { found.count += 1; continue; }
+                    }
+                    items.push({ name: d.name, type: d.type, damage: d.damage, defense: d.defense, durability: d.durability, restore: d.restore, count: 1 });
+                }
             }
             return items;
         },
@@ -257,36 +264,32 @@ const TravelMixin = {
             if (cfg && cfg.enemyChance) pct = Math.min(80, pct + 20);
             return pct;
         },
-        // 展示本房间物资弹窗（推送 loot 消息给地点页）
-        showLootDialog() {
-            if (!this.pendingLoot) return;
-            this.postScene({ type: 'loot', items: this.pendingLoot.items });
+        // 搜刮/遇敌结算：打开背包面板（有战利品则下部战利品区展示，否则显示仓库/暂存点）
+        openBagAfterLoot() {
+            this.currentPage = 'bag';
+            if (this.pendingLoot && this.pendingLoot.items && this.pendingLoot.items.length) {
+                this.pushLog(`搜刮到 ${this.pendingLoot.items.length} 件战利品，在背包「战利品」区查看。`);
+            }
+            this.postSceneState();
         },
-        // 玩家确认选取：keep 为带走的索引数组，其余物资落入该地点暂存区（同类自动叠加）
-        lootConfirm(keep) {
+        // 从战利品取回一件到背包（满则落入当前地点暂存区）
+        takeLoot(index) {
             const loot = this.pendingLoot;
             if (!loot) return;
-            this.pendingLoot = null;
-            keep = keep || [];
-            let taken = 0, stashed = 0;
-            for (let i = 0; i < loot.items.length; i++) {
-                const item = loot.items[i];
-                if (keep.indexOf(i) !== -1) {
-                    const left = this.addBag(item);
-                    const n = (item.count || 1) - left;
-                    taken += n;
-                    if (left > 0) {
-                        this.stashAdd(loot.placeKey, { name: item.name, type: item.type, damage: item.damage, defense: item.defense, durability: item.durability, restore: item.restore, count: left });
-                        stashed += left;
-                    }
-                    if (n > 0) this.pushLog(`你拿走了「${item.name}」${n > 1 ? '×' + n : ''}。`);
-                } else {
-                    this.stashAdd(loot.placeKey, { name: item.name, type: item.type, damage: item.damage, defense: item.defense, durability: item.durability, restore: item.restore, count: item.count || 1 });
-                    stashed += item.count || 1;
-                }
+            const item = loot.items[index];
+            if (!item) return;
+            const take = item.count || 1;
+            const left = this.addBag(item);
+            if (left === take) { this.pushLog('背包已满，无法带走，可先丢弃战利品。'); return; }
+            if (left > 0) {
+                const n = take - left;
+                this.stashAdd(loot.placeKey, { name: item.name, type: item.type, damage: item.damage, defense: item.defense, durability: item.durability, restore: item.restore, count: left });
+                this.pushLog(`背包空间不足，仅带走 ${n} 件「${item.name}」，其余落入暂存区。`);
+                item.count = left;
+            } else {
+                loot.items.splice(index, 1);
+                this.pushLog(`你拿走了「${item.name}」。`);
             }
-            if (taken > 0) this.pushLog(`本次搜刮带走 ${taken} 件。`);
-            if (stashed > 0) this.pushLog(`${stashed} 件物资放进了该地点暂存区，可随时回来取。`);
             this.saveGame();
             this.postSceneState();
         },
@@ -325,26 +328,6 @@ const TravelMixin = {
             if (left === take) { this.pushLog('背包已满，无法取出。'); return; }
             if (left > 0) { it.count = left; this.pushLog(`背包空间不足，仅取出 ${take - left} 件「${it.name}」。`); }
             else list.splice(index, 1);
-            this.saveGame();
-            this.postSceneState();
-        },
-        // 暂存区批量取出：keep 为选中的索引数组，从后往前处理避免索引位移
-        stashTakeMany(keep) {
-            const place = this.currentPlace;
-            if (!place) return;
-            const list = this.placeStash[place.key] || [];
-            if (!keep || keep.length === 0) { this.pushLog('请先点选要取出的物资。'); return; }
-            let taken = 0;
-            for (let i = list.length - 1; i >= 0; i--) {
-                if (keep.indexOf(i) === -1) continue;
-                const it = list[i];
-                const take = it.count || 1;
-                const left = this.addBag({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, durability: it.durability, restore: it.restore, count: take });
-                if (left === take) { this.pushLog(`背包已满，「${it.name}」未能取出。`); continue; }
-                if (left > 0) { it.count = left; this.pushLog(`背包空间不足，仅取出 ${take - left} 件「${it.name}」。`); taken += take - left; }
-                else { list.splice(i, 1); taken += take; }
-            }
-            if (taken > 0) this.pushLog(`从暂存区取出了 ${taken} 件物资。`);
             this.saveGame();
             this.postSceneState();
         },
@@ -464,6 +447,7 @@ const TravelMixin = {
             this.pendingSeconds = atCurrent ? 0 : this.travelSeconds(from, to);
             const meta = base === 'park' ? { icon: '🌳', title: '公园绿地', desc: '一片安静的公园绿地，可以放松片刻。' }
                 : base === 'mine' ? { icon: '⛏️', title: '矿场', desc: '废弃的采石场，还能翻出些矿藏。' }
+                : base === 'sand' ? { icon: '🏜️', title: '沙石场', desc: '河滩边的沙石场，石头和沙子取之不尽。' }
                 : { icon: '🌲', title: '森林', desc: '地图边缘的树林，草木茂密。' };
             this.dialog = {
                 show: true,
@@ -479,9 +463,10 @@ const TravelMixin = {
             const seconds = this.pendingSeconds;
             const from = this.getPlayerGrid();
             this.startTravel(from, { gx: cell.gx, gy: cell.gy }, seconds, () => {
-                this.playerLocation = (cell.base === 'park' ? 'park:' : cell.base === 'mine' ? 'mine:' : 'tree:') + cell.key;
+                this.playerLocation = (cell.base === 'park' ? 'park:' : cell.base === 'mine' ? 'mine:' : cell.base === 'sand' ? 'sand:' : 'tree:') + cell.key;
                 const meta = cell.base === 'park' ? { icon: '🌳', title: '公园绿地', name: '一片公园绿地' }
                     : cell.base === 'mine' ? { icon: '⛏️', title: '矿场', name: '一座矿场' }
+                    : cell.base === 'sand' ? { icon: '🏜️', title: '沙石场', name: '一处沙石场' }
                     : { icon: '🌲', title: '森林', name: '地图边缘的树林' };
                 this.pushLog(`你来到了${meta.name}。`);
                 this.postSceneState();
@@ -499,6 +484,7 @@ const TravelMixin = {
         enterCell(cell) {
             const meta = cell.base === 'park' ? { name: '公园绿地', icon: '🌳' }
                 : cell.base === 'mine' ? { name: '矿场', icon: '⛏️' }
+                : cell.base === 'sand' ? { name: '沙石场', icon: '🏜️' }
                 : { name: '森林', icon: '🌲' };
             this.currentPlace = {
                 name: meta.name,
@@ -515,7 +501,7 @@ const TravelMixin = {
         initCellResources(place) {
             const key = place.key;
             if (this.cellResources[key]) return;
-            if (place.base === 'mine') return;   // 矿场矿藏无限
+            if (place.base === 'mine' || place.base === 'sand') return;   // 矿场/沙石场资源无限
             this.cellResources[key] = { trees: place.base === 'tree' ? 200 : 50 };
             this.saveGame();
         },
@@ -551,14 +537,13 @@ const TravelMixin = {
             if (remaining > 0) this.pushLog('背包已满，部分物品未能收纳。');
             return remaining;
         },
-        // 砍树（耗时 10 游戏分钟）：消耗体力 5；需要背包携带名字含"斧"的斧头（消防斧/石斧/铁斧），斧头有耐久（每次 -1，损坏消失）；开始时扣一棵树，进度条结束后产出原木×4 + 种子概率
+        // 砍树（耗时 10 游戏分钟）：需要背包携带名字含"斧"的斧头（消防斧/石斧/铁斧），斧头有耐久（每次 -1，损坏消失）；开始时扣一棵树，进度条结束后产出原木×4 + 种子概率
         startChop() {
             if (this.activity || this.searching) return;
             const place = this.currentPlace;
             if (!place || !place.key) return;
             const r = this.cellResources[place.key];
             if (!r || r.trees <= 0) { this.pushLog('这里的树已被砍光了。'); return; }
-            if (this.stats.physical < 5) { this.pushLog('体力不足（需 5），无法砍树，请先休息。'); return; }
             const axe = this.bag.find(i => i.name.includes('斧'));
             if (!axe) {
                 this.pushLog('砍树需要斧头，请先在背包中准备一把（工作台制作）。');
@@ -574,25 +559,24 @@ const TravelMixin = {
                     }
                 }
             }
-            this.stats.physical -= 5;
             r.trees--;
             this.beginActivity('chop', 10 * 60);
         },
-        // 挖土（5 游戏分钟，需铁锹）/ 挖矿（30 游戏分钟，需镐子，矿藏无限）：消耗体力 3；工具耐久每次 -1，损坏消失
+        // 挖土（5 游戏分钟，需铁锹）/ 挖矿（30 游戏分钟，需镐子，矿藏无限）/ 沙石场（5 分钟，需铁锹）：工具耐久每次 -1，损坏消失
         startDig() {
             if (this.activity || this.searching) return;
             const place = this.currentPlace;
             if (!place || !place.key) return;
             const isMine = place.base === 'mine';
-            if (this.stats.physical < 3) { this.pushLog('体力不足（需 3），无法挖矿/挖土，请先休息。'); return; }
+            const isSand = place.base === 'sand';
             const toolName = isMine ? '镐' : '铁锹';
             const tool = this.bag.find(i => i.name === toolName);
             if (!tool) {
-                this.pushLog(isMine ? '挖矿需要镐子，请先在背包中准备（工作台制作）。' : '挖土需要铁锹，请先在背包中准备一把（工作台制作）。');
+                this.pushLog(isMine ? '挖矿需要镐子，请先在背包中准备（工作台制作）。' : (isSand ? '挖沙石需要铁锹，请先在背包中准备一把（工作台制作）。' : '挖土需要铁锹，请先在背包中准备一把（工作台制作）。'));
                 return;
             }
-            // 矿场：随机决定本次挖出的矿种（矿藏无限）
-            const mined = isMine ? (Math.random() < 0.6 ? '铁' : '铜') : null;
+            // 矿场：随机决定本次挖出的矿种（石头50% / 铜25% / 铁25%，矿藏无限）；沙石场：随机石头/沙子各50%
+            const mined = isMine ? this.rollMineOre() : (isSand ? this.rollSand() : null);
             if (tool.durability) {
                 tool.durability--;
                 if (tool.durability <= 0) {
@@ -604,12 +588,21 @@ const TravelMixin = {
                 c[toolName] = 1;
                 this.spendMaterials(c);
             }
-            this.stats.physical -= 3;
             this.beginActivity('dig', (isMine ? 30 : 5) * 60, mined);
+        },
+        // 矿场挖矿产出：随机石头50% / 铜25% / 铁25%（互斥）
+        rollMineOre() {
+            const r = Math.random();
+            if (r < 0.5) return '石头';
+            if (r < 0.75) return '铜';
+            return '铁';
+        },
+        // 沙石场产出：随机石头 / 沙子 各 50%（互斥）
+        rollSand() {
+            return Math.random() < 0.5 ? '石头' : '沙子';
         },
         // 启动单次资源动作：1.5 秒动画内把 seconds 游戏秒推进完（顶部时间快速流动）；extra 为结算需要的附加信息
         beginActivity(type, seconds, extra) {
-            if (this.resting) this.stopRest();   // 开始活动时自动结束休息
             const MS = 1500;
             this.activity = { type, extra: extra || null };
             this.actionTarget = this.gameSeconds + seconds;
@@ -647,16 +640,17 @@ const TravelMixin = {
                 if (r && r.roomsLeft > 0) {
                     r.roomsLeft--;
                     const cfg = GameData.locationLoot[place.type];
-                    // 生成该房间物资（2~4 件，按掉落池权重抽取）并暂存待玩家选取
-                    this.pendingLoot = { placeKey: place.key, items: this.generateRoomLoot(cfg) };
                     // 全部地点搜刮都可能遭遇丧尸：概率随总天数上升，高风险地点（警察局）额外加成
                     const pct = this.searchEnemyChance(cfg);
                     if (Math.random() * 100 < pct) {
+                        // 遇丧尸：本次无战利品，只掉落丧尸掉落物
                         this.activity = null;
-                        this.spawnBattle(() => this.showLootDialog());
+                        this.spawnBattle(() => this.openBagAfterLoot());
                         return;
                     }
-                    this.showLootDialog();
+                    // 未遇敌：生成该房间战利品并打开背包
+                    this.pendingLoot = { placeKey: place.key, items: this.generateRoomLoot(cfg) };
+                    this.openBagAfterLoot();
                 }
             } else if (this.activity.type === 'hunt') {
                 // 打猎只产出生肉，随机 1~3 份
@@ -685,10 +679,19 @@ const TravelMixin = {
                 this.addBag({ type: 'material', name: '汽油', count: 5 });
                 this.pushLog('你加满了油，获得汽油×5。');
             } else if (this.activity.type === 'dismantle') {
-                this.addBag({ type: 'material', name: '铁', count: 3 });
-                this.addBag({ type: 'material', name: '塑料', count: 4 });
-                this.addBag({ type: 'material', name: '布料', count: 2 });
-                this.pushLog('你拆除了一辆汽车，获得铁×3、塑料×4、布料×2。');
+                // 拆车：随机数量铁/布料/皮革/塑料
+                const mats = [
+                    { name: '铁', count: this.randInt(2, 4) },
+                    { name: '布料', count: this.randInt(1, 3) },
+                    { name: '皮革', count: this.randInt(1, 2) },
+                    { name: '塑料', count: this.randInt(2, 4) }
+                ];
+                const desc = [];
+                for (const m of mats) {
+                    this.addBag({ type: 'material', name: m.name, count: m.count });
+                    desc.push(`${m.name}×${m.count}`);
+                }
+                this.pushLog(`你拆除了一辆汽车，获得${desc.join('、')}。`);
             } else if (this.activity.type === 'fish') {
                 if (Math.random() < 0.7) {
                     this.addBag({ type: 'rawfood', name: '鱼', count: 1 });
@@ -698,10 +701,11 @@ const TravelMixin = {
                     this.pushLog('你只捞上来一瓶干净的水。');
                 }
             } else if (this.activity.extra) {
-                // 挖矿（矿场）：随机产出铁/铜矿石 ×1~3
+                // 挖矿（矿场）/ 挖沙石（沙石场）：随机产出，矿场石头50/铜25/铁25，沙石场石头50/沙子50
                 const n = this.randInt(1, 3);
                 this.addBag({ type: 'material', name: this.activity.extra, count: n });
-                this.pushLog(`你挖到了${this.activity.extra}矿石×${n}。`);
+                const kind = (this.currentPlace && this.currentPlace.base === 'sand') ? '沙石' : '矿石';
+                this.pushLog(`你挖到了${this.activity.extra}${kind}×${n}。`);
             } else {
                 this.addBag({ type: 'material', name: '黏土', count: 2 });
                 this.pushLog('你挖了些黏土（×2）。');
@@ -712,7 +716,6 @@ const TravelMixin = {
         // 开始搜索：持续状态，时间正常流动，每累计 SEARCH_INTERVAL 游戏秒随机产出一次
         startSearch() {
             if (this.activity || this.searching) return;
-            if (this.resting) this.stopRest();
             const place = this.currentPlace;
             if (!place || !place.key) return;
             this.searching = true;
@@ -728,15 +731,9 @@ const TravelMixin = {
             this.pushLog('你停止了搜寻。');
             this.postSceneState();
         },
-        // 搜索产出：消耗精力 2（不足则停止搜索）；概率互斥获取草药/石头/垃圾（草药 1%、石头 10%、其余为垃圾）；
+        // 搜索产出：概率互斥获取草药/石头/垃圾（草药 1%、石头 10%、其余为垃圾）；
         // 动物园额外 15% 互斥概率找到蛋
         searchDrop() {
-            if (this.stats.stamina < 2) {
-                this.pushLog('精力不足，无法继续搜寻，请先休息。');
-                this.stopSearch();
-                return;
-            }
-            this.stats.stamina -= 2;
             let item, log;
             const isZoo = this.currentPlace && this.currentPlace.type === '动物园';
             const isBotanic = this.currentPlace && this.currentPlace.type === '植物园';
@@ -829,32 +826,49 @@ const TravelMixin = {
             if (this.outdoors && this.outdoors[1] && this.outdoors[1].unlocked) red += 10;   // 防御栅栏
             return red;
         },
+        // 人物攻击：力量基础（5 + 力量成长）+ 武器额外；各 ±3 浮动在战斗中结算
+        playerAtk() {
+            const str = this.stats.strength || 1;
+            const wpn = this.equipment.weapon;
+            return Math.round((5 + (str - 1) * 1.5) + (wpn && wpn.damage ? wpn.damage : 0));
+        },
+        // 人物防御：力量基础 + 防具额外
+        playerDef() {
+            const str = this.stats.strength || 1;
+            const armor = this.equipment.armor;
+            const hat = this.equipment.hat;
+            return Math.round((str - 1) * 0.5 + (armor && armor.defense ? armor.defense : 0) + (hat && hat.defense ? hat.defense : 0));
+        },
+        // 人物暴击率：随力量提升（str ×3%，暴击 2 倍伤害）
+        playerCrit() {
+            const str = this.stats.strength || 1;
+            return str * 3;
+        },
         // 遭遇丧尸：生成战斗数据但不立即开战，弹窗询问「战斗 / 逃跑」
         spawnBattle(cb) {
             const pool = ['weak', 'weak', 'normal', 'normal', 'fat'];
             const z = GameData.zombies[pool[Math.floor(Math.random() * pool.length)]];
-            // 越到后面遇到的数量越多：每 8 天 +1 只，封顶 3 只
-            const n = Math.min(3, 1 + Math.floor(this.totalDay / 8));
-            // 丧尸强度随总天数增强：每天 +1%，封顶 2 倍；单只攻击/血量 ±3 浮动，再按数量叠加
+            // 越到后面遇到的数量越多：初始 1~3 只随机，每 10 天 +1 只，封顶 10 只
+            const n = Math.min(10, this.randInt(1, 3) + Math.floor(this.totalDay / 10));
+            // 丧尸强度随总天数增强：每天 +1%，封顶 2 倍；单只 hp/atk ±3 浮动，hp/atk 再按数量叠加
             const scale = Math.min(2, 1 + this.totalDay * 0.01);
             const zHp = Math.max(1, Math.round(z.hp * scale) + this.randInt(-3, 3)) * n;
             const zAtk = Math.max(1, Math.round(z.atk * scale) + this.randInt(-3, 3)) * n;
             const zExp = z.exp * n;
             const name = (n > 1 ? n + ' 只' : '') + z.name;
-            const zw = this.equipment.weapon;
-            const armor = this.equipment.armor;
-            const hat = this.equipment.hat;
-            const atk = Math.round((zw && zw.damage ? zw.damage : 5) * (1 + (this.stats.strength - 1) * 0.1));
-            const def = (armor && armor.defense ? armor.defense : 0) + (hat && hat.defense ? hat.defense : 0);
+            // 人物属性：基础值 ±3 浮动（本场战斗固定）
+            const atk = this.playerAtk() + this.randInt(-3, 3);
+            const def = this.playerDef() + this.randInt(-3, 3);
+            const crit = Math.max(0, this.playerCrit() + this.randInt(-3, 3));
             this.battle = {
                 zombie: Object.assign({}, z, { name: name, hp: zHp, atk: zAtk, exp: zExp }),
                 zombieHp: zHp,
                 playerHp: Math.min(this.stats.hp, this.hpMax),
                 hpMax: this.hpMax,
                 playerHealth: this.stats.health,
-                logs: [], won: false, over: false, atk, def,
+                logs: [], won: false, over: false, atk, def, crit,
                 playerAttacked: false, inBattle: false,
-                strength: this.stats.strength, atkCount: 0, hitCount: 0
+                strength: this.stats.strength, atkCount: 0, hitCount: 0, count: n
             };
             this.pendingAfterBattle = cb || null;
             this.pushLog(`🧟 遇到了${name}！`);
@@ -889,22 +903,23 @@ const TravelMixin = {
             const b = this.battle;
             if (!b || b.over) { if (this.battleTimer) clearInterval(this.battleTimer); return; }
             if (!b.playerAttacked) {
-                // 步骤一：玩家攻击（消耗体力 2）
+                // 步骤一：玩家攻击（±3 浮动，命中暴击则 2 倍伤害）
                 b.playerAttacked = true;
-                this.stats.physical = Math.max(0, this.stats.physical - 2);
-                const myAtk = Math.max(1, b.atk + this.randInt(-5, 5));
-                b.zombieHp = Math.max(0, b.zombieHp - myAtk);
+                const myAtk = Math.max(1, b.atk + this.randInt(-3, 3));
+                const crit = this.randInt(1, 100) <= b.crit;
+                const dealt = Math.max(1, crit ? myAtk * 2 : myAtk);   // 丧尸无防御，全额伤害
+                b.zombieHp = Math.max(0, b.zombieHp - dealt);
                 b.atkCount++;
-                b.logs.push(`你攻击${b.zombie.name}，造成 ${myAtk} 点伤害（剩余 ${b.zombieHp}）。`);
+                b.logs.push(`你攻击${b.zombie.name}，造成 ${dealt} 点伤害${crit ? '（暴击！）' : ''}（剩余 ${b.zombieHp}）。`);
                 // 武器每次攻击 30% 概率损耗 1 耐久
                 if (this.equipment.weapon && this.equipment.weapon.durability && Math.random() < 0.3) {
                     this.wearEquipment(this.equipment.weapon, 1, 'weapon', '武器');
                 }
                 if (b.zombieHp <= 0) { this.endBattle(true); return; }
             } else {
-                // 步骤二：丧尸反击
+                // 步骤二：丧尸反击（±3 浮动，减伤 = 人物防御；丧尸无暴击）
                 b.playerAttacked = false;
-                const zAtk = Math.max(1, b.zombie.atk + this.randInt(-5, 5));
+                const zAtk = Math.max(1, b.zombie.atk + this.randInt(-3, 3));
                 const dmg = Math.max(1, zAtk - b.def);
                 b.playerHp = Math.max(0, b.playerHp - dmg);
                 b.hitCount++;
@@ -914,12 +929,12 @@ const TravelMixin = {
             }
             this.postSceneState();
         },
-        // 概率受伤（10%）：健康度 -1~3，并实时压低血量上限
+        // 概率受伤（10%）：健康度 -1~3（健康值独立，不再影响血量上限）
         rollBattleInjury(b) {
             if (Math.random() >= 0.1) return;
             const dmg = this.randInt(1, 3);
             b.playerHealth = Math.max(0, b.playerHealth - dmg);
-            const curMax = Math.round(200 * b.playerHealth / 100);
+            const curMax = this.hpMax;
             b.hpMax = curMax;
             if (b.playerHp > curMax) b.playerHp = curMax;
             b.logs.push(`你受伤了，健康度 -${dmg}（血量上限 ${curMax}）。`);
@@ -932,7 +947,7 @@ const TravelMixin = {
             let dmg = 0;
             if (Math.random() >= chance) {
                 // 逃跑失败：被丧尸半力一击抓伤，少量扣血（最少 1，至少保留 1 血）
-                const zAtk = Math.max(1, b.zombie.atk + this.randInt(-5, 5));
+                const zAtk = Math.max(1, b.zombie.atk + this.randInt(-3, 3));
                 dmg = Math.max(1, Math.round(zAtk * 0.5) - b.def);
                 b.playerHp = Math.max(1, b.playerHp - dmg);
             }
@@ -966,6 +981,7 @@ const TravelMixin = {
             if (won) {
                 this.pushLog(`你击败了${b.zombie.name}！获得 ${b.zombie.exp} 点战斗经验。`);
                 this.gainCombatExp(b.zombie.exp);
+                this.zombieDrop(b.count || 1);
             } else {
                 this.pushLog(`你被${b.zombie.name}击败了，倒在了路上……`);
             }
@@ -988,6 +1004,25 @@ const TravelMixin = {
                 this.stats.strength++;
                 this.pushLog(`💪 力量提升到 ${this.stats.strength} 级！`);
             }
+        },
+        // 丧尸掉落：按丧尸数量上限随机掉基础物资（同类叠加）
+        zombieDrop(count) {
+            const pool = ['布料', '垃圾', '石头', '原木', '金属废料', '沙子', '绳子'];
+            const n = this.randInt(1, Math.max(1, count));
+            const map = {};
+            for (let i = 0; i < n; i++) {
+                const name = pool[Math.floor(Math.random() * pool.length)];
+                map[name] = (map[name] || 0) + 1;
+            }
+            const desc = [];
+            let lost = 0;
+            for (const name in map) {
+                const left = this.addBag({ type: 'material', name: name, count: map[name] });
+                if (left > 0) lost += left;
+                else desc.push(`${name}×${map[name]}`);
+            }
+            if (desc.length) this.pushLog(`丧尸掉落：${desc.join('、')}。`);
+            if (lost > 0) this.pushLog(`⚠️ 背包空间不足，${lost} 件丧尸掉落物未拾取。`);
         },
         // 战斗胜利后：清战斗状态；有回调继续原流程，否则留在当前场景
         finishBattle() {

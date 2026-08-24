@@ -13,8 +13,6 @@
     <div id="stove" class="page-root" v-cloak style="display:none" v-show="loaded">
         <div class="page-header">
             <button class="page-back" :disabled="!!cooking" @click="send({ type: 'close-page' })">‹ 返回</button>
-            <button v-if="stove && stove.stoveLevel < stove.stoveLevels.length - 1" class="upgrade-btn" :disabled="!!cooking" @click="send({ type: 'upgrade-stove' })">升级</button>
-            <span v-else class="upgrade-max">已达最高等级</span>
         </div>
         <div class="page-body">
             <!-- 制作按钮：固定菜单，按背包+仓库物资直接制作 -->

@@ -28,16 +28,14 @@ new Vue({
         weatherName: GameData.startWeather,
         // 玩家状态（初始值来自数据文件）
         stats: { ...GameData.initialStats },
-        // 状态面板条目（key 对应 stats 字段与 CSS 类名）
+        // 人物状态条条目（key 对应 stats 字段；icon 为状态标识）
         statItems: [
-            { key: 'hp',         icon: '♥',   label: '生命' },
-            { key: 'hunger',     icon: '🍖',  label: '饱食' },
+            { key: 'hp',         icon: '💗',   label: '生命' },
+            { key: 'hunger',     icon: '🥩',  label: '饱食' },
             { key: 'water',      icon: '💧',  label: '水分' },
             { key: 'sanity',     icon: '🧠',  label: '理智' },
-            { key: 'stamina',    icon: '⚡',  label: '精力' },
-            { key: 'physical',   icon: '💪',  label: '体力' },
             { key: 'health',     icon: '💚',  label: '健康' },
-            { key: 'strength',   icon: '🥊',  label: '力量' }
+            { key: 'strength',   icon: '💪',  label: '力量' }
         ],
         // 当前场景：'safehouse' 安全屋 / 'map' 地图 / 'place' 地点占位
         currentScene: GameData.startScene,
@@ -57,8 +55,8 @@ new Vue({
         currentPlace: null,
         // 设置面板
         showSettings: false,
-        // 状态面板（❤ 按钮切换）
-        showStats: false,
+        // 状态详情弹窗（点击状态图标弹出；null 为关闭）
+        statDetail: null,
         // 当前 iframe 加载页：null 为场景页（safehouse/map/place），bag/bed/storage/workbench/furniture 为对应子页
         currentPage: null,
         // 当前家具详情（furniture 页用）
@@ -82,11 +80,8 @@ new Vue({
         // 持续搜索状态：开启后时间正常流动，每累计 SEARCH_INTERVAL 游戏秒随机产出一次
         searching: false,
         searchAccum: 0,   // 已累计的搜索游戏秒
-        // 休息状态：缓慢恢复体力，期间不可进行其他活动
-        resting: false,
-        restAccum: 0,     // 已累计的休息游戏秒
         // 低状态阈值提示标记：各状态首次跌破 30% 时日志提示一次，回升后复位
-        lowWarned: { hunger: false, water: false, sanity: false, stamina: false, physical: false, hp: false, health: false },
+        lowWarned: { hunger: false, water: false, sanity: false, hp: false, health: false },
         // 失眠提示标记：超过 24 小时未睡觉时提示一次，睡觉后复位
         insomniaWarned: false,
         // 健康归零后游戏结束标志（防止重复触发重开）
@@ -103,10 +98,9 @@ new Vue({
         currentStorage: null,
         // 当前篝火（fire 页用）
         currentFire: null,
-        // 当前灶台 / 雨水收集器 / 椅子 / 榨汁机 / 熔炉（对应子页用）
+        // 当前灶台 / 雨水收集器 / 榨汁机 / 熔炉（对应子页用）
         currentStove: null,
         currentRain: null,
-        currentChair: null,
         currentJuicer: null,
         currentFurnace: null,
         // 熔炉燃料：剩余可燃烧的游戏秒（每块木板 = 1 游戏小时 = 3600 游戏秒），仅加工时消耗
@@ -134,7 +128,7 @@ new Vue({
         // 当前房间搜刮出的待选取物资（搜刮结算后弹窗展示，玩家确认后清空）
         pendingLoot: null,
         // 装备槽：武器 / 帽子 / 防具（装备后从背包取出，不占背包格）
-        equipment: { weapon: null, hat: null, armor: null },
+        equipment: { weapon: null, tool: null, hat: null, armor: null },
         // 背包最大容量（初始为 0 级容量，读档后按背包等级更新）
         bagMax: 20,
         // 清除进度确认弹窗

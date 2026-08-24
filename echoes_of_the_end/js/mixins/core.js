@@ -5,13 +5,9 @@ const CoreMixin = {
         totalDay() {
             return Math.floor(this.gameSeconds / DAY_SECONDS);
         },
-        // 血量上限：由健康度决定（健康 100 → 上限 200，健康减半 → 上限减半）
+        // 血量上限：固定 200（健康值独立，不再影响生命值）
         hpMax() {
-            return Math.round(200 * Math.max(0, this.stats.health) / 100);
-        },
-        // 体力上限：随力量提升（力量 1 → 100，力量 10 → 300）
-        physicalMax() {
-            return Math.round(100 + (this.stats.strength - 1) * 200 / 9);
+            return 200;
         },
         // 季节内天数 1-30
         day() {
@@ -51,7 +47,7 @@ const CoreMixin = {
         },
         // 日志：只显示最新 5 条
         visibleLogs() {
-            return this.logs.slice(-5);
+            return this.logs.slice(-4);
         },
         // 场景标题（固定栏显示，随场景/子页切换；占位场景显示对应地点图标与名称）
         sceneTitle() {
@@ -62,7 +58,6 @@ const CoreMixin = {
             if (this.currentPage === 'fire') return '🔥 取暖';
             if (this.currentPage === 'stove') return '🍳 灶台';
             if (this.currentPage === 'rain') return '🚿 雨水收集器';
-            if (this.currentPage === 'chair') return '🪑 椅子';
             if (this.currentPage === 'juicer') return '🥤 榨汁机';
             if (this.currentPage === 'furnace') return '🏭 熔炉';
             if (this.currentPage === 'plantation') return '🌱 种植园';
@@ -117,15 +112,6 @@ const CoreMixin = {
                     this.postSceneState();
                 }
             }
-            // 休息：每累计 1 游戏分钟恢复 2 体力，体力满自动停止
-            if (this.resting) {
-                this.restAccum += GAME_SECONDS_PER_REAL_SECOND;
-                if (this.restAccum >= MINUTE_SECONDS) {
-                    this.restAccum -= MINUTE_SECONDS;
-                    this.stats.physical = Math.min(this.physicalMax, this.stats.physical + 2);
-                    if (this.stats.physical >= this.physicalMax) this.stopRest();
-                }
-            }
             // 熔炉后台加工：最多 6 个槽同时加工；仅在有任务且燃料充足时推进，燃尽则全部暂停（不工作时燃料不消耗）
             if (this.furnaceJobs.length > 0) {
                 if (this.furnaceFuel > 0) {
@@ -160,7 +146,7 @@ const CoreMixin = {
         advanceGameTime(seconds) {
             if (this.gameOver) return;
             this.gameSeconds += seconds;
-            // 状态随时间变化：饱食/水分/理智持续消耗，精力/体力自然缓慢恢复
+            // 状态随时间变化：饱食/水分/理智持续消耗
             const s = this.stats;
             const hours = seconds / HOUR_SECONDS;
             const wasHungry = s.hunger > 0, wasThirsty = s.water > 0;
@@ -177,12 +163,6 @@ const CoreMixin = {
             } else {
                 this.insomniaWarned = false;
             }
-            // 精力（体力上限 100）：恢复速度与理智（精神值）挂钩，理智越低恢复越慢；理智极低时反而净流失
-            const sanityRatio = s.sanity / 200;   // 理智恒在 [0, 200]
-            let staminaDelta = 2 * hours * sanityRatio;
-            if (s.sanity < 30) staminaDelta -= 2 * hours;
-            s.stamina = Math.max(0, Math.min(100, s.stamina + staminaDelta));
-            s.physical = Math.min(this.physicalMax, s.physical + hours);
             if (wasHungry && s.hunger <= 0) this.pushLog('你饿得头晕眼花，身体开始透支……');
             if (wasThirsty && s.water <= 0) this.pushLog('你口渴难耐，急需饮水……');
             // 饥饿或缺水归零后持续损耗健康：每分钟 -1
@@ -216,12 +196,12 @@ const CoreMixin = {
         // 低状态阈值提示：各状态首次跌破 30% 时提示，回升后复位以便下次再提醒
         checkLowStats() {
             const warnMap = {
-                hunger: '饱食', water: '水分', sanity: '理智', stamina: '精力',
-                physical: '体力', hp: '血量', health: '健康'
+                hunger: '饱食', water: '水分', sanity: '理智',
+                hp: '血量', health: '健康'
             };
             const maxMap = {
-                hunger: 150, water: 150, sanity: 200, stamina: 100,
-                physical: this.physicalMax, hp: this.hpMax, health: 100
+                hunger: 150, water: 150, sanity: 200,
+                hp: this.hpMax, health: 100
             };
             for (const key in warnMap) {
                 const max = maxMap[key];
@@ -275,28 +255,6 @@ const CoreMixin = {
             } else {
                 this.closeDialog();
             }
-        },
-        // 休息开关：点击顶栏休息按钮切换；休息中时间流逝并缓慢恢复体力
-        toggleRest() {
-            if (this.resting) this.stopRest();
-            else this.startRest();
-        },
-        startRest() {
-            if (this.currentScene === 'map') { this.pushLog('赶路途中无法安心休息。'); return; }
-            if (this.currentPage === 'battle' || this.activity || this.searching || this.sleeping || this.cooking) {
-                this.pushLog('当前无法休息。');
-                return;
-            }
-            if (this.stats.physical >= this.physicalMax) { this.pushLog('体力充沛，无需休息。'); return; }
-            this.resting = true;
-            this.restAccum = 0;
-            this.pushLog('你坐下来休息，体力缓缓恢复……');
-        },
-        stopRest() {
-            if (!this.resting) return;
-            this.resting = false;
-            this.restAccum = 0;
-            this.pushLog('休息结束。');
         }
     }
 };

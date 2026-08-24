@@ -10,6 +10,8 @@ var MapData = {
     safehouseGridPos: { gx: 8, gy: 8 },
     // 矿场格子坐标（0 基，x、y 均为偶数的空闲公园格）
     mineCell: { gx: 10, gy: 12 },
+    // 沙石场格子坐标（0 基，x、y 均为偶数的空闲公园格）
+    sandCell: { gx: 6, gy: 16 },
 
     // ===== 地点 =====
     // 成都真实地名；lx/ly 为画布位置，换算后落在 x、y 均为偶数的格子上（避开道路）；
