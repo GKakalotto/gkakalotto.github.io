@@ -69,10 +69,6 @@ new Vue({
         sleepDelta: 0,    // 本次要推进的游戏秒数
         sleepTarget: 0,   // 目标 gameSeconds
         sleepRAF: null,   // requestAnimationFrame 句柄
-        // 正在烹饪/榨汁的菜单项（{ kind: 'stove'|'juicer', name, output, inputs }），动画期间禁止重复点击
-        cooking: null,
-        cookTarget: 0,    // 烹饪结束的目标 gameSeconds
-        cookRAF: null,    // requestAnimationFrame 句柄
         // 地图资源单次动作（'chop' 砍树 / 'dig' 挖黏土），进度条动画期间推进游戏时间
         activity: null,
         actionTarget: 0,  // 动作结束的目标 gameSeconds
@@ -111,6 +107,8 @@ new Vue({
         plantationJobs: [],
         // 篝火燃料烧尽时刻（游戏秒）：gameSeconds 小于它即为燃烧中，剩余时长 = (fireFuelUntil - gameSeconds) / HOUR_SECONDS
         fireFuelUntil: 0,
+        // 烹饪锅燃料烧尽时刻（游戏秒）：1 木板 = 60 分钟燃料
+        stoveFuelUntil: 0,
         // 背包物品（初始物资，来自数据文件）
         bag: GameData.bag,
         // 背包等级（0 起，升级扩充 bagMax）

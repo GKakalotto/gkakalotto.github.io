@@ -12,9 +12,21 @@
     <!-- 灶台子页：固定制作菜单（耗时烹饪，按背包+仓库物资直接制作）；Vue 数据加载完成前隐藏 -->
     <div id="stove" class="page-root" v-cloak style="display:none" v-show="loaded">
         <div class="page-header">
-            <button class="page-back" :disabled="!!cooking" @click="send({ type: 'close-page' })">‹ 返回</button>
+            <button class="page-back" @click="send({ type: 'close-page' })">‹ 返回</button>
         </div>
         <div class="page-body">
+            <!-- 烹饪锅燃料：做饭需燃料（木板），1 木板 = 60 分钟 = 6 次饭 -->
+            <div class="stove-fuel">
+                <div class="fire-add-title">燃料：{{ fuelMinutes }} 分钟（1 木板 = 60 分钟，可做 6 次饭）</div>
+                <div class="fire-add-btns">
+                    <button v-for="n in addAmounts" :key="n" class="fire-add-btn"
+                            :disabled="woodCount < n"
+                            @click="send({ type: 'add-stove-fuel', count: n })">
+                        {{ '加 ' + n + ' 木板' }}
+                    </button>
+                </div>
+            </div>
+
             <!-- 制作按钮：固定菜单，按背包+仓库物资直接制作 -->
             <div class="stove-ops">
                 <div v-for="a in GameData.stoveMenu" :key="a.name" class="stove-item-row">
@@ -26,11 +38,9 @@
                         </span>
                     </div>
                     <button class="bed-upgrade-btn stove-cook-btn"
-                            :class="{ cooking: cooking && cooking.name === a.name }"
-                            :disabled="!!cooking || !canCook(a)"
+                            :disabled="!canCook(a)"
                             @click="send({ type: 'stove-cook', name: a.name })">
-                        <div v-if="cooking && cooking.name === a.name" class="stove-cook-fill" @animationend="onCookAnimEnd"></div>
-                        <span v-text="cooking && cooking.name === a.name ? '烹饪中…' : '制作'"></span>
+                        <span>制作</span>
                     </button>
                 </div>
             </div>
@@ -49,12 +59,24 @@
             stove: null,
             bag: [],
             storageItems: [],
-            cooking: null
+            fuelUntil: 0,
+            gameSeconds: 0,
+            addAmounts: [1, 2, 4]
         },
         computed: {
             // 背包 + 仓库全部可制作原料
             allItems() {
                 return (this.bag || []).concat(this.storageItems || []);
+            },
+            // 烹饪锅剩余燃料（分钟）
+            fuelMinutes() {
+                return Math.max(0, Math.floor((this.fuelUntil - this.gameSeconds) / 60));
+            },
+            // 背包+仓库木板数量
+            woodCount() {
+                return this.allItems
+                    .filter(it => it.name === '木板')
+                    .reduce((s, it) => s + (it.count || 1), 0);
             }
         },
         methods: {
@@ -67,19 +89,14 @@
                     .filter(it => it.name === name)
                     .reduce((s, it) => s + (it.count || 1), 0);
             },
-            // 当前菜单项是否可制作：原料充足即可（烹饪锅单级）
+            // 当前菜单项是否可制作：有燃料（≥10 分钟）且原料充足（烹饪锅单级）
             canCook(a) {
                 if (!this.stove) return false;
+                if (this.fuelUntil - this.gameSeconds < 600) return false;
                 for (var mat in a.inputs) {
                     if (this.have(mat) < a.inputs[mat]) return false;
                 }
                 return true;
-            },
-            // 进度条填充动画结束：通知外壳结算产出（流动条纹为无限动画不触发）
-            onCookAnimEnd(e) {
-                if (e.animationName === 'bedSleepFill') {
-                    this.send({ type: 'cook-anim-end' });
-                }
             }
         }
     });
@@ -90,10 +107,20 @@
             app.stove = msg.state.currentStove;
             app.bag = msg.state.bag;
             app.storageItems = msg.state.storageItems || [];
-            app.cooking = msg.state.cooking || null;
+            app.fuelUntil = msg.state.stoveFuelUntil || 0;
+            app.gameSeconds = msg.state.gameSeconds || 0;
             app.loaded = true;
+        } else if (msg && msg.type === 'scroll-reset') {
+            app.$nextTick(resetScroll);
         }
     });
+
+    function resetScroll() {
+        var sc = document.querySelectorAll('*');
+        for (var i = 0; i < sc.length; i++) {
+            if (sc[i].scrollHeight > sc[i].clientHeight) sc[i].scrollTop = 0;
+        }
+    }
     </script>
 </body>
 </html>

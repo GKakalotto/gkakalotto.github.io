@@ -243,7 +243,7 @@ const InventoryMixin = {
             if (!this.hasMaterials(bp.cost)) return;
             this.spendMaterials(bp.cost);
             const count = bp.count || 1;
-            this.addBag({ type: bp.type, name: bp.name, damage: bp.damage, defense: bp.defense, durability: bp.durability, restore: bp.restore, count: count });
+            this.addBag({ type: bp.type, name: bp.name, damage: bp.damage, defense: bp.defense, durability: bp.durability, restore: bp.restore, damageReduction: bp.damageReduction, slot: bp.slot, hungerMult: bp.hungerMult, axe: bp.axe, count: count });
             this.pushLog(`你制作了「${bp.name}」${count > 1 ? '×' + count : ''}。`);
             // 刷新工作台材料颜色 / 背包子页
             this.postSceneState();
@@ -253,29 +253,23 @@ const InventoryMixin = {
         storageCapacity() {
             return 999999;
         },
-        // 仓库每槽堆叠上限固定 20（不随等级变化）
-        storageStack() {
-            return 20;
-        },
-        // 背包 → 仓库（仅安全屋可存取；普通物品按仓库堆叠上限合并，耐久物品不堆叠，放不下的剩余留在背包）
-        // 背包 → 仓库：每次转移 1 件（耐久物品整件占一槽）
+        // 背包 → 仓库：每次转移 1 件（普通物品无限堆叠，耐久物品整件占一槽）
         moveToStorage(index) {
             const it = this.bag[index];
             if (!it) return;
             if (this.currentScene !== 'safehouse') return;
-            const stack = this.storageStack();
             const durable = !!it.durability;
             if (!durable) {
-                // 同类已有且未满：叠加 1 件
-                const si = this.storageItems.find(s => s.name === it.name && (s.count || 1) < stack);
+                // 同类直接叠加（无限堆叠）
+                const si = this.storageItems.find(s => s.name === it.name);
                 if (si) { si.count++; }
                 else {
                     if (this.storageItems.length >= this.storageCapacity()) { this.pushLog('仓库已满。'); return; }
-                    this.storageItems.push({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, restore: it.restore, durability: it.durability, count: 1 });
+                    this.storageItems.push({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, restore: it.restore, durability: it.durability, damageReduction: it.damageReduction, slot: it.slot, hungerMult: it.hungerMult, axe: it.axe, count: 1 });
                 }
             } else {
                 if (this.storageItems.length >= this.storageCapacity()) { this.pushLog('仓库已满。'); return; }
-                this.storageItems.push({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, restore: it.restore, durability: it.durability, count: 1 });
+                this.storageItems.push({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, restore: it.restore, durability: it.durability, damageReduction: it.damageReduction, slot: it.slot, hungerMult: it.hungerMult, axe: it.axe, count: 1 });
             }
             // 背包扣 1 件
             if (it.count && it.count > 1) it.count--;
@@ -299,10 +293,10 @@ const InventoryMixin = {
             }
             if (it.count && it.count > 1) {
                 it.count--;
-                this.addBag({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, durability: it.durability, restore: it.restore, count: take });
+                this.addBag({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, durability: it.durability, restore: it.restore, damageReduction: it.damageReduction, slot: it.slot, hungerMult: it.hungerMult, axe: it.axe, count: take });
             } else {
                 this.storageItems.splice(index, 1);
-                this.addBag({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, durability: it.durability, restore: it.restore, count: take });
+                this.addBag({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, durability: it.durability, restore: it.restore, damageReduction: it.damageReduction, slot: it.slot, hungerMult: it.hungerMult, axe: it.axe, count: take });
             }
             this.postSceneState();
         },
@@ -346,9 +340,8 @@ const InventoryMixin = {
             this.pushLog('背包已自动整理。');
             this.postSceneState();
         },
-        // 自动整理：普通同类尽可能叠放（按仓库当前堆叠上限）；耐久物品不合并、按名排序
+        // 自动整理：普通同类无限堆叠合并（不按槽上限分槽）；耐久物品不合并、按名排序
         sortStorage() {
-            const stack = this.storageStack();
             const durable = [];
             const groups = {};
             for (const it of this.storageItems) {
@@ -362,11 +355,7 @@ const InventoryMixin = {
                 const items = groups[key];
                 const base = items[0];
                 let total = items.reduce((s, it) => s + (it.count || 1), 0);
-                while (total > 0) {
-                    const take = Math.min(total, stack);
-                    sorted.push({ name: base.name, type: base.type, restore: base.restore, count: take });
-                    total -= take;
-                }
+                sorted.push({ name: base.name, type: base.type, restore: base.restore, count: total });
             }
             durable.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
             this.storageItems = sorted.concat(durable);
@@ -383,10 +372,11 @@ const InventoryMixin = {
             this.postSceneState();
         },
         // 装备物品：从背包取出放入对应槽（武器/帽子/防具）；同槽已有装备先卸下回背包
-        equipItem(index) {
+        equipItem(index, preferSlot) {
             const it = this.bag[index];
             if (!it) return;
-            const slot = this.slotOf(it.type, it.name, it.slot);
+            // 目标槽：优先用户指定槽（如消防斧可从工具槽装），否则按物品类型默认槽
+            let slot = preferSlot && this.canEquipSlot(it, preferSlot) ? preferSlot : this.slotOf(it.type, it.name, it.slot);
             if (!slot) return;
             if (this.equipment[slot]) {
                 if (this.bag.length >= this.bagMax) { this.pushLog('背包已满，无法替换装备。'); return; }
@@ -396,6 +386,14 @@ const InventoryMixin = {
             this.bag.splice(index, 1);
             this.pushLog(`装备了「${it.name}」（${this.slotLabel(slot)}槽）。`);
             this.postSceneState();
+        },
+        // 物品能否装入指定槽：斧类（axe）可当武器或工具；武器→武器；工具→工具；防具→帽/甲
+        canEquipSlot(it, slot) {
+            if (slot === 'weapon') return it.type === 'weapon';
+            if (slot === 'tool') return it.type === 'tool' || !!it.axe;
+            if (slot === 'hat') return it.type === 'armor' && (it.slot === 'hat' || (!it.slot && (it.name || '').includes('盔')));
+            if (slot === 'armor') return it.type === 'armor' && !(it.slot === 'hat');
+            return false;
         },
         // 卸下装备：放回背包
         unequipSlot(slot) {
@@ -467,6 +465,19 @@ const InventoryMixin = {
             // 从当前时刻（或剩余燃料烧尽时刻，取较晚者）起累加，燃尽后重新点燃
             this.fireFuelUntil = Math.max(this.gameSeconds, this.fireFuelUntil) + hours * HOUR_SECONDS;
             this.pushLog(`添加 ${count} 块木板，篝火可再燃烧 ${hours} 小时。`);
+            this.postSceneState();
+        },
+        // 烹饪锅：添加木板燃料（1 木板 = 60 分钟 = 6 次饭）
+        addStoveFuel(count) {
+            if (!this.currentStove) return;
+            const have = this.materialCount('木板');
+            if (have < count) {
+                this.pushLog(`木板不足，还需要 ${count - have} 块。`);
+                return;
+            }
+            this.spendMaterials({ '木板': count });
+            this.stoveFuelUntil = Math.max(this.gameSeconds, this.stoveFuelUntil) + count * 60 * 60;
+            this.pushLog(`添加 ${count} 块木板，烹饪锅可再烧 ${count * 60} 分钟（约 ${count * 6} 次饭）。`);
             this.postSceneState();
         },
         // 篝火：点击升级 → 弹窗确认
@@ -621,14 +632,16 @@ const InventoryMixin = {
         spendCombined(cost) {
             this.spendMaterials(cost);
         },
-        // 制作/榨汁：点击后扣料并进入耗时进度（动画期间推进游戏时间，结束后产出）
+        // 制作/榨汁：扣料后直接推进 10 分钟并产出（烹饪锅做饭需燃料）
         startCooking(kind, name) {
-            if (this.cooking) return;
             const list = kind === 'stove' ? GameData.stoveMenu : GameData.juiceRecipes;
             const a = list.find(x => x.name === name);
             if (!a) return;
             if (kind === 'stove') {
                 if (!this.currentStove) return;
+                // 烹饪锅做饭需燃料（木板），每次做一次食物消耗 10 分钟燃料（推进时间即自然消耗）
+                if (this.gameSeconds >= this.stoveFuelUntil) { this.pushLog('烹饪锅没有燃料（木板），请先添加木板。'); return; }
+                if (this.stoveFuelUntil - this.gameSeconds < 600) { this.pushLog('烹饪锅燃料不足（至少需 10 分钟），请添加木板。'); return; }
             } else if (!this.currentJuicer) {
                 return;
             }
@@ -640,33 +653,22 @@ const InventoryMixin = {
             }
             if (!this.hasCombined(a.inputs)) { this.pushLog(`材料不足，无法${kind === 'stove' ? '制作' : '榨汁'}「${name}」。`); return; }
             this.spendCombined(a.inputs);
-            // 进入进度动画：1.5 秒内把 COOK_SECONDS 游戏秒推进完（顶部时间随之快速流动）
-            const COOK_MS = 1500;
-            const COOK_SECONDS = 1800;   // 烹饪耗时 30 游戏分钟
-            this.cooking = { kind, name, output: o };
-            this.cookTarget = this.gameSeconds + COOK_SECONDS;
+            // 跳过动画：直接推进 10 分钟并产出
+            this.advanceGameTime(600);
+            this.addBag({ name: o.name, type: o.type, restore: o.restore, count: 1 });
+            this.pushLog(kind === 'stove' ? `制作了「${o.name}」（消耗 10 分钟燃料）。` : `榨了杯「${o.name}」。`);
             this.postSceneState();
-            const speed = COOK_SECONDS / COOK_MS;
-            let last = performance.now();
-            const step = (now) => {
-                if (!this.cooking) return;
-                const dt = now - last;
-                last = now;
-                this.advanceGameTime(speed * dt);
-                if (this.gameSeconds < this.cookTarget) {
-                    this.cookRAF = requestAnimationFrame(step);
-                }
-            };
-            this.cookRAF = requestAnimationFrame(step);
         },
         // 篝火烹饪（烤肉/烤鱼/烧水等）：烧水需先放锅
         startFireCook(name) {
-            if (this.cooking) return;
             const fire = this.currentFire;
             if (!fire) return;
             const a = GameData.fireMenu.find(x => x.name === name);
             if (!a) return;
             if (a.needsPot && !fire.hasPot) { this.pushLog('烧水需要在篝火上放一口锅。'); return; }
+            // 篝火做饭需燃料（木板），每次做一次食物消耗 10 分钟燃料（推进时间即自然消耗）
+            if (this.gameSeconds >= this.fireFuelUntil) { this.pushLog('篝火没有燃料（木板），请先添加木板。'); return; }
+            if (this.fireFuelUntil - this.gameSeconds < 600) { this.pushLog('篝火燃料不足（至少需 10 分钟），请添加木板。'); return; }
             const o = a.output;
             const existing = this.bag.find(i => i.name === o.name);
             if (this.bag.length >= this.bagMax && !existing) {
@@ -675,23 +677,11 @@ const InventoryMixin = {
             }
             if (!this.hasCombined(a.inputs)) { this.pushLog(`材料不足，无法${name === '烧水' ? '烧水' : '烹饪'}「${name}」。`); return; }
             this.spendCombined(a.inputs);
-            const COOK_MS = 1500;
-            const COOK_SECONDS = 1800;
-            this.cooking = { kind: 'fire', name, output: o };
-            this.cookTarget = this.gameSeconds + COOK_SECONDS;
+            // 跳过动画：直接推进 10 分钟并产出
+            this.advanceGameTime(600);
+            this.addBag({ name: o.name, type: o.type, restore: o.restore, count: 1 });
+            this.pushLog(`在篝火上做好了「${o.name}」（消耗 10 分钟燃料）。`);
             this.postSceneState();
-            const speed = COOK_SECONDS / COOK_MS;
-            let last = performance.now();
-            const step = (now) => {
-                if (!this.cooking) return;
-                const dt = now - last;
-                last = now;
-                this.advanceGameTime(speed * dt);
-                if (this.gameSeconds < this.cookTarget) {
-                    this.cookRAF = requestAnimationFrame(step);
-                }
-            };
-            this.cookRAF = requestAnimationFrame(step);
         },
         // 篝火锅槽：放入/取下锅
         toggleFirePot() {
@@ -709,21 +699,6 @@ const InventoryMixin = {
                 this.bag.splice(idx, 1);
                 this.pushLog('把锅放在了篝火上。');
             }
-            this.postSceneState();
-        },
-        // 进度条动画结束：补齐剩余游戏时间并产出成品
-        finishCooking() {
-            if (!this.cooking) return;
-            if (this.cookRAF) { cancelAnimationFrame(this.cookRAF); this.cookRAF = null; }
-            const remain = this.cookTarget - this.gameSeconds;
-            if (remain > 0) this.advanceGameTime(remain);
-            const o = this.cooking.output;
-            const kind = this.cooking.kind;
-            this.addBag({ name: o.name, type: o.type, restore: o.restore, count: 1 });
-            if (kind === 'stove') this.pushLog(`制作了「${o.name}」。`);
-            else if (kind === 'fire') this.pushLog(`在篝火上做好了「${o.name}」。`);
-            else this.pushLog(`榨了杯「${o.name}」。`);
-            this.cooking = null;
             this.postSceneState();
         },
         // ============ 雨水收集器 ============

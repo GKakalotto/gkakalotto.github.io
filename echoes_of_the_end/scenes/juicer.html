@@ -12,7 +12,7 @@
     <!-- 榨汁机子页：固定榨汁菜单，按背包+仓库蔬果直接制作；Vue 数据加载完成前隐藏 -->
     <div id="juicer" class="page-root" v-cloak style="display:none" v-show="loaded">
         <div class="page-header">
-            <button class="page-back" :disabled="!!cooking" @click="send({ type: 'close-page' })">‹ 返回</button>
+            <button class="page-back" @click="send({ type: 'close-page' })">‹ 返回</button>
         </div>
         <div class="page-body">
             <!-- 制作按钮：固定菜单，按背包+仓库蔬果直接制作 -->
@@ -26,11 +26,9 @@
                         </span>
                     </div>
                     <button class="bed-upgrade-btn stove-cook-btn"
-                            :class="{ cooking: cooking && cooking.name === a.name }"
-                            :disabled="!!cooking || !canMake(a)"
+                            :disabled="!canMake(a)"
                             @click="send({ type: 'juice-make', name: a.name })">
-                        <div v-if="cooking && cooking.name === a.name" class="stove-cook-fill" @animationend="onCookAnimEnd"></div>
-                        <span v-text="cooking && cooking.name === a.name ? '榨汁中…' : '榨汁'"></span>
+                        <span>榨汁</span>
                     </button>
                 </div>
             </div>
@@ -47,8 +45,7 @@
         data: {
             loaded: false,
             bag: [],
-            storageItems: [],
-            cooking: null
+            storageItems: []
         },
         computed: {
             // 背包 + 仓库全部可榨原料
@@ -72,12 +69,6 @@
                     if (this.have(mat) < a.inputs[mat]) return false;
                 }
                 return true;
-            },
-            // 进度条填充动画结束：通知外壳结算产出（流动条纹为无限动画不触发）
-            onCookAnimEnd(e) {
-                if (e.animationName === 'bedSleepFill') {
-                    this.send({ type: 'cook-anim-end' });
-                }
             }
         }
     });
@@ -87,8 +78,18 @@
         if (msg && msg.type === 'init') {
             app.bag = msg.state.bag;
             app.storageItems = msg.state.storageItems || [];
-            app.cooking = msg.state.cooking || null;
             app.loaded = true;
+        }
+    });
+
+    window.addEventListener("message", function (e) {
+        if (e.data && e.data.type === "scroll-reset") {
+            app.$nextTick(function () {
+                var s = document.querySelectorAll("*");
+                for (var i = 0; i < s.length; i++) {
+                    if (s[i].scrollHeight > s[i].clientHeight) s[i].scrollTop = 0;
+                }
+            });
         }
     });
     </script>

@@ -12,7 +12,7 @@
     <!-- 工作台子页：一级分类菜单 → 二级蓝图列表，制作操作转发给外壳；Vue 数据加载完成前隐藏 -->
     <div id="wb" class="page-root" v-cloak style="display:none" v-show="loaded">
         <div class="page-header">
-            <button class="page-back" @click="view === 'list' ? (view = 'menu') : send({ type: 'close-page' })">‹ 返回</button>
+            <button class="page-back" @click="view === 'list' ? backToMenu() : send({ type: 'close-page' })">‹ 返回</button>
         </div>
         <div class="page-body">
             <!-- 一级：分类菜单 -->
@@ -136,10 +136,21 @@
                 const list = this.blueprints[cat];
                 return (list ? list.length : 0) + ' 项';
             },
-            // 进入某分类的二级列表
+            // 进入某分类的二级列表：切换后滚动回顶
             openCat(cat) {
                 this.cat = cat;
                 this.view = 'list';
+                this.$nextTick(this.resetTop);
+            },
+            // 返回一级菜单：滚动回顶
+            backToMenu() {
+                this.view = 'menu';
+                this.$nextTick(this.resetTop);
+            },
+            // 滚动回顶（重置 page-body 滚动）
+            resetTop() {
+                var el = this.$el.querySelector('.page-body');
+                if (el) el.scrollTop = 0;
             },
             // 制作：把分类 + 索引交给外壳处理（材料校验与扣减在外壳）
             craft(cat, index) {
@@ -173,6 +184,17 @@
             app.bagLevel = msg.state.bagLevel || 0;
             app.bagMax = msg.state.bagMax || 0;
             app.loaded = true;
+        }
+    });
+
+    window.addEventListener("message", function (e) {
+        if (e.data && e.data.type === "scroll-reset") {
+            app.$nextTick(function () {
+                var s = document.querySelectorAll("*");
+                for (var i = 0; i < s.length; i++) {
+                    if (s[i].scrollHeight > s[i].clientHeight) s[i].scrollTop = 0;
+                }
+            });
         }
     });
     </script>

@@ -23,6 +23,7 @@ const SaveMixin = {
                     equipment: this.equipment,
                     rarityCaps: this.rarityCaps,
                     fireFuelUntil: this.fireFuelUntil,
+                    stoveFuelUntil: this.stoveFuelUntil,
                     furnaceFuel: this.furnaceFuel,
                     furnaceJobs: this.furnaceJobs,
                     plantationJobs: this.plantationJobs,
@@ -100,6 +101,8 @@ const SaveMixin = {
             }
             // 篝火燃料烧尽时刻（旧档无此字段时默认 0，即熄灭）
             if (typeof save.fireFuelUntil === 'number') this.fireFuelUntil = save.fireFuelUntil;
+            // 烹饪锅燃料烧尽时刻
+            if (typeof save.stoveFuelUntil === 'number') this.stoveFuelUntil = save.stoveFuelUntil;
             // 熔炉燃料剩余游戏秒 / 后台加工队列（旧档无此字段时保持默认）
             if (typeof save.furnaceFuel === 'number') this.furnaceFuel = save.furnaceFuel;
             if (Array.isArray(save.furnaceJobs)) {

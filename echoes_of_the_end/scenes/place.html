@@ -125,7 +125,7 @@
             <!-- 资源点（公园绿地 / 森林）：树木数量 + 操作按钮 + 说明文案 -->
             <template v-else-if="base === 'park' || base === 'tree'">
                 <div class="res-card" v-if="res && res.trees > 0">
-                    <div class="res-info">🌲 树木 ×{{ res.trees }}：砍树得原木×4<span class="res-info-sub">（10 min，需斧头）</span></div>
+                    <div class="res-info">🌲 树木 ×{{ res.trees }}：砍树得原木×4<span class="res-info-sub">（需装备斧头）</span></div>
                     <button class="place-back place-act-btn" :class="{ active: actType === 'chop' }"
                             :disabled="!!activity || searching"
                             @click="send({ type: 'chop-tree' })">
@@ -134,7 +134,7 @@
                     </button>
                 </div>
                 <div class="res-card">
-                    <div class="res-info">🟠 黏土：无限，得黏土×2<span class="res-info-sub">（5 min，需铲子）</span></div>
+                    <div class="res-info">🟠 黏土：无限，得黏土×2<span class="res-info-sub">（需装备铲子）</span></div>
                     <button class="place-back place-act-btn" :class="{ active: actType === 'dig' }"
                             :disabled="!!activity || searching"
                             @click="send({ type: 'dig-clay' })">
@@ -164,7 +164,7 @@
             <!-- 矿场：矿藏无限，挖矿需镐子，随机得石头50% / 铜25% / 铁25% -->
             <template v-else-if="base === 'mine'">
                 <div class="res-card">
-                    <div class="res-info">⛏️ 挖矿：随机得石头50% / 铜25% / 铁25%<span class="res-info-sub">（30 min，需镐子，无限）</span></div>
+                    <div class="res-info">⛏️ 挖矿：随机得石头50% / 铜25% / 铁25%<span class="res-info-sub">（需装备镐子，无限）</span></div>
                     <button class="place-back place-act-btn" :class="{ active: actType === 'dig' }"
                             :disabled="!!activity || searching"
                             @click="send({ type: 'dig-clay' })">
@@ -177,7 +177,7 @@
             <!-- 沙石场：资源无限，挖沙石需铲子，随机得石头/沙子 各50% -->
             <template v-else-if="base === 'sand'">
                 <div class="res-card">
-                    <div class="res-info">🏜️ 挖沙石：随机得石头50% / 沙子50%<span class="res-info-sub">（5 min，需铲子，无限）</span></div>
+                    <div class="res-info">🏜️ 挖沙石：随机得石头50% / 沙子50%<span class="res-info-sub">（需装备铲子，无限）</span></div>
                     <button class="place-back place-act-btn" :class="{ active: actType === 'dig' }"
                             :disabled="!!activity || searching"
                             @click="send({ type: 'dig-clay' })">
@@ -260,6 +260,17 @@
         app.dogAdopted = !!(msg.state.outdoors && msg.state.outdoors[0] && msg.state.outdoors[0].unlocked);
         app.activity = msg.state.activity || null;
         app.searching = !!msg.state.searching;
+    });
+
+    window.addEventListener("message", function (e) {
+        if (e.data && e.data.type === "scroll-reset") {
+            app.$nextTick(function () {
+                var s = document.querySelectorAll("*");
+                for (var i = 0; i < s.length; i++) {
+                    if (s[i].scrollHeight > s[i].clientHeight) s[i].scrollTop = 0;
+                }
+            });
+        }
     });
     </script>
 </body>

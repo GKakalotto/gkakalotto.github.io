@@ -56,11 +56,9 @@
                             </span>
                         </div>
                         <button class="bed-upgrade-btn stove-cook-btn"
-                                :class="{ cooking: cooking && cooking.name === a.name }"
-                                :disabled="!!cooking || !canFireCook(a)"
+                                :disabled="!canFireCook(a)"
                                 @click="send({ type: 'fire-cook', name: a.name })">
-                            <div v-if="cooking && cooking.name === a.name" class="stove-cook-fill" @animationend="onCookAnimEnd"></div>
-                            <span v-text="cooking && cooking.name === a.name ? '烹饪中…' : (a.needsPot && !hasPot ? '需放锅' : '制作')"></span>
+                            <span v-text="a.needsPot && !hasPot ? '需放锅' : '制作'"></span>
                         </button>
                     </div>
                 </div>
@@ -82,7 +80,6 @@
             storageItems: [],
             fuelUntil: 0,
             gameSeconds: 0,
-            cooking: null,
             addAmounts: [1, 2, 4, 8]
         },
         computed: {
@@ -125,19 +122,15 @@
                     .filter(it => it.name === name)
                     .reduce((s, it) => s + (it.count || 1), 0);
             },
-            // 篝火菜单项是否可做：烧水需放锅，且原料充足
+            // 篝火菜单项是否可做：需燃料（≥10 分钟）、烧水需放锅，且原料充足
             canFireCook(a) {
+                if (this.gameSeconds >= this.fuelUntil) return false;
+                if (this.fuelUntil - this.gameSeconds < 600) return false;
                 if (a.needsPot && !this.hasPot) return false;
                 for (var mat in a.inputs) {
                     if (this.have(mat) < a.inputs[mat]) return false;
                 }
                 return true;
-            },
-            // 进度条填充动画结束：通知外壳结算产出
-            onCookAnimEnd(e) {
-                if (e.animationName === 'bedSleepFill') {
-                    this.send({ type: 'cook-anim-end' });
-                }
             }
         }
     });
@@ -150,10 +143,17 @@
             app.storageItems = msg.state.storageItems || [];
             app.fuelUntil = msg.state.fireFuelUntil;
             app.gameSeconds = msg.state.gameSeconds;
-            app.cooking = msg.state.cooking || null;
             app.loaded = true;
+        } else if (msg && msg.type === 'scroll-reset') {
+            app.$nextTick(resetScroll);
         }
     });
+    function resetScroll() {
+        var sc = document.querySelectorAll('*');
+        for (var i = 0; i < sc.length; i++) {
+            if (sc[i].scrollHeight > sc[i].clientHeight) sc[i].scrollTop = 0;
+        }
+    }
     </script>
 </body>
 </html>

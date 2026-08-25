@@ -22,7 +22,7 @@
                     <div class="equip-slot" v-for="s in equipSlots" :key="s.key" @click="onEquipSlot(s.key)">
                         <div class="equip-slot-label" v-text="s.label"></div>
                         <div class="equip-slot-item" :class="{ empty: !equipment[s.key] }"
-                             v-text="equipment[s.key] ? (UI.catIcon(equipment[s.key].type) + ' ' + equipment[s.key].name) : '空'"></div>
+                             v-text="equipment[s.key] ? equipment[s.key].name : '空'"></div>
                     </div>
                 </div>
             </div>
@@ -164,7 +164,7 @@
                     var isHat = it.type === 'armor' && (it.slot === 'hat' || (!it.slot && it.name && (it.name.includes('盔') || it.name.includes('帽'))));
                     var isArmor = it.type === 'armor' && !isHat;
                     var match = slot === 'weapon' ? it.type === 'weapon'
-                        : slot === 'tool' ? it.type === 'tool'
+                        : slot === 'tool' ? (it.type === 'tool' || !!it.axe)   // 斧类可当工具（如消防斧）
                         : slot === 'hat' ? isHat
                         : slot === 'armor' ? isArmor
                         : false;
@@ -172,12 +172,12 @@
                 }
                 return list;
             },
-            // 点击装备项：已装备→卸下，未装备→装备
+            // 点击装备项：已装备→卸下，未装备→装备（携带目标槽，供双槽物品如消防斧指定）
             onEquipItem(e) {
                 if (e.equipped) {
                     this.send({ type: 'unequip-slot', slot: this.equipMenu.slot });
                 } else {
-                    this.send({ type: 'bag-equip', index: e.index });
+                    this.send({ type: 'bag-equip', index: e.index, slot: this.equipMenu.slot });
                 }
                 this.equipMenu.show = false;
             },
@@ -200,12 +200,11 @@
             app.bagLevel = msg.state.bagLevel || 0;
             app.equipment = msg.state.equipment || { weapon: null, tool: null, hat: null, armor: null };
             app.loaded = true;
-            // 打开背包后：各滚动区回到顶部
+        } else if (msg && msg.type === 'scroll-reset') {
+            // 每次打开页面时：各滚动区回到顶部（转移/使用刷新时不重置）
             app.$nextTick(function () {
-                var el = document.querySelector('.bag-mid .st-items');
-                if (el) el.scrollTop = 0;
-                var el2 = document.querySelector('.bag-bottom .st-items');
-                if (el2) el2.scrollTop = 0;
+                var els = document.querySelectorAll('.st-items');
+                for (var i = 0; i < els.length; i++) els[i].scrollTop = 0;
             });
         }
     });

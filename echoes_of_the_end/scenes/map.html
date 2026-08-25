@@ -193,6 +193,17 @@
             app.animateTravel(msg);
         }
     });
+
+    window.addEventListener("message", function (e) {
+        if (e.data && e.data.type === "scroll-reset") {
+            app.$nextTick(function () {
+                var s = document.querySelectorAll("*");
+                for (var i = 0; i < s.length; i++) {
+                    if (s[i].scrollHeight > s[i].clientHeight) s[i].scrollTop = 0;
+                }
+            });
+        }
+    });
     </script>
 </body>
 </html>

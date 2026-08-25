@@ -259,7 +259,7 @@ const TravelMixin = {
                         const found = items.find(x => x.name === d.name);
                         if (found) { found.count += 1; continue; }
                     }
-                    items.push({ name: d.name, type: d.type, damage: d.damage, defense: d.defense, durability: d.durability, restore: d.restore, count: 1 });
+                    items.push({ name: d.name, type: d.type, damage: d.damage, defense: d.defense, durability: d.durability, restore: d.restore, damageReduction: d.damageReduction, slot: d.slot, hungerMult: d.hungerMult, axe: d.axe, count: 1 });
                 }
             }
             return items;
@@ -295,37 +295,24 @@ const TravelMixin = {
             }
             if (item.count && item.count > 1) {
                 item.count--;
-                this.addBag({ name: item.name, type: item.type, damage: item.damage, defense: item.defense, durability: item.durability, restore: item.restore, count: 1 });
+                this.addBag({ name: item.name, type: item.type, damage: item.damage, defense: item.defense, durability: item.durability, restore: item.restore, damageReduction: item.damageReduction, slot: item.slot, hungerMult: item.hungerMult, axe: item.axe, count: 1 });
             } else {
                 loot.items.splice(index, 1);
-                this.addBag({ name: item.name, type: item.type, damage: item.damage, defense: item.defense, durability: item.durability, restore: item.restore, count: 1 });
+                this.addBag({ name: item.name, type: item.type, damage: item.damage, defense: item.defense, durability: item.durability, restore: item.restore, damageReduction: item.damageReduction, slot: item.slot, hungerMult: item.hungerMult, axe: item.axe, count: 1 });
             }
             this.pushLog(`拿走了「${item.name}」1 件。`);
             this.saveGame();
             this.postSceneState();
         },
-        // 物品落入暂存区：普通同类叠加到 20，耐久物品每件独立占一条
+        // 物品落入暂存区：普通同类无限堆叠，耐久物品每件独立占一条
         stashAdd(key, item) {
             const list = this.placeStash[key] = this.placeStash[key] || [];
             const durable = !!item.durability;
-            let remaining = item.count || 1;
             if (!durable) {
-                for (const it of list) {
-                    if (remaining <= 0) break;
-                    if (it.name === item.name) {
-                        const space = 20 - (it.count || 1);
-                        if (space > 0) {
-                            const take = Math.min(remaining, space);
-                            it.count = (it.count || 1) + take;
-                            remaining -= take;
-                        }
-                    }
-                }
+                const existing = list.find(it => it.name === item.name);
+                if (existing) { existing.count = (existing.count || 1) + (item.count || 1); return; }
             }
-            while (remaining > 0) {
-                list.push({ name: item.name, type: item.type, damage: item.damage, defense: item.defense, durability: item.durability, restore: item.restore, count: remaining });
-                remaining = 0;
-            }
+            list.push({ name: item.name, type: item.type, damage: item.damage, defense: item.defense, durability: item.durability, restore: item.restore, damageReduction: item.damageReduction, slot: item.slot, hungerMult: item.hungerMult, axe: item.axe, count: item.count || 1 });
         },
         // 从当前地点暂存区取出物品放入背包（每次 1 件，耐久物品整件占一槽）
         stashTake(index) {
@@ -344,10 +331,10 @@ const TravelMixin = {
             }
             if (it.count && it.count > 1) {
                 it.count--;
-                this.addBag({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, durability: it.durability, restore: it.restore, count: 1 });
+                this.addBag({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, durability: it.durability, restore: it.restore, damageReduction: it.damageReduction, slot: it.slot, hungerMult: it.hungerMult, axe: it.axe, count: 1 });
             } else {
                 list.splice(index, 1);
-                this.addBag({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, durability: it.durability, restore: it.restore, count: 1 });
+                this.addBag({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, durability: it.durability, restore: it.restore, damageReduction: it.damageReduction, slot: it.slot, hungerMult: it.hungerMult, axe: it.axe, count: 1 });
             }
             this.saveGame();
             this.postSceneState();
@@ -361,9 +348,9 @@ const TravelMixin = {
             if (!durable) {
                 const found = this.pendingLoot.items.find(x => x.name === it.name && !x.durability);
                 if (found) found.count += 1;
-                else this.pendingLoot.items.push({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, durability: it.durability, restore: it.restore, count: 1 });
+                else this.pendingLoot.items.push({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, durability: it.durability, restore: it.restore, damageReduction: it.damageReduction, slot: it.slot, hungerMult: it.hungerMult, axe: it.axe, count: 1 });
             } else {
-                this.pendingLoot.items.push({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, durability: it.durability, restore: it.restore, count: 1 });
+                this.pendingLoot.items.push({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, durability: it.durability, restore: it.restore, damageReduction: it.damageReduction, slot: it.slot, hungerMult: it.hungerMult, axe: it.axe, count: 1 });
             }
             if (it.count && it.count > 1) it.count--;
             else this.bag.splice(index, 1);
@@ -376,7 +363,7 @@ const TravelMixin = {
             if (!it) return;
             const place = this.currentPlace;
             if (!place || !place.key) { this.pushLog('只有在地点中才能放入该地点的暂存区。'); return; }
-            this.stashAdd(place.key, { name: it.name, type: it.type, damage: it.damage, defense: it.defense, durability: it.durability, restore: it.restore, count: 1 });
+            this.stashAdd(place.key, { name: it.name, type: it.type, damage: it.damage, defense: it.defense, durability: it.durability, restore: it.restore, damageReduction: it.damageReduction, slot: it.slot, hungerMult: it.hungerMult, axe: it.axe, count: 1 });
             if (it.count && it.count > 1) it.count--;
             else this.bag.splice(index, 1);
             this.pushLog(`把「${it.name}」1 件放进了该地点暂存区。`);
@@ -425,16 +412,23 @@ const TravelMixin = {
             if (!place || place.base !== 'loc') return;
             const r = this.locationResources[place.key];
             if (!r || r.cars <= 0) { this.pushLog('这里的车都被拆完了。'); return; }
-            const torch = this.bag.find(i => i.name === '汽油喷灯');
-            if (!torch) { this.pushLog('拆除汽车需要汽油喷灯（消防局搜刮获得）。'); return; }
-            // 汽油喷灯容量可拆 3 辆：每次消耗 1 容量，耗尽报废
-            if (torch.durability) {
-                torch.durability--;
-                if (torch.durability <= 0) {
-                    this.bag = this.bag.filter(i => i !== torch);
-                    this.pushLog('你的汽油喷灯燃料用尽，损坏了。');
+            const torch = this.equipment && this.equipment.tool;
+            if (!torch || torch.name !== '汽油喷灯') { this.pushLog('拆除汽车需要装备汽油喷灯（消防局搜刮获得）。'); return; }
+            // 耐久为 0：背包有汽油则自动添加（1 汽油 = 3 耐久），否则无法拆除
+            if (torch.durability <= 0) {
+                const gasIdx = this.bag.findIndex(i => i.name === '汽油');
+                if (gasIdx === -1) {
+                    this.pushLog('汽油喷灯燃料耗尽，背包没有汽油，无法拆除车辆。');
+                    return;
                 }
+                const g = this.bag[gasIdx];
+                if (g.count && g.count > 1) g.count--;
+                else this.bag.splice(gasIdx, 1);
+                torch.durability += 3;
+                this.pushLog('汽油喷灯燃料耗尽，自动消耗 1 单位汽油补充燃料（+3 耐久）。');
             }
+            // 每次拆车消耗 1 耐久
+            torch.durability--;
             r.cars--;
             this.beginActivity('dismantle', 10 * 60);
         },
@@ -555,7 +549,7 @@ const TravelMixin = {
                     this.pushLog('背包已满，部分物品未能收纳。');
                     return item.count || 1;
                 }
-                this.bag.push({ name: item.name, type: item.type, damage: item.damage, defense: item.defense, durability: item.durability, restore: item.restore, count: 1 });
+                this.bag.push({ name: item.name, type: item.type, damage: item.damage, defense: item.defense, durability: item.durability, restore: item.restore, damageReduction: item.damageReduction, slot: item.slot, hungerMult: item.hungerMult, axe: item.axe, count: 1 });
                 return 0;
             }
             const MAX = 20;
@@ -587,9 +581,9 @@ const TravelMixin = {
             if (!place || !place.key) return;
             const r = this.cellResources[place.key];
             if (!r || r.trees <= 0) { this.pushLog('这里的树已被砍光了。'); return; }
-            const axe = this.bag.find(i => i.name.includes('斧'));
-            if (!axe) {
-                this.pushLog('砍树需要斧头，请先在背包中准备一把（工作台制作）。');
+            const axe = this.equipment && this.equipment.tool;
+            if (!axe || !axe.name.includes('斧') || (axe.durability !== undefined && axe.durability <= 0)) {
+                this.pushLog('砍树需要装备一把有耐久的斧头（石斧/铁斧/钛斧/消防斧）。');
                 return;
             }
             const dur = axe.durability;
@@ -602,8 +596,9 @@ const TravelMixin = {
                 if (Math.random() < 0.3) {
                     axe.durability--;
                     if (axe.durability <= 0) {
-                        this.bag = this.bag.filter(i => i !== axe);
-                        this.pushLog('你的斧头损坏了。');
+                        // 消防斧为特例：耐久耗尽保留在装备栏（但不能再砍树）
+                        if (axe.name === '消防斧') { this.pushLog('消防斧耐久耗尽，已无法砍树。'); }
+                        else { this.equipment.tool = null; this.pushLog('你的斧头损坏了。'); }
                     }
                 }
             }
@@ -618,9 +613,9 @@ const TravelMixin = {
             const isMine = place.base === 'mine';
             const isSand = place.base === 'sand';
             const toolName = isMine ? '镐子' : '铲子';
-            const tool = this.bag.find(i => i.name === toolName);
-            if (!tool) {
-                this.pushLog(isMine ? '挖矿需要镐子，请先在背包中准备（工作台制作）。' : (isSand ? '挖沙石需要铲子，请先在背包中准备一把（工作台制作）。' : '挖土需要铲子，请先在背包中准备一把（工作台制作）。'));
+            const tool = this.equipment && this.equipment.tool;
+            if (!tool || tool.name !== toolName) {
+                this.pushLog(isMine ? '挖矿需要装备镐子，请在背包中先装备。' : (isSand ? '挖沙石需要装备铲子，请在背包中先装备。' : '挖土需要装备铲子，请在背包中先装备。'));
                 return;
             }
             // 矿场：随机决定本次挖出的矿种（石头50% / 铜25% / 铁25%，矿藏无限）；沙石场：随机石头/沙子各50%
@@ -628,13 +623,9 @@ const TravelMixin = {
             if (tool.durability) {
                 tool.durability--;
                 if (tool.durability <= 0) {
-                    this.bag = this.bag.filter(i => i !== tool);
+                    this.equipment.tool = null;
                     this.pushLog(`你的${toolName}损坏了。`);
                 }
-            } else {
-                const c = {};
-                c[toolName] = 1;
-                this.spendMaterials(c);
             }
             this.beginActivity('dig', (isMine ? 30 : 5) * 60, mined);
         },
@@ -893,7 +884,9 @@ const TravelMixin = {
         playerAtk() {
             const str = this.stats.strength || 1;
             const wpn = this.equipment.weapon;
-            return Math.round((5 + (str - 1) * 1.5) + (wpn && wpn.damage ? wpn.damage : 0));
+            // 耐久为 0 的武器（特例保留在装备栏）无伤害
+            const usable = wpn && wpn.durability !== undefined ? wpn.durability > 0 : !!wpn;
+            return Math.round((5 + (str - 1) * 1.5) + (usable && wpn.damage ? wpn.damage : 0));
         },
         // 人物暴击率：随力量提升（str ×3%，暴击 2 倍伤害）
         playerCrit() {
@@ -1086,8 +1079,13 @@ const TravelMixin = {
             if (!item || !item.durability || times <= 0) return;
             item.durability -= times;
             if (item.durability <= 0) {
-                this.equipment[slot] = null;
-                this.pushLog(`你的${label}「${item.name}」损坏了。`);
+                // 消防斧/武士刀/汽油喷灯为特例：耐久耗尽保留在装备栏（属性功能消失）
+                if (item.name === '消防斧' || item.name === '武士刀' || item.name === '汽油喷灯') {
+                    this.pushLog(`你的${label}「${item.name}」耐久耗尽，已无法正常使用。`);
+                } else {
+                    this.equipment[slot] = null;
+                    this.pushLog(`你的${label}「${item.name}」损坏了。`);
+                }
             }
         },
         // 战斗胜利结算经验，提升力量（满级 10；升到 L+1 需 L×50 经验）

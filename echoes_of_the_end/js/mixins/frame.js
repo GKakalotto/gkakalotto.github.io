@@ -33,6 +33,17 @@ const FrameMixin = {
                 if (next === 0) this.frameSrc0 = v;
                 else this.frameSrc1 = v;
             }
+        },
+        // 打开背包页时：通知背包页重置滚动到顶部（转移/使用刷新时 currentPage 不变，不触发）
+        currentPage(v) {
+            if (v) {
+                this.$nextTick(() => {
+                    const frame = this.$refs['frame' + this.activeFrame];
+                    if (frame && frame.contentWindow) {
+                        frame.contentWindow.postMessage({ type: 'scroll-reset' }, '*');
+                    }
+                });
+            }
         }
     },
     methods: {
@@ -45,6 +56,13 @@ const FrameMixin = {
             } else if (i === this.activeFrame) {
                 this.postSceneState();
             }
+            // 子页加载完成：通知其滚动回顶（转移/使用刷新时无加载，不触发）
+            if (this.currentPage) {
+                const frame = this.$refs['frame' + this.activeFrame];
+                if (frame && frame.contentWindow) {
+                    frame.contentWindow.postMessage({ type: 'scroll-reset' }, '*');
+                }
+            }
         },
         // 向当前激活的场景 iframe 发送消息
         postScene(msg) {
@@ -53,15 +71,23 @@ const FrameMixin = {
                 frame.contentWindow.postMessage(msg, '*');
             }
         },
-        // 清理所有容器中耐久为 0 的物品（工具/武器/防具直接消失）
+        // 清理所有容器中耐久为 0 的物品（工具/武器/防具直接消失）；
+        // 消防斧/武士刀/汽油喷灯为特例：装备栏中保留（耐久 0 时属性功能消失），其余容器仍清理
         cleanupBroken() {
-            const clean = (arr) => { if (!arr) return; for (let i = arr.length - 1; i >= 0; i--) { if (arr[i] && arr[i].durability !== undefined && arr[i].durability <= 0) arr.splice(i, 1); } };
+            const keep = { '消防斧': 1, '武士刀': 1, '汽油喷灯': 1 };
+            const isBroken = (it) => it && it.durability !== undefined && it.durability <= 0;
+            const clean = (arr) => { if (!arr) return; for (let i = arr.length - 1; i >= 0; i--) { if (isBroken(arr[i])) { this.pushLog(`「${arr[i].name}」耐久耗尽，损坏消失了。`); arr.splice(i, 1); } } };
             clean(this.bag);
             clean(this.storageItems);
             for (const k in this.placeStash) clean(this.placeStash[k]);
             for (const slot in this.equipment) {
                 const it = this.equipment[slot];
-                if (it && it.durability !== undefined && it.durability <= 0) this.equipment[slot] = null;
+                if (!it) continue;
+                if (isBroken(it)) {
+                    if (keep[it.name]) continue;   // 特例保留在装备栏（功能消失）
+                    this.pushLog(`「${it.name}」耐久耗尽，损坏消失了。`);
+                    this.equipment[slot] = null;
+                }
             }
         },
         // 向场景 iframe 推送当前状态（渲染与刷新用；字段均被对应场景页消费）
@@ -96,11 +122,11 @@ const FrameMixin = {
                     furnaceJobs: this.furnaceJobs,
                     currentPlantation: this.currentPlantation,
                     plantationJobs: this.plantationJobs,
-                    cooking: this.cooking,
                     activity: this.activity,
                     searching: this.searching,
                     battle: this.battle,
                     fireFuelUntil: this.fireFuelUntil,
+                    stoveFuelUntil: this.stoveFuelUntil,
                     gameSeconds: this.gameSeconds,
                     sleeping: this.sleeping
                 }
@@ -219,6 +245,9 @@ const FrameMixin = {
                 case 'add-fuel':
                     this.addFuel(msg.count);
                     break;
+                case 'add-stove-fuel':
+                    this.addStoveFuel(msg.count);
+                    break;
                 case 'upgrade-fire':
                     this.upgradeFire();
                     break;
@@ -239,7 +268,7 @@ const FrameMixin = {
                     this.useItem('bag', msg.index);
                     break;
                 case 'bag-equip':
-                    this.equipItem(msg.index);
+                    this.equipItem(msg.index, msg.slot);
                     break;
                 case 'unequip-slot':
                     this.unequipSlot(msg.slot);
@@ -280,10 +309,6 @@ const FrameMixin = {
                 // 榨汁机：按菜单制作（耗时进度）
                 case 'juice-make':
                     this.startCooking('juicer', msg.name);
-                    break;
-                // 烹饪/榨汁进度条动画结束：产出成品
-                case 'cook-anim-end':
-                    this.finishCooking();
                     break;
                 // 雨水收集器：升级 / 装瓶（雨水仅下雨时自动收集）
                 case 'upgrade-rain':
@@ -345,8 +370,6 @@ const FrameMixin = {
         closePage() {
             if (this.sleepRAF) { cancelAnimationFrame(this.sleepRAF); this.sleepRAF = null; }
             this.sleeping = null;
-            if (this.cookRAF) { cancelAnimationFrame(this.cookRAF); this.cookRAF = null; }
-            this.cooking = null;
             if (this.actionRAF) { cancelAnimationFrame(this.actionRAF); this.actionRAF = null; }
             this.activity = null;
             this.searching = false;

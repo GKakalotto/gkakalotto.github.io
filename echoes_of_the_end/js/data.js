@@ -98,6 +98,7 @@ var GameData = {
           // axe 标记斧头类工具（砍树必需）；碗/杯子为消耗性容器（烹饪锅做菜需碗、榨汁需杯子）
           blueprints: {
               weapon: [
+                  { name: '棒球棒', type: 'weapon', damage: 5, durability: 20, cost: { '木板': 4, '绳子': 2 } },
                   { name: '木矛', type: 'weapon', damage: 8,  durability: 20, cost: { '木板': 8, '绳子': 3 } },
                   { name: '铁矛', type: 'weapon', damage: 12, durability: 40, cost: { '木板': 6, '绳子': 2, '铁': 2, '螺栓': 1 } },
                   { name: '砍刀', type: 'weapon', damage: 16, durability: 40, cost: { '碎片': 3, '绳子': 2, '铁': 2, '螺栓': 2 } },
@@ -204,7 +205,7 @@ var GameData = {
         '大型综合超市': { rooms: 60, drops: [ { name: '罐头', type: 'food', w: 16 }, { name: '薯片', type: 'food', w: 13 }, { name: '应急干粮', type: 'food', w: 10 }, { name: '矿泉水', type: 'water', w: 16 }, { name: '垃圾', type: 'material', w: 15 }, { name: '布料', type: 'material', w: 10 }, { name: '金属废料', type: 'material', w: 5 }, { name: '锅', type: 'tool', w: 2 }, { name: '创可贴', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 8, max: 100 }, w: 10 }, { name: '塑料', type: 'material', w: 4 } ] },
         '学校':     { rooms: 30,  drops: [ { name: '布料', type: 'material', w: 35 }, { name: '垃圾', type: 'material', w: 25 }, { name: '矿泉水', type: 'water', w: 15 }, { name: '纸', type: 'material', w: 15 }, { name: '书', type: 'material', w: 10 }, { name: '创可贴', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 8, max: 100 }, w: 10 } ] },
         '大学':     { rooms: 36, drops: [ { name: '布料', type: 'material', w: 25 }, { name: '垃圾', type: 'material', w: 20 }, { name: '纸', type: 'material', w: 20 }, { name: '书', type: 'material', w: 15 }, { name: '金属废料', type: 'material', w: 10 }, { name: '矿泉水', type: 'water', w: 6 } ] },
-        '消防局':   { rooms: 30, drops: [ { name: '金属废料', type: 'material', w: 30 }, { name: '垃圾', type: 'material', w: 15 }, { name: '石头', type: 'material', w: 10 }, { name: '汽油喷灯', type: 'tool', durability: 3, w: 3 }, { name: '消防斧', type: 'weapon', damage: 16, durability: 500, w: 2 }, { name: '安全帽', type: 'armor', slot: 'hat', damageReduction: 80, durability: 735, w: 2 }, { name: '防护服', type: 'armor', slot: 'armor', damageReduction: 80, durability: 735, w: 2 }, { name: '铁', type: 'material', w: 8 } ] },
+        '消防局':   { rooms: 30, drops: [ { name: '金属废料', type: 'material', w: 30 }, { name: '垃圾', type: 'material', w: 15 }, { name: '石头', type: 'material', w: 10 }, { name: '汽油喷灯', type: 'tool', durability: 3, w: 3 }, { name: '消防斧', type: 'weapon', axe: true, damage: 16, durability: 500, w: 2 }, { name: '安全帽', type: 'armor', slot: 'hat', damageReduction: 80, durability: 735, w: 2 }, { name: '防护服', type: 'armor', slot: 'armor', damageReduction: 80, durability: 735, w: 2 }, { name: '铁', type: 'material', w: 8 } ] },
         '警察局':   { rooms: 34, enemyChance: 0.6, drops: [ { name: '金属废料', type: 'material', w: 30 }, { name: '垃圾', type: 'material', w: 15 }, { name: '武士刀', type: 'weapon', damage: 24, durability: 500, w: 2 }, { name: '防弹衣', type: 'armor', slot: 'armor', damageReduction: 80, durability: 735, w: 2 }, { name: '防弹头盔', type: 'armor', slot: 'hat', damageReduction: 80, durability: 735, w: 2 }, { name: '铁', type: 'material', w: 8 } ] },
         '诊所':     { rooms: 20,  drops: [ { name: '绷带', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 15, max: 100 }, w: 25 }, { name: '消炎药', type: 'medicine', w: 20 }, { name: '草药包', type: 'medicine', w: 16 }, { name: '草药', type: 'medicine', w: 10 }, { name: '布料', type: 'material', w: 12 }, { name: '垃圾', type: 'material', w: 8 }, { name: '创可贴', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 8, max: 100 }, w: 18 }, { name: '塑料', type: 'material', w: 3 } ] },
         '医院':     { rooms: 50, drops: [ { name: '绷带', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 15, max: 100 }, w: 22 }, { name: '消炎药', type: 'medicine', w: 18 }, { name: '草药包', type: 'medicine', w: 16 }, { name: '草药', type: 'medicine', w: 8 }, { name: '布料', type: 'material', w: 10 }, { name: '垃圾', type: 'material', w: 10 }, { name: '创可贴', type: 'medicine', restore: { stat: 'health', statName: '健康', amount: 8, max: 100 }, w: 15 }, { name: '塑料', type: 'material', w: 3 }, { name: '电池', type: 'material', w: 3 } ] },
@@ -318,7 +319,8 @@ var GameData = {
     bag: [
         { type: 'food',   name: '薯片', count: 1 },
         { type: 'water',  name: '矿泉水', count: 1 },
-        { type: 'weapon', name: '棒球棒', damage: 14, durability: 35 }
+        { type: 'weapon', name: '棒球棒', damage: 5, durability: 20 },
+        { type: 'tool',   name: '石斧', axe: true, durability: 50 }
     ],
 
     // 初始日志
