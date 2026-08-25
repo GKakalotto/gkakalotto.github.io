@@ -125,7 +125,7 @@
             <!-- 资源点（公园绿地 / 森林）：树木数量 + 操作按钮 + 说明文案 -->
             <template v-else-if="base === 'park' || base === 'tree'">
                 <div class="res-card" v-if="res && res.trees > 0">
-                    <div class="res-info">🌲 树木 ×{{ res.trees }}：砍树得原木×4<span class="res-info-sub">（需装备斧头）</span></div>
+                    <div class="res-info">🌲 树木 ×{{ res.trees }}：砍树得木板<span class="res-info-sub">（需装备斧头）</span></div>
                     <button class="place-back place-act-btn" :class="{ active: actType === 'chop' }"
                             :disabled="!!activity || searching"
                             @click="send({ type: 'chop-tree' })">
@@ -134,7 +134,7 @@
                     </button>
                 </div>
                 <div class="res-card">
-                    <div class="res-info">🟠 黏土：无限，得黏土×2<span class="res-info-sub">（需装备铲子）</span></div>
+                    <div class="res-info">🟠 黏土：无限，得黏土<span class="res-info-sub">（需装备铲子）</span></div>
                     <button class="place-back place-act-btn" :class="{ active: actType === 'dig' }"
                             :disabled="!!activity || searching"
                             @click="send({ type: 'dig-clay' })">

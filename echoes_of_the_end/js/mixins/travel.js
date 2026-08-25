@@ -574,7 +574,7 @@ const TravelMixin = {
             if (remaining > 0) this.pushLog('背包已满，部分物品未能收纳。');
             return remaining;
         },
-        // 砍树：需斧头（石斧20min/铁斧15min/钛斧·消防斧10min），斧头耐久每次 -1，损坏消失；开始时扣一棵树，进度条结束后产出原木×4 + 叶子/种子概率
+        // 砍树：需斧头（石斧20min/铁斧15min/钛斧·消防斧10min），斧头耐久每次 -1，损坏消失；开始时扣一棵树，进度条结束后产出木板×4~6 + 叶子/种子概率
         startChop() {
             if (this.activity || this.searching) return;
             const place = this.currentPlace;
@@ -666,7 +666,8 @@ const TravelMixin = {
             const remain = this.actionTarget - this.gameSeconds;
             if (remain > 0) this.advanceGameTime(remain);
             if (this.activity.type === 'chop') {
-                this.addBag({ type: 'material', name: '原木', count: 4 });
+                const wood = this.randInt(4, 6);
+                this.addBag({ type: 'material', name: '木板', count: wood });
                 let extra = '';
                 // 50% 概率掉 1~3 片叶子（独立事件）
                 if (Math.random() < 0.5) {
@@ -681,7 +682,7 @@ const TravelMixin = {
                     this.addBag({ type: 'material', name: s, count: 1 });
                     extra += (extra ? '，还' : '，') + `发现了一颗${s}`;
                 }
-                this.pushLog(`你砍倒一棵树，获得原木×4${extra}。`);
+                this.pushLog(`你砍倒一棵树，获得木板×${wood}${extra}。`);
             } else if (this.activity.type === 'loc-search') {
                 const place = this.currentPlace;
                 const r = place && place.key ? this.locationResources[place.key] : null;
@@ -1099,7 +1100,7 @@ const TravelMixin = {
         },
         // 丧尸掉落：按丧尸数量上限随机掉基础物资（同类叠加）；搜刮遇敌时进战利品区，移动遇敌时直接入包
         zombieDrop(count) {
-            const pool = ['布料', '垃圾', '石头', '原木', '金属废料', '沙子', '绳子'];
+            const pool = ['布料', '垃圾', '石头', '木板', '金属废料', '沙子', '绳子'];
             const n = this.randInt(1, Math.max(1, count));
             const map = {};
             for (let i = 0; i < n; i++) {

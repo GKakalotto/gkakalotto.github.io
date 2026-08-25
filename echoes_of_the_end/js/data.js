@@ -131,13 +131,11 @@ var GameData = {
               ],
               process: [
                   // count 为单次制作产出数量（加工类批量产出）
-                  { name: '木板',   type: 'material', count: 4, cost: { '原木': 1 } },
                   { name: '钉子',   type: 'material', count: 10, cost: { '铁': 1 } },
                   { name: '碎片',   type: 'material', count: 5, cost: { '铁': 1 } },
                   { name: '绳子',   type: 'material', count: 1, cost: { '布料': 1 } },
                   { name: '绳子',   type: 'material', count: 1, cost: { '叶子': 2 } },
                   { name: '螺栓',   type: 'material', count: 1, cost: { '铁': 1 } },
-                  { name: '铰链',   type: 'material', count: 1, cost: { '铁': 1 } },
                   { name: '砖头',   type: 'material', count: 1, cost: { '沙子': 2, '黏土': 2 } },
                   { name: '电路板', type: 'material', count: 1, cost: { '塑料': 7, '铜': 2 } },
                   { name: '初级电池', type: 'material', count: 1, cost: { '铜': 1, '塑料': 6, '碎片': 3 } },
@@ -195,7 +193,7 @@ var GameData = {
     },
 
     // 地点搜刮：按地点类型定义掉落池与搜刮次数上限（搜刮 1 次随机掉 1 件，按权重 w 占比）
-    // 掉落以基础材料（布料/垃圾/石头/沙子/原木/金属废料等）为主；塑料/铁/铜/电池等高级材料仅少量掉落；
+    // 掉落以基础材料（布料/垃圾/石头/沙子/木板/金属废料等）为主；塑料/铁/铜/电池等高级材料仅少量掉落；
     // 撬棍/消防斧/武士刀为整档限量的极稀有物品（权重 2）
     locationLoot: {
         // rooms：地点房间数（搜刮按房间进度推进，房间数体现地点繁荣程度）；
@@ -218,7 +216,7 @@ var GameData = {
         '植物园':   { mode: 'botanic' },
         '驾校':     { mode: 'dismantle', cars: 15 },
         '机场':     { rooms: 40, enemyChance: 0.8, drops: [ { name: '罐头', type: 'food', w: 25 }, { name: '布料', type: 'material', w: 20 }, { name: '垃圾', type: 'material', w: 20 }, { name: '金属探测器', type: 'tool', durability: 100, w: 3 }, { name: '金属废料', type: 'material', w: 15 }, { name: '塑料', type: 'material', w: 4 } ] },
-        '景区':     { rooms: 26,  drops: [ { name: '原木', type: 'material', w: 40 }, { name: '石头', type: 'material', w: 30 }, { name: '草药', type: 'medicine', w: 30 } ] },
+        '景区':     { rooms: 26,  drops: [ { name: '木板', type: 'material', w: 40 }, { name: '石头', type: 'material', w: 30 }, { name: '草药', type: 'medicine', w: 30 } ] },
         '体育馆':   { rooms: 18,  drops: [ { name: '布料', type: 'material', w: 45 }, { name: '垃圾', type: 'material', w: 25 }, { name: '薯片', type: 'food', w: 25 }, { name: '矿泉水', type: 'water', w: 10 } ] },
         '宾馆':     { rooms: 24,  drops: [ { name: '布料', type: 'material', w: 40 }, { name: '薯片', type: 'food', w: 30 }, { name: '矿泉水', type: 'water', w: 30 }, { name: '垃圾', type: 'material', w: 15 } ] },
         '办公楼':   { rooms: 24,  drops: [ { name: '布料', type: 'material', w: 35 }, { name: '垃圾', type: 'material', w: 25 }, { name: '金属废料', type: 'material', w: 15 }, { name: '石头', type: 'material', w: 10 }, { name: '矿泉水', type: 'water', w: 8 }, { name: '电池', type: 'material', w: 3 } ] },
@@ -255,7 +253,7 @@ var GameData = {
     itemUse: {
         food:     { label: '吃',   stat: 'hunger', statName: '饱食度', amount: 30, max: 150 },
         water:    { label: '喝',   stat: 'water',  statName: '水分',   amount: 30, max: 150 },
-        medicine: { label: '使用', stat: 'hp',     statName: '血量',   amount: 20, max: 200 }
+        medicine: { label: '使用', stat: 'health', statName: '健康', amount: 15, max: 100 }
     },
     // 灶台菜单：固定按钮，点击时按背包+仓库当前物资直接制作。
     // 只能制作 2 个及以上物品的菜（单食材料理/烧水改在篝火 fireMenu 做）；inputs 按物品 name 计，output 入背包。
@@ -276,17 +274,18 @@ var GameData = {
         { name: '烤土豆', inputs: { '土豆': 1 },                        output: { name: '烤土豆', type: 'food', restore: { stat: 'hunger', statName: '饱食度', amount: 30, max: 150 } } },
         { name: '烤甜菜', inputs: { '甜菜': 1 },                        output: { name: '烤甜菜', type: 'food', restore: { stat: 'hunger', statName: '饱食度', amount: 30, max: 150 } } },
         { name: '煎蛋',   inputs: { '蛋': 1 },                          output: { name: '煎蛋',   type: 'food', restore: { stat: 'hunger', statName: '饱食度', amount: 35, max: 150 } } },
+        { name: '波兰水饺', inputs: { '蛋': 1, '生肉': 1, '土豆': 1, '纯净水': 1 }, needsPot: true, output: { name: '波兰水饺', type: 'food', restore: { stat: 'hunger', statName: '饱食度', amount: 30, max: 150 }, restore2: { stat: 'hp', statName: '血量', amount: 40, max: 200 } } },
         { name: '烧水',   inputs: { '脏水': 1 }, needsPot: true,       output: { name: '纯净水', type: 'water' } }
     ],
-    // 榨汁机菜单：只用蔬果类食材 + 1 份「纯净水」榨成营养饮品
+    // 榨汁机菜单：只用蔬果类食材 + 1 份「纯净水」榨成营养饮品；主恢复水分，额外恢复精神（理智）
     juiceRecipes: [
-        { name: '草莓汁',   inputs: { '草莓': 2, '纯净水': 1, '玻璃杯': 1 },                             output: { name: '草莓汁',   type: 'drink', restore: { stat: 'hp', statName: '生命', amount: 15, max: 200 } } },
-        { name: '菠萝汁',   inputs: { '菠萝': 1, '纯净水': 1, '玻璃杯': 1 },                             output: { name: '菠萝汁',   type: 'drink', restore: { stat: 'hp', statName: '生命', amount: 18, max: 200 } } },
-        { name: '西瓜汁',   inputs: { '西瓜': 1, '纯净水': 1, '玻璃杯': 1 },                             output: { name: '西瓜汁',   type: 'drink', restore: { stat: 'water',     statName: '水分', amount: 25, max: 150 } } },
-        { name: '香蕉奶昔', inputs: { '香蕉': 2, '纯净水': 1, '玻璃杯': 1 },                             output: { name: '香蕉奶昔', type: 'drink', restore: { stat: 'hp', statName: '生命', amount: 20, max: 200 } } },
-        { name: '椰子水',   inputs: { '椰子': 1, '纯净水': 1, '玻璃杯': 1 },                             output: { name: '椰子水',   type: 'drink', restore: { stat: 'water',     statName: '水分', amount: 30, max: 150 } } },
-        { name: '芒果汁',   inputs: { '芒果': 2, '纯净水': 1, '玻璃杯': 1 },                             output: { name: '芒果汁',   type: 'drink', restore: { stat: 'hp', statName: '生命', amount: 18, max: 200 } } },
-        { name: '混合果汁', inputs: { '草莓': 1, '菠萝': 1, '西瓜': 1, '纯净水': 1, '玻璃杯': 1 },        output: { name: '混合果汁', type: 'drink', restore: { stat: 'hp', statName: '生命', amount: 35, max: 200 } } }
+        { name: '草莓汁',   inputs: { '草莓': 2, '纯净水': 1, '玻璃杯': 1 },                             output: { name: '草莓汁',   type: 'drink', restore: { stat: 'water', statName: '水分', amount: 25, max: 150 }, restore2: { stat: 'sanity', statName: '理智', amount: 15, max: 200 } } },
+        { name: '菠萝汁',   inputs: { '菠萝': 1, '纯净水': 1, '玻璃杯': 1 },                             output: { name: '菠萝汁',   type: 'drink', restore: { stat: 'water', statName: '水分', amount: 28, max: 150 }, restore2: { stat: 'sanity', statName: '理智', amount: 18, max: 200 } } },
+        { name: '西瓜汁',   inputs: { '西瓜': 1, '纯净水': 1, '玻璃杯': 1 },                             output: { name: '西瓜汁',   type: 'drink', restore: { stat: 'water', statName: '水分', amount: 30, max: 150 }, restore2: { stat: 'sanity', statName: '理智', amount: 20, max: 200 } } },
+        { name: '香蕉奶昔', inputs: { '香蕉': 2, '纯净水': 1, '玻璃杯': 1 },                             output: { name: '香蕉奶昔', type: 'drink', restore: { stat: 'water', statName: '水分', amount: 32, max: 150 }, restore2: { stat: 'sanity', statName: '理智', amount: 20, max: 200 } } },
+        { name: '椰子水',   inputs: { '椰子': 1, '纯净水': 1, '玻璃杯': 1 },                             output: { name: '椰子水',   type: 'drink', restore: { stat: 'water', statName: '水分', amount: 30, max: 150 }, restore2: { stat: 'sanity', statName: '理智', amount: 20, max: 200 } } },
+        { name: '芒果汁',   inputs: { '芒果': 2, '纯净水': 1, '玻璃杯': 1 },                             output: { name: '芒果汁',   type: 'drink', restore: { stat: 'water', statName: '水分', amount: 28, max: 150 }, restore2: { stat: 'sanity', statName: '理智', amount: 18, max: 200 } } },
+        { name: '混合果汁', inputs: { '草莓': 1, '菠萝': 1, '西瓜': 1, '纯净水': 1, '玻璃杯': 1 },        output: { name: '混合果汁', type: 'drink', restore: { stat: 'water', statName: '水分', amount: 35, max: 150 }, restore2: { stat: 'sanity', statName: '理智', amount: 35, max: 200 } } }
     ],
     // 熔炉菜单：以木板为燃料（1 块燃烧 1 游戏小时，仅加工时消耗），后台加工 30 游戏分钟
     // 玻璃=沙子1；塑料=垃圾10；铁=金属废料10（原料取背包+仓库）

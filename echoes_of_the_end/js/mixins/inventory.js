@@ -55,8 +55,12 @@ const InventoryMixin = {
             const map = {};
             const addToMap = (it, source, index) => {
                 const cfg = it.restore || GameData.itemUse[it.type];
-                if (!cfg || cfg.stat !== key) return;
-                if (!map[it.name]) map[it.name] = { name: it.name, count: 0, amount: cfg.amount || 0, statName: cfg.statName || '', source: source, index: index };
+                // 主恢复（restore）或次要恢复（restore2）命中该状态才纳入：饮品回精神、水饺回血量等
+                const matched = (cfg && cfg.stat === key) ? cfg : (it.restore2 && it.restore2.stat === key ? it.restore2 : null);
+                if (!matched) return;
+                if (!map[it.name]) {
+                    map[it.name] = { name: it.name, count: 0, amount: matched.amount || 0, statName: matched.statName || '', source: source, index: index };
+                }
                 map[it.name].count += (it.count || 1);
             };
             this.bag.forEach((it, i) => addToMap(it, 'bag', i));
@@ -69,7 +73,7 @@ const InventoryMixin = {
             const items = Object.values(map);
             let emptyText = '暂无可恢复该状态的物品';
             if (key === 'strength') emptyText = '力量为等级属性，无法通过物品提升';
-            else if (key === 'sanity') emptyText = '暂无直接恢复理智的物品';
+            else if (key === 'sanity') emptyText = '暂无可恢复理智的物品（榨汁机饮品可恢复精神）';
             this.statDetail = {
                 key: key,
                 name: label,
@@ -225,18 +229,9 @@ const InventoryMixin = {
                 }
             }
         },
-        // 工作台：点击制作 → 弹窗确认
+        // 工作台制作：直接消耗材料并执行，无需二次确认
         craft(bp) {
-            const cat = GameData.itemCategories[bp.type];
-            this.dialog = {
-                show: true,
-                icon: cat ? cat.icon : '❓',
-                title: `制作「${bp.name}」`,
-                desc: '确认消耗材料并制作？产物将放入背包。',
-                cost: `消耗：${this.costText(bp.cost)}`,
-                confirmText: '制作',
-                onConfirm: () => this.doCraft(bp)
-            };
+            this.doCraft(bp);
         },
         // 执行制作（消耗材料，产物按蓝图 count 批量加入背包，堆叠上限 20）
         doCraft(bp) {
@@ -265,11 +260,11 @@ const InventoryMixin = {
                 if (si) { si.count++; }
                 else {
                     if (this.storageItems.length >= this.storageCapacity()) { this.pushLog('仓库已满。'); return; }
-                    this.storageItems.push({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, restore: it.restore, durability: it.durability, damageReduction: it.damageReduction, slot: it.slot, hungerMult: it.hungerMult, axe: it.axe, count: 1 });
+                    this.storageItems.push({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, restore: it.restore, restore2: it.restore2, durability: it.durability, damageReduction: it.damageReduction, slot: it.slot, hungerMult: it.hungerMult, axe: it.axe, count: 1 });
                 }
             } else {
                 if (this.storageItems.length >= this.storageCapacity()) { this.pushLog('仓库已满。'); return; }
-                this.storageItems.push({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, restore: it.restore, durability: it.durability, damageReduction: it.damageReduction, slot: it.slot, hungerMult: it.hungerMult, axe: it.axe, count: 1 });
+                this.storageItems.push({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, restore: it.restore, restore2: it.restore2, durability: it.durability, damageReduction: it.damageReduction, slot: it.slot, hungerMult: it.hungerMult, axe: it.axe, count: 1 });
             }
             // 背包扣 1 件
             if (it.count && it.count > 1) it.count--;
@@ -293,10 +288,10 @@ const InventoryMixin = {
             }
             if (it.count && it.count > 1) {
                 it.count--;
-                this.addBag({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, durability: it.durability, restore: it.restore, damageReduction: it.damageReduction, slot: it.slot, hungerMult: it.hungerMult, axe: it.axe, count: take });
+                this.addBag({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, durability: it.durability, restore: it.restore, restore2: it.restore2, damageReduction: it.damageReduction, slot: it.slot, hungerMult: it.hungerMult, axe: it.axe, count: take });
             } else {
                 this.storageItems.splice(index, 1);
-                this.addBag({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, durability: it.durability, restore: it.restore, damageReduction: it.damageReduction, slot: it.slot, hungerMult: it.hungerMult, axe: it.axe, count: take });
+                this.addBag({ name: it.name, type: it.type, damage: it.damage, defense: it.defense, durability: it.durability, restore: it.restore, restore2: it.restore2, damageReduction: it.damageReduction, slot: it.slot, hungerMult: it.hungerMult, axe: it.axe, count: take });
             }
             this.postSceneState();
         },
@@ -355,7 +350,7 @@ const InventoryMixin = {
                 const items = groups[key];
                 const base = items[0];
                 let total = items.reduce((s, it) => s + (it.count || 1), 0);
-                sorted.push({ name: base.name, type: base.type, restore: base.restore, count: total });
+                sorted.push({ name: base.name, type: base.type, restore: base.restore, restore2: base.restore2, count: total });
             }
             durable.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
             this.storageItems = sorted.concat(durable);
@@ -432,24 +427,32 @@ const InventoryMixin = {
             if (!cfg) return;
             // 血量上限受健康度影响，其余用默认上限
             const max = cfg.stat === 'hp' ? this.hpMax : cfg.max;
-            if (this.stats[cfg.stat] >= max) {
+            const mainFull = this.stats[cfg.stat] >= max;
+            // 次要恢复（restore2）状态是否也满（无 restore2 视为满，避免误吞物品）
+            const secFull = !it.restore2 || (it.restore2.stat === 'hp' ? this.stats[it.restore2.stat] >= this.hpMax : this.stats[it.restore2.stat] >= it.restore2.max);
+            if (mainFull && secFull) {
                 this.pushLog(`「${it.name}」：${cfg.statName}已满，暂时不需要。`);
                 return;
             }
-            this.stats[cfg.stat] = Math.min(max, this.stats[cfg.stat] + cfg.amount);
+            // 仅当主状态未满才回主状态；restore2 由 applyRestore 内部判断
+            if (!mainFull) this.stats[cfg.stat] = Math.min(max, this.stats[cfg.stat] + cfg.amount);
             // 单件消耗：count > 1 时扣 1，否则移除条目
             if (it.count && it.count > 1) it.count--;
             else list.splice(index, 1);
             const label = cfg.label || ((it.type === 'water' || it.type === 'drink') ? '喝' : '吃');
-            this.pushLog(`你${label}了「${it.name}」，${cfg.statName} +${cfg.amount}。`);
-            // 榨汁机果汁（type: 'drink'）额外恢复理智（精神值），上限 200
-            if (it.type === 'drink') {
-                const before = this.stats.sanity;
-                this.stats.sanity = Math.min(200, this.stats.sanity + cfg.amount);
-                const real = this.stats.sanity - before;
-                if (real > 0) this.pushLog(`🧃 维生素让你精神一振，理智 +${real}。`);
-            }
+            if (!mainFull) this.pushLog(`你${label}了「${it.name}」，${cfg.statName} +${cfg.amount}。`);
+            // 次要恢复（如饮品额外回精神、水饺额外回血量）：统一由 restore2 驱动
+            if (it.restore2) this.applyRestore(it.restore2, it);
+            else if (mainFull) this.pushLog(`你${label}了「${it.name}」。`);
             this.postSceneState();
+        },
+        // 次要恢复效果（restore2）：与主恢复共用逻辑，但仅在主效果已消耗物品后调用
+        applyRestore(cfg, it) {
+            if (!cfg) return;
+            const max = cfg.stat === 'hp' ? this.hpMax : cfg.max;
+            if (this.stats[cfg.stat] >= max) return;   // 该状态已满则跳过
+            this.stats[cfg.stat] = Math.min(max, this.stats[cfg.stat] + cfg.amount);
+            this.pushLog(`「${it.name}」额外恢复 ${cfg.statName} +${cfg.amount}。`);
         },
         // 篝火：添加木板燃料（1/2/4/8 块），每块按当前等级燃烧时长累计
         addFuel(count) {
@@ -655,7 +658,7 @@ const InventoryMixin = {
             this.spendCombined(a.inputs);
             // 跳过动画：直接推进 10 分钟并产出
             this.advanceGameTime(600);
-            this.addBag({ name: o.name, type: o.type, restore: o.restore, count: 1 });
+            this.addBag({ name: o.name, type: o.type, restore: o.restore, restore2: o.restore2, count: 1 });
             this.pushLog(kind === 'stove' ? `制作了「${o.name}」（消耗 10 分钟燃料）。` : `榨了杯「${o.name}」。`);
             this.postSceneState();
         },
@@ -679,7 +682,7 @@ const InventoryMixin = {
             this.spendCombined(a.inputs);
             // 跳过动画：直接推进 10 分钟并产出
             this.advanceGameTime(600);
-            this.addBag({ name: o.name, type: o.type, restore: o.restore, count: 1 });
+            this.addBag({ name: o.name, type: o.type, restore: o.restore, restore2: o.restore2, count: 1 });
             this.pushLog(`在篝火上做好了「${o.name}」（消耗 10 分钟燃料）。`);
             this.postSceneState();
         },
