@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="screen-orientation" content="landscape">
+  <meta name="x5-orientation" content="landscape">
+  <title>欢乐斗地主</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="rotate-hint">
+    <div class="rotate-box">
+      <div class="phone-icon"></div>
+      <p>请将手机横过来玩</p>
+    </div>
+  </div>
+
+  <div id="menu" class="screen">
+    <div class="menu-panel">
+      <h1>欢乐斗地主</h1>
+      <p class="sub">单机 · 三人 · 经典规则</p>
+      <button type="button" class="btn primary big" id="btn-start">开始游戏</button>
+    </div>
+  </div>
+
+  <div id="app" class="hidden">
+    <header class="topbar">
+      <div class="mult">
+        <span>倍数 <b id="mult">1</b></span>
+        <button type="button" class="btn ghost btn-restart" id="btn-restart">重新开始</button>
+      </div>
+      <div id="bottom-cards" class="bottom-cards"></div>
+      <div class="brand">欢乐斗地主</div>
+    </header>
+
+    <div class="table">
+      <div class="seat left" id="seat-1">
+        <div class="seat-meta">
+          <div class="avatar" id="avatar-1">左</div>
+          <div class="seat-info">
+            <div class="name" id="name-1">电脑甲</div>
+            <div class="count" id="count-1">17</div>
+            <div class="score" id="score-1">100分</div>
+          </div>
+          <div class="mini-hand" id="mini-1"></div>
+        </div>
+        <div class="seat-play">
+          <div class="played" id="played-1"></div>
+          <div class="bubble hidden" id="bubble-1"></div>
+        </div>
+      </div>
+
+      <div class="table-center">
+        <div id="msg" class="center-msg"></div>
+      </div>
+
+      <div class="seat right" id="seat-2">
+        <div class="seat-meta">
+          <div class="avatar" id="avatar-2">右</div>
+          <div class="seat-info">
+            <div class="name" id="name-2">电脑乙</div>
+            <div class="count" id="count-2">17</div>
+            <div class="score" id="score-2">100分</div>
+          </div>
+          <div class="mini-hand" id="mini-2"></div>
+        </div>
+        <div class="seat-play">
+          <div class="played" id="played-2"></div>
+          <div class="bubble hidden" id="bubble-2"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="player-area">
+      <div class="played me" id="played-0"></div>
+      <div class="bubble me hidden" id="bubble-0"></div>
+      <div class="actions" id="actions"></div>
+      <div class="my-meta">
+        <span class="name" id="name-0">我</span>
+        <span class="role" id="role-0"></span>
+        <span class="score" id="score-0">100分</span>
+      </div>
+      <div class="hand" id="my-hand"></div>
+    </div>
+  </div>
+
+  <div id="over" class="modal hidden">
+    <div class="modal-card over-card">
+      <h2 id="over-title">你赢了</h2>
+      <p id="over-sub"></p>
+      <ul id="over-scores" class="over-scores"></ul>
+      <div class="over-actions">
+        <button type="button" class="btn primary big" id="btn-again">再来一局</button>
+        <button type="button" class="btn ghost" id="btn-menu">返回菜单</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="js/rules.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
