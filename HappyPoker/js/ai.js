@@ -26,14 +26,19 @@
     })[0];
   }
 
-  function chooseBid(hand, currentBid) {
+  function chooseCall(hand) {
     const s = global.DDZ.handStrength(hand);
-    let want = 0;
-    if (s >= 10) want = 3;
-    else if (s >= 7) want = 2;
-    else if (s >= 4.5) want = 1;
-    if (want <= currentBid) return 0;
-    return want;
+    if (s >= 7) return true;
+    if (s >= 5 && Math.random() < 0.35) return true;
+    return false;
+  }
+
+  function chooseRob(hand, isFinal) {
+    const s = global.DDZ.handStrength(hand);
+    const need = isFinal ? 6.5 : 8;
+    if (s >= need + 2) return true;
+    if (s >= need && Math.random() < 0.4) return true;
+    return false;
   }
 
   function chooseMove(hand, last, ctx) {
@@ -182,7 +187,8 @@
     return moves;
   }
 
-  global.DDZ.chooseBid = chooseBid;
+  global.DDZ.chooseCall = chooseCall;
+  global.DDZ.chooseRob = chooseRob;
   global.DDZ.chooseMove = chooseMove;
   global.DDZ.sortHintMoves = sortHintMoves;
 })(typeof window !== "undefined" ? window : globalThis);

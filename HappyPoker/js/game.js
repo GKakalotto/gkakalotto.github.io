@@ -7,9 +7,12 @@
     hands: [[], [], []],
     bottom: [],
     landlord: -1,
-    bid: 0,
-    bidTurn: 0,
-    firstBidder: 0,
+    caller: -1,
+    callMult: 1,
+    callTurn: 0,
+    firstPlayer: 0,
+    robQueue: [],
+    finalRob: false,
     current: 0,
     lastPlay: null,
     passCount: 0,
@@ -18,11 +21,12 @@
     playedOnce: [false, false, false],
     landlordLeads: 0,
     names: ["我", "电脑甲", "电脑乙"],
-    scores: [100, 100, 100],
+    scores: [1000, 1000, 1000],
     thinking: false,
   };
 
-  const START_SCORE = 100;
+  const START_SCORE = 1000;
+  const BASE_SCORE = 8;
 
   let toastTimer = 0;
   let runId = 0;
@@ -56,7 +60,7 @@
     const rankCls = c.rank === "10" ? " ten" : "";
     return (
       '<div class="' + cls + rankCls + '" data-id="' + c.id + '"' + zAttr + ">" +
-      '<span class="corner">' + c.rank + "<i>" + c.suit + "</i></span>" +
+      '<span class="corner"><span class="rank">' + c.rank + "</span><i>" + c.suit + "</i></span>" +
       '<span class="suit-big">' + c.suit + "</span></div>"
     );
   }
@@ -73,26 +77,64 @@
     return (p + 2) % 3;
   }
 
+  function isAuction() {
+    return state.phase === "call" || state.phase === "rob";
+  }
+
+  function gameMult() {
+    return (state.callMult || 1) * Math.pow(2, state.bombs);
+  }
+
+  function anyoneBroke() {
+    return state.scores.some(function (s) { return s < 0; });
+  }
+
   function roleName(p) {
     if (state.landlord < 0) return "";
     return p === state.landlord ? "地主" : "农民";
   }
 
   function renderMini(p) {
-    const n = Math.min(state.hands[p].length, 12);
+    const el = $("mini-" + p);
+    const hand = state.hands[p];
+    $("count-" + p).textContent = hand.length + "张";
+    const n = Math.min(hand.length, 12);
     let html = "";
     for (let i = 0; i < n; i++) html += '<div class="mini-card"></div>';
-    $("mini-" + p).innerHTML = html;
-    $("count-" + p).textContent = state.hands[p].length + "张";
+    el.innerHTML = html;
   }
 
   function renderPlayed(p, cards) {
     const el = $("played-" + p);
+    el.classList.remove("remain");
     if (!cards || !cards.length) {
       el.innerHTML = "";
       return;
     }
     el.innerHTML = DDZ.layoutPlayed(cards).map(function (c, i) { return cardHTML(c, "", i + 1); }).join("");
+  }
+
+  function setCall(p, text) {
+    const el = $("played-" + p);
+    el.classList.remove("remain");
+    if (!text) {
+      el.innerHTML = "";
+      return;
+    }
+    el.innerHTML = '<div class="call">' + text + "</div>";
+  }
+
+  function revealRemain() {
+    for (let p = 1; p <= 2; p++) {
+      const rest = DDZ.sortCards(state.hands[p]);
+      const el = $("played-" + p);
+      if (!rest.length) {
+        el.classList.remove("remain");
+        continue;
+      }
+      el.classList.add("remain");
+      el.innerHTML = rest.map(function (c, i) { return cardHTML(c, "", i + 1); }).join("");
+    }
   }
 
   function setBubble(p, text) {
@@ -128,14 +170,14 @@
       $("name-" + p).textContent = state.names[p] + (roleName(p) ? " · " + roleName(p) : "");
       $("avatar-" + p).textContent = roleName(p) === "地主" ? "地" : (p === 1 ? "甲" : "乙");
       $("avatar-" + p).classList.toggle("landlord", p === state.landlord);
-      $("avatar-" + p).classList.toggle("turn", state.phase === "play" && state.current === p);
+      $("avatar-" + p).classList.toggle("turn", (isAuction() || state.phase === "play") && state.current === p);
       renderMini(p);
       $("score-" + p).textContent = state.scores[p] + "分";
     }
     $("name-0").textContent = state.names[0];
     $("role-0").textContent = roleName(0);
     $("score-0").textContent = state.scores[0] + "分";
-    $("mult").textContent = String((state.bid || 1) * Math.pow(2, state.bombs));
+    $("mult").textContent = String(gameMult());
   }
 
   function renderHand() {
@@ -163,13 +205,20 @@
 
   function renderActions() {
     const box = $("actions");
-    if (state.phase === "bid" && state.current === 0 && !state.thinking) {
-      const btns = ['<button type="button" class="btn danger" data-act="bid-0">不叫</button>'];
-      for (let i = 1; i <= 3; i++) {
-        const dis = i <= state.bid ? " disabled" : "";
-        btns.push('<button type="button" class="btn primary" data-act="bid-' + i + '"' + dis + ">" + i + "分</button>");
+    if (isAuction() && state.current === 0 && !state.thinking) {
+      if (state.phase === "call") {
+        box.innerHTML =
+          '<button type="button" class="btn danger" data-act="auction-no">不叫</button>' +
+          '<button type="button" class="btn primary" data-act="auction-yes">叫地主 ×2</button>';
+      } else if (state.finalRob) {
+        box.innerHTML =
+          '<button type="button" class="btn danger" data-act="auction-no">不抢</button>' +
+          '<button type="button" class="btn primary" data-act="auction-yes">我抢 ×2</button>';
+      } else {
+        box.innerHTML =
+          '<button type="button" class="btn danger" data-act="auction-no">不抢</button>' +
+          '<button type="button" class="btn primary" data-act="auction-yes">抢地主 ×2</button>';
       }
-      box.innerHTML = btns.join("");
       return;
     }
     if (state.phase === "play" && state.current === 0 && !state.thinking) {
@@ -188,6 +237,11 @@
   }
 
   function render() {
+    if (state.phase === "deal") {
+      renderActions();
+      renderBottom(false);
+      return;
+    }
     renderSeats();
     renderHand();
     renderActions();
@@ -196,84 +250,229 @@
 
   function setMsg(t) { $("msg").textContent = t || ""; }
 
-  function deal() {
+  function dealTarget(p) {
+    if (p === 0) return $("my-hand");
+    const mini = $("mini-" + p);
+    if (mini.getBoundingClientRect().width > 4) return mini;
+    return $("avatar-" + p);
+  }
+
+  function flyDealCard(p) {
+    const layer = $("deal-layer");
+    const deck = $("bottom-cards");
+    if (!layer || !deck) return;
+    const lr = layer.getBoundingClientRect();
+    const from = deck.getBoundingClientRect();
+    const to = dealTarget(p).getBoundingClientRect();
+    const fly = document.createElement("div");
+    fly.className = "card back deal-fly";
+    fly.style.left = from.left + from.width / 2 - lr.left - 11 + "px";
+    fly.style.top = from.top + from.height / 2 - lr.top - 16 + "px";
+    layer.appendChild(fly);
+    void fly.offsetWidth;
+    requestAnimationFrame(function () {
+      fly.style.left = to.left + to.width / 2 - lr.left - 11 + "px";
+      fly.style.top = to.top + to.height / 2 - lr.top - 16 + "px";
+      fly.style.opacity = "0";
+      fly.style.transform = "scale(0.55)";
+    });
+    setTimeout(function () { if (fly.parentNode) fly.remove(); }, 300);
+  }
+
+  function pushMini(p) {
+    const el = $("mini-" + p);
+    $("count-" + p).textContent = state.hands[p].length + "张";
+    if (el.children.length >= 12) return;
+    const d = document.createElement("div");
+    d.className = "mini-card pop";
+    el.appendChild(d);
+  }
+
+  async function deal() {
+    const id = runId;
     const deck = DDZ.shuffle(DDZ.createDeck());
-    state.hands = [deck.slice(0, 17), deck.slice(17, 34), deck.slice(34, 51)];
+    const raw = [deck.slice(0, 17), deck.slice(17, 34), deck.slice(34, 51)];
+    state.hands = [[], [], []];
     state.bottom = deck.slice(51);
-    for (let i = 0; i < 3; i++) state.hands[i] = DDZ.sortCards(state.hands[i]);
-    state.thinking = false;
+    state.thinking = true;
     state.landlord = -1;
-    state.bid = 0;
+    state.caller = -1;
+    state.callMult = 1;
+    state.callTurn = 0;
+    state.robQueue = [];
+    state.finalRob = false;
     state.lastPlay = null;
     state.passCount = 0;
     state.selected = new Set();
     state.bombs = 0;
     state.playedOnce = [false, false, false];
     state.landlordLeads = 0;
-    state.phase = "bid";
-    state.firstBidder = Math.floor(Math.random() * 3);
-    state.bidTurn = 0;
-    state.current = state.firstBidder;
+    state.phase = "deal";
+    state.firstPlayer = Math.floor(Math.random() * 3);
+    state.current = state.firstPlayer;
     for (let p = 0; p < 3; p++) {
       renderPlayed(p, []);
       setBubble(p, "");
     }
-    render();
-    setMsg("叫分中");
-    nextBid();
-  }
-
-  function bidText(v) {
-    return v === 0 ? "不叫" : v + "分";
-  }
-
-  async function nextBid() {
-    const id = runId;
-    if (state.phase !== "bid") return;
-    if (state.bidTurn >= 3) {
-      finishBid();
-      return;
-    }
-    const p = (state.firstBidder + 2 * state.bidTurn) % 3;
-    state.current = p;
-    render();
-    if (p === 0) {
-      setMsg("轮到你叫分");
-      return;
-    }
-    state.thinking = true;
+    const handEl = $("my-hand");
+    handEl.innerHTML = "";
+    handEl.classList.add("stacked");
+    handEl.classList.remove("fanning", "turn");
+    $("deal-layer").innerHTML = "";
+    renderSeats();
     renderActions();
-    await sleep(500 + Math.random() * 400);
+    renderBottom(false);
+    setMsg("发牌中");
+
+    for (let i = 0; i < 17; i++) {
+      if (id !== runId) return;
+      for (let p = 0; p < 3; p++) {
+        state.hands[p].push(raw[p][i]);
+        flyDealCard(p);
+      }
+      handEl.insertAdjacentHTML("beforeend", cardHTML(raw[0][i], "", i + 1));
+      pushMini(1);
+      pushMini(2);
+      await sleep(68);
+    }
     if (id !== runId) return;
-    const v = DDZ.chooseBid(state.hands[p], state.bid);
-    applyBid(p, v);
-  }
+    $("deal-layer").innerHTML = "";
 
-  function applyBid(p, v) {
-    if (state.phase !== "bid") return;
+    for (let i = 0; i < 3; i++) state.hands[i] = DDZ.sortCards(state.hands[i]);
+    handEl.innerHTML = state.hands[0].map(function (c, i) {
+      return cardHTML(c, "", i + 1);
+    }).join("");
+    handEl.classList.add("stacked");
+    await sleep(50);
+    if (id !== runId) return;
+
+    handEl.classList.add("fanning");
+    handEl.classList.remove("stacked");
+    await sleep(560);
+    if (id !== runId) return;
+
+    handEl.classList.remove("fanning");
+    state.phase = "call";
     state.thinking = false;
-    setBubble(p, bidText(v));
-    if (v > state.bid) {
-      state.bid = v;
-      state.landlord = p;
-    }
-    state.bidTurn++;
     render();
-    if (v === 3) {
-      finishBid();
-      return;
-    }
-    if (state.bidTurn >= 3) {
-      finishBid();
-      return;
-    }
-    nextBid();
+    setMsg("叫地主");
+    nextAuction();
   }
 
-  async function finishBid() {
+  async function nextAuction() {
+    const id = runId;
+    if (state.phase === "call") {
+      if (state.callTurn >= 3) {
+        finishAuction();
+        return;
+      }
+      const p = (state.firstPlayer + 2 * state.callTurn) % 3;
+      state.current = p;
+      render();
+      if (p === 0) {
+        setMsg("轮到你叫地主");
+        return;
+      }
+      state.thinking = true;
+      renderActions();
+      setMsg(state.names[p] + " 思考中...");
+      await sleep(500 + Math.random() * 400);
+      if (id !== runId) return;
+      applyAuction(p, DDZ.chooseCall(state.hands[p]));
+      return;
+    }
+    if (state.phase === "rob") {
+      if (state.finalRob) {
+        state.current = state.caller;
+        render();
+        if (state.caller === 0) {
+          setMsg("是否抢回来");
+          return;
+        }
+        state.thinking = true;
+        renderActions();
+        setMsg(state.names[state.caller] + " 思考中...");
+        await sleep(500 + Math.random() * 400);
+        if (id !== runId) return;
+        applyAuction(state.caller, DDZ.chooseRob(state.hands[state.caller], true));
+        return;
+      }
+      if (!state.robQueue.length) {
+        finishAuction();
+        return;
+      }
+      const p = state.robQueue[0];
+      state.current = p;
+      render();
+      if (p === 0) {
+        setMsg("轮到你抢地主");
+        return;
+      }
+      state.thinking = true;
+      renderActions();
+      setMsg(state.names[p] + " 思考中...");
+      await sleep(500 + Math.random() * 400);
+      if (id !== runId) return;
+      applyAuction(p, DDZ.chooseRob(state.hands[p], false));
+    }
+  }
+
+  function startRob(caller) {
+    state.phase = "rob";
+    state.finalRob = false;
+    state.robQueue = [nextPlayer(caller), nextPlayer(nextPlayer(caller))];
+    nextAuction();
+  }
+
+  function applyAuction(p, yes) {
+    if (!isAuction() || p !== state.current) return;
+    state.thinking = false;
+    if (state.phase === "call") {
+      if (yes) {
+        setCall(p, "叫地主 ×2");
+        state.caller = p;
+        state.landlord = p;
+        state.callMult = 2;
+        startRob(p);
+        return;
+      }
+      setCall(p, "不叫");
+      state.callTurn++;
+      if (state.callTurn >= 3) finishAuction();
+      else nextAuction();
+      return;
+    }
+    if (state.finalRob) {
+      if (p !== state.caller) return;
+      if (yes) {
+        setCall(p, "我抢 ×2");
+        state.landlord = p;
+        state.callMult *= 2;
+      } else {
+        setCall(p, "不抢");
+      }
+      state.finalRob = false;
+      finishAuction();
+      return;
+    }
+    if (state.robQueue[0] !== p) return;
+    if (yes) {
+      setCall(p, "抢地主 ×2");
+      state.landlord = p;
+      state.callMult *= 2;
+      state.robQueue = [];
+      state.finalRob = true;
+    } else {
+      setCall(p, "不抢");
+      state.robQueue.shift();
+    }
+    nextAuction();
+  }
+
+  async function finishAuction() {
     const id = runId;
     if (state.landlord < 0) {
-      setMsg("无人叫分，重新发牌");
+      setMsg("无人叫地主，重新发牌");
       await sleep(800);
       if (id !== runId) return;
       deal();
@@ -284,7 +483,10 @@
     state.current = state.landlord;
     state.lastPlay = null;
     state.passCount = 0;
+    state.finalRob = false;
+    state.robQueue = [];
     clearBubbles();
+    for (let i = 0; i < 3; i++) renderPlayed(i, []);
     render();
     setMsg(state.names[state.landlord] + " 成为地主");
     await sleep(700);
@@ -392,7 +594,8 @@
       state.bombs++;
       spring = "反春！";
     }
-    const unit = (state.bid || 1) * Math.pow(2, state.bombs);
+    const mult = gameMult();
+    const unit = BASE_SCORE * mult;
     const delta = [0, 0, 0];
     const L = state.landlord;
     for (let p = 0; p < 3; p++) {
@@ -400,12 +603,14 @@
       else delta[p] = p === L ? -2 * unit : unit;
       state.scores[p] += delta[p];
     }
-    $("over-title").textContent = iWin ? "你赢了" : "你输了";
+    const broke = anyoneBroke();
+    $("over-title").textContent = broke ? "游戏结束" : (iWin ? "你赢了" : "你输了");
     $("over-sub").textContent =
       (landlordWin ? "地主获胜" : "农民获胜") +
       (spring ? " · " + spring : "") +
-      " · 底分 " + (state.bid || 1) +
-      " · 倍数 ×" + (unit / (state.bid || 1));
+      " · 底分 " + BASE_SCORE +
+      " · 倍数 ×" + mult +
+      (broke ? " · 有人负分" : "");
     const lines = [];
     for (let p = 0; p < 3; p++) {
       const d = delta[p] >= 0 ? "+" + delta[p] : String(delta[p]);
@@ -413,14 +618,21 @@
     }
     $("over-scores").innerHTML = lines.join("");
     $("over").classList.remove("hidden");
+    $("btn-table-start").classList.add("hidden");
     render();
-    setMsg(iWin ? "胜利" : "失败");
+    revealRemain();
+    setMsg(broke ? "游戏结束" : (iWin ? "胜利" : "失败"));
   }
 
-  function onBid(v) {
-    if (state.phase !== "bid" || state.current !== 0) return;
-    if (v > 0 && v <= state.bid) return;
-    applyBid(0, v);
+  function closeOver() {
+    $("over").classList.add("hidden");
+    $("btn-table-start").classList.remove("hidden");
+    setMsg("");
+  }
+
+  function onAuction(yes) {
+    if (!isAuction() || state.current !== 0 || state.thinking) return;
+    applyAuction(0, yes);
   }
 
   function onPlay() {
@@ -591,30 +803,25 @@
     if (resetScore) state.scores = [START_SCORE, START_SCORE, START_SCORE];
     $("menu").classList.add("hidden");
     $("over").classList.add("hidden");
+    $("btn-table-start").classList.add("hidden");
     $("app").classList.remove("hidden");
     lockLandscape();
     deal();
   }
 
-  function backMenu() {
-    runId++;
-    state.thinking = false;
-    state.phase = "menu";
-    $("app").classList.add("hidden");
-    $("over").classList.add("hidden");
-    $("menu").classList.remove("hidden");
-  }
-
   $("btn-start").addEventListener("click", function () { startGame(true); });
-  $("btn-again").addEventListener("click", function () { startGame(false); });
+  $("btn-table-start").addEventListener("click", function () {
+    startGame(anyoneBroke());
+  });
   $("btn-restart").addEventListener("click", function () { startGame(true); });
-  $("btn-menu").addEventListener("click", backMenu);
+  $("btn-over-close").addEventListener("click", closeOver);
 
   $("actions").addEventListener("click", function (e) {
     const btn = e.target.closest("[data-act]");
     if (!btn || btn.disabled) return;
     const act = btn.getAttribute("data-act");
-    if (act.indexOf("bid-") === 0) onBid(Number(act.slice(4)));
+    if (act === "auction-yes") onAuction(true);
+    else if (act === "auction-no") onAuction(false);
     else if (act === "play") onPlay();
     else if (act === "pass") onPass();
     else if (act === "hint") onHint();
@@ -628,9 +835,9 @@
   handEl.addEventListener("contextmenu", function (e) { e.preventDefault(); });
 
   document.addEventListener("keydown", function (e) {
-    if (state.phase === "bid" && state.current === 0) {
-      if (e.key === "0" || e.key === "Escape") onBid(0);
-      if (e.key === "1" || e.key === "2" || e.key === "3") onBid(Number(e.key));
+    if (isAuction() && state.current === 0) {
+      if (e.key === "0" || e.key === "Escape") onAuction(false);
+      if (e.key === "1" || e.key === "Enter") onAuction(true);
     }
     if (state.phase === "play" && state.current === 0) {
       if (e.key === "Enter") onPlay();
