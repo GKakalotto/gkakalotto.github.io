@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="screen-orientation" content="landscape">
   <meta name="x5-orientation" content="landscape">
-  <title>欢乐斗地主</title>
+  <title>开心斗地主</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -21,7 +21,7 @@
 
   <div id="menu" class="screen">
     <div class="menu-panel">
-      <h1>欢乐斗地主</h1>
+      <h1>开心斗地主</h1>
       <p class="sub">单机 · 三人 · 经典规则</p>
       <button type="button" class="btn primary big" id="btn-start">开始游戏</button>
     </div>
@@ -34,7 +34,7 @@
         <button type="button" class="btn ghost btn-restart" id="btn-restart">重新开始</button>
       </div>
       <div id="bottom-cards" class="bottom-cards"></div>
-      <div class="brand">欢乐斗地主</div>
+      <div class="topbar-end"></div>
     </header>
 
     <div class="table">
@@ -42,7 +42,10 @@
         <div class="seat-meta">
           <div class="avatar" id="avatar-1">左</div>
           <div class="seat-info">
-            <div class="name" id="name-1">电脑甲</div>
+            <div class="name-line">
+              <span class="name" id="name-1">电脑甲</span>
+              <span class="role hidden" id="role-1"></span>
+            </div>
             <div class="count" id="count-1">17</div>
             <div class="score" id="score-1">1000分</div>
           </div>
@@ -63,7 +66,10 @@
         <div class="seat-meta">
           <div class="avatar" id="avatar-2">右</div>
           <div class="seat-info">
-            <div class="name" id="name-2">电脑乙</div>
+            <div class="name-line">
+              <span class="name" id="name-2">电脑乙</span>
+              <span class="role hidden" id="role-2"></span>
+            </div>
             <div class="count" id="count-2">17</div>
             <div class="score" id="score-2">1000分</div>
           </div>
@@ -84,7 +90,7 @@
       <div class="actions" id="actions"></div>
       <div class="my-meta">
         <span class="name" id="name-0">我</span>
-        <span class="role" id="role-0"></span>
+        <span class="role hidden" id="role-0"></span>
         <span class="score" id="score-0">1000分</span>
       </div>
       <div class="hand" id="my-hand"></div>

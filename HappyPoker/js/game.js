@@ -166,17 +166,20 @@
   }
 
   function renderSeats() {
-    for (let p = 1; p <= 2; p++) {
-      $("name-" + p).textContent = state.names[p] + (roleName(p) ? " · " + roleName(p) : "");
-      $("avatar-" + p).textContent = roleName(p) === "地主" ? "地" : (p === 1 ? "甲" : "乙");
-      $("avatar-" + p).classList.toggle("landlord", p === state.landlord);
-      $("avatar-" + p).classList.toggle("turn", (isAuction() || state.phase === "play") && state.current === p);
-      renderMini(p);
+    for (let p = 0; p < 3; p++) {
+      const role = roleName(p);
+      $("name-" + p).textContent = state.names[p];
+      const roleEl = $("role-" + p);
+      roleEl.textContent = role;
+      roleEl.classList.toggle("hidden", !role);
+      if (p > 0) {
+        $("avatar-" + p).textContent = role === "地主" ? "地" : role === "农民" ? "农" : (p === 1 ? "甲" : "乙");
+        $("avatar-" + p).classList.toggle("landlord", p === state.landlord);
+        $("avatar-" + p).classList.toggle("turn", (isAuction() || state.phase === "play") && state.current === p);
+        renderMini(p);
+      }
       $("score-" + p).textContent = state.scores[p] + "分";
     }
-    $("name-0").textContent = state.names[0];
-    $("role-0").textContent = roleName(0);
-    $("score-0").textContent = state.scores[0] + "分";
     $("mult").textContent = String(gameMult());
   }
 
@@ -485,12 +488,14 @@
     state.passCount = 0;
     state.finalRob = false;
     state.robQueue = [];
-    clearBubbles();
-    for (let i = 0; i < 3; i++) renderPlayed(i, []);
+    state.thinking = true;
     render();
     setMsg(state.names[state.landlord] + " 成为地主");
-    await sleep(700);
+    await sleep(900);
     if (id !== runId) return;
+    state.thinking = false;
+    clearBubbles();
+    for (let i = 0; i < 3; i++) renderPlayed(i, []);
     nextTurn();
   }
 
@@ -636,7 +641,7 @@
   }
 
   function onPlay() {
-    if (state.phase !== "play" || state.current !== 0) return;
+    if (state.phase !== "play" || state.current !== 0 || state.thinking) return;
     if (!canBeatLast()) return;
     const cards = selectedCards();
     if (!cards.length) {
@@ -656,7 +661,7 @@
   }
 
   function onPass() {
-    if (state.phase !== "play" || state.current !== 0) return;
+    if (state.phase !== "play" || state.current !== 0 || state.thinking) return;
     if (!state.lastPlay) {
       toast("必须出牌");
       return;
@@ -665,7 +670,7 @@
   }
 
   function onHint() {
-    if (state.phase !== "play" || state.current !== 0) return;
+    if (state.phase !== "play" || state.current !== 0 || state.thinking) return;
     const last = lastPlayFilter();
     const moves = DDZ.sortHintMoves(state.hands[0], last);
     if (!moves.length) {
@@ -701,7 +706,7 @@
   }
 
   function toggleCard(id) {
-    if (state.phase !== "play" || state.current !== 0) return;
+    if (state.phase !== "play" || state.current !== 0 || state.thinking) return;
     if (state.selected.has(id)) state.selected.delete(id);
     else state.selected.add(id);
     syncSelectedUI();
@@ -759,7 +764,7 @@
   }
 
   function onHandPointerDown(e) {
-    if (state.phase !== "play" || state.current !== 0) return;
+    if (state.phase !== "play" || state.current !== 0 || state.thinking) return;
     const card = e.target.closest(".card");
     if (!card) return;
     const idx = handCards().indexOf(card);

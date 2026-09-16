@@ -223,25 +223,6 @@ html, body {
     0 16px 40px rgba(0, 0, 0, 0.5);
 }
 
-#app::after {
-  content: "欢乐斗地主";
-  position: absolute;
-  left: 50%;
-  top: 38%;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  z-index: 0;
-  font-size: clamp(22px, 4.6vw, 44px);
-  letter-spacing: 0.28em;
-  font-weight: 700;
-  color: rgba(255, 228, 140, 0.13);
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.12);
-  padding: 2.4em 1.2em;
-  border: 2px solid rgba(232, 193, 90, 0.14);
-  border-radius: 50%;
-  box-shadow: 0 0 0 10px rgba(232, 193, 90, 0.05);
-}
-
 .topbar {
   position: relative;
   z-index: 2;
@@ -267,13 +248,6 @@ html, body {
   font-size: 12px;
   margin-top: 0;
   line-height: 1.2;
-}
-
-.brand {
-  text-align: right;
-  color: rgba(255, 255, 255, 0.55);
-  letter-spacing: 2px;
-  font-size: 13px;
 }
 
 .bottom-cards {
@@ -361,6 +335,14 @@ html, body {
 .seat-info { text-align: center; }
 .seat.left .seat-info { text-align: left; }
 .seat.right .seat-info { text-align: right; }
+
+.name-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.seat.left .name-line { justify-content: flex-start; }
+.seat.right .name-line { justify-content: flex-end; }
 
 .name { font-size: 13px; }
 .count {
