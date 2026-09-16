@@ -7,3 +7,4 @@
 | 星露谷农场 | [farm](./farm) | 农场游戏，支持种菜、养鱼、养殖 |
 | 末世回音 | [echoes_of_the_end](./echoes_of_the_end) | 末日生存游戏 |
 | 开心斗地主 | [HappyPoker](./HappyPoker) | 斗地主游戏 |
+| 中国象棋 | [chinese_chess](./chinese_chess) | 单机人机象棋 |

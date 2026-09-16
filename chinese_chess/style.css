@@ -1,0 +1,204 @@
+:root {
+  --bg: #f3f3f3;
+  --ink: #222;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hidden { display: none !important; }
+
+.screen {
+  height: 100%;
+  padding: calc(8px + var(--safe-t)) calc(8px + var(--safe-r)) calc(8px + var(--safe-b)) calc(8px + var(--safe-l));
+}
+
+#menu {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu-card {
+  width: min(360px, 100%);
+  padding: 28px 20px 20px;
+  text-align: center;
+  background: #fff;
+  border: 1px solid #ddd;
+}
+
+h1 {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-indent: 0.2em;
+  margin-bottom: 20px;
+}
+
+.diff-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.diff, .btn {
+  border: 1px solid #ccc;
+  background: #fff;
+  color: var(--ink);
+  padding: 8px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.diff.on, .btn.primary {
+  background: #222;
+  border-color: #222;
+  color: #fff;
+}
+
+.btn.big { width: 100%; margin-top: 16px; padding: 11px; }
+.btn.ghost { background: #fff; }
+.btn.danger { color: #555; }
+.btn:disabled { opacity: 0.35; cursor: default; }
+
+.hint { margin-top: 10px; font-size: 13px; color: #666; }
+
+#app {
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-bottom: 6px;
+}
+
+.stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.board-frame {
+  width: min(100%, calc((100dvh - 54px) * 9.1 / 10.1));
+  background: #efe6cf;
+  border: 1px solid #bbb;
+}
+
+.board {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 9.1 / 10.1;
+  background: #efe6cf;
+}
+
+.grid {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.grid path { stroke: #333; }
+.grid .river-text {
+  fill: #666;
+  font-size: 0.42px;
+  font-family: "KaiTi", "STKaiti", "Microsoft YaHei", sans-serif;
+}
+
+.layer { position: absolute; inset: 0; }
+.dots { z-index: 1; pointer-events: none; }
+.pieces { z-index: 2; }
+
+.dots span, .piece {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+.dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.dots .go { background: #3a7a32; }
+.dots .cap { background: #c41a1a; }
+
+.piece {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 0;
+  width: 9.4%;
+  height: 8.5%;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: clamp(16px, 3.2vmin, 28px);
+  font-weight: 700;
+  line-height: 1;
+  font-family: "KaiTi", "STKaiti", "Microsoft YaHei", sans-serif;
+  cursor: pointer;
+  touch-action: manipulation;
+  background: #fff;
+  transition: left 0.22s ease, top 0.22s ease, transform 0.16s ease, box-shadow 0.16s ease;
+  z-index: 2;
+}
+
+.piece.no-anim { transition: none; }
+.piece.moving { z-index: 5; }
+.piece.red { color: #c41a1a; border: 1px solid #c41a1a; }
+.piece.black { color: #222; border: 1px solid #333; }
+.piece.last {
+  box-shadow: 0 0 0 2px #1a7a4a;
+}
+.piece.check {
+  box-shadow: 0 0 0 2px #c41a1a;
+}
+.piece.lift {
+  transform: translate(-50%, -50%) scale(1.08);
+  box-shadow:
+    0 16px 12px rgba(0, 0, 0, 0.18),
+    0 4px 4px rgba(0, 0, 0, 0.08);
+  z-index: 6;
+}
+.piece.lift.last {
+  box-shadow:
+    0 0 0 2px #1a7a4a,
+    0 16px 12px rgba(0, 0, 0, 0.18),
+    0 4px 4px rgba(0, 0, 0, 0.08);
+}
+
+.banner {
+  position: fixed;
+  left: 50%;
+  top: 20%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  background: #fff;
+  border: 1px solid #222;
+  color: #222;
+  font-size: 24px;
+  letter-spacing: 0.2em;
+  z-index: 9;
+}
